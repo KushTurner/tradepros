@@ -1,12 +1,20 @@
 from yahoo_fin.stock_info import get_data
 from torch import float32 as torch_float_32
+from torch import int64 as torch_int_64
 from torch import tensor as torch_tensor
+from torch import ones as torch_ones
+from torch import multinomial as torch_multinomial
 
 class DataHandler:
 
-    def __init__(self):
-        pass
-    
+    def __init__(self, device, generator):
+
+        self.device = device # CUDA or CPU
+        self.generator = generator # Reproducibility
+
+        # self.data - Holds the inputs for each example
+        # self.labels - Holds the corresponding targets for each example
+        
     def retrieve_data(self, ticker, start_date, end_date, interval):
 
         # Retrieve data
@@ -55,10 +63,18 @@ class DataHandler:
 
         # Set all columns in the data to the float datatype (All values must be homogenous when passed as a tensor into a model)
         DATA = DATA.astype(float)
+
+        # Shuffle data (Do this before separating the labels from the dataframe)
+        ##########################################
         
-        # Convert the pandas dataframe into a PyTorch tensor
-        return self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32)
-    
+        # Separate the labels from the main dataframe (the other columns will be used as inputs)
+        labels = DATA["Target"]
+        self.labels = self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64)
+        DATA = DATA.drop("Target", axis = 1)
+
+        # Convert the pandas dataframe into a PyTorch tensor and save the data as an attribute
+        self.data = self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32)
+
     def dataframe_to_ptt(self, pandas_dataframe, desired_dtype = torch_float_32):
         
         # Converts a pandas dataframe to a PyTorch tensor (With the default dtype being torch.float32)
@@ -67,13 +83,27 @@ class DataHandler:
 
         return torch_tensor(pandas_dataframe.values, dtype = desired_dtype)
 
+    def generate_batch(self, batch_size):
+        
+        # Generate indexes which correspond to each example in self.labels and self.data
+        num_examples = self.labels.shape[0]
+        u_distrib = torch_ones(num_examples, device = self.device) / num_examples # Uniform distribution
+        example_idxs = torch_multinomial(input = u_distrib, num_samples = batch_size, replacement = True, generator = self.generator)
 
-DH = DataHandler()
-data = DH.retrieve_data(
+        # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
+        return self.data[example_idxs], self.labels[example_idxs]
+
+DH = DataHandler(device = "cpu", generator = None)
+DH.retrieve_data(
                 ticker = "amzn", 
                 start_date = "7/07/2003", 
                 end_date = "7/07/2023", 
                 interval = "1wk" 
                 )
-print(data.shape)
-print(data.isnan().any().item()) # Check if the tensor contains "nan"
+print(DH.data.shape)
+print(DH.data.isnan().any().item()) # Check if the tensor contains "nan"
+
+X, Y = DH.generate_batch(batch_size = 5)
+print(X.shape, Y.shape)
+print(X)
+print(Y)
