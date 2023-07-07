@@ -27,7 +27,7 @@ class DataHandler:
                         )
         
         # Remove "ticker" column
-        DATA = DATA.drop("ticker", axis = 1)
+        DATA.drop("ticker", axis = 1, inplace = True)
 
         # Create new column for each day stating tomorrow's closing price for the stock
         DATA["TomorrowClose"] = DATA["close"].shift(-1)
@@ -70,7 +70,7 @@ class DataHandler:
         # Separate the labels from the main dataframe (the other columns will be used as inputs)
         labels = DATA["Target"]
         self.labels = self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64)
-        DATA = DATA.drop("Target", axis = 1)
+        DATA.drop("Target", axis = 1, inplace = True)
 
         # Convert the pandas dataframe into a PyTorch tensor and save the data as an attribute
         self.data = self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32)
