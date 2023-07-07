@@ -66,7 +66,7 @@ class DataHandler:
 
         # Shuffle data (Do this before separating the labels from the dataframe)
         ##########################################
-        
+
         # Separate the labels from the main dataframe (the other columns will be used as inputs)
         labels = DATA["Target"]
         self.labels = self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64)
@@ -85,25 +85,14 @@ class DataHandler:
 
     def generate_batch(self, batch_size):
         
-        # Generate indexes which correspond to each example in self.labels and self.data
+        # Generate indexes which correspond to each example in self.labels and self.data (perform using CUDA if possible)
         num_examples = self.labels.shape[0]
         u_distrib = torch_ones(num_examples, device = self.device) / num_examples # Uniform distribution
         example_idxs = torch_multinomial(input = u_distrib, num_samples = batch_size, replacement = True, generator = self.generator)
 
+        # Move indices to the "cpu" so that we can index the dataset, which is currently stored on the CPU
+        example_idxs = example_idxs.to(device = "cpu")
+
         # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
-        return self.data[example_idxs], self.labels[example_idxs]
-
-DH = DataHandler(device = "cpu", generator = None)
-DH.retrieve_data(
-                ticker = "amzn", 
-                start_date = "7/07/2003", 
-                end_date = "7/07/2023", 
-                interval = "1wk" 
-                )
-print(DH.data.shape)
-print(DH.data.isnan().any().item()) # Check if the tensor contains "nan"
-
-X, Y = DH.generate_batch(batch_size = 5)
-print(X.shape, Y.shape)
-print(X)
-print(Y)
+        # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
+        return self.data[example_idxs].to(device = self.device), self.labels[example_idxs].to(device = self.device) 
