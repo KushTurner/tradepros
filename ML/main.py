@@ -1,8 +1,8 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from data_handler import DataHandler
 from matplotlib import pyplot as plt
+from models import MLP
 
 DEVICE = "cuda" if torch.cuda.is_available else "cpu"
 print(f"DEVICE | {DEVICE}")
@@ -40,25 +40,7 @@ X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test")
 print(X3.shape, Y3.shape)
 
 
-model = nn.Sequential(
-                    nn.Linear(in_features = DH.n_features, out_features = DH.n_features * 2),
-                    nn.BatchNorm1d(num_features = DH.n_features * 2),
-                    nn.ReLU(),
-
-                    nn.Linear(in_features = DH.n_features * 2, out_features = DH.n_features * 2),
-                    nn.BatchNorm1d(num_features = DH.n_features * 2),
-                    nn.ReLU(),
-
-                    nn.Linear(in_features = DH.n_features * 2, out_features = DH.n_features * 2),
-                    nn.BatchNorm1d(num_features = DH.n_features * 2),
-                    nn.ReLU(),
-
-                    nn.Linear(in_features = DH.n_features * 2, out_features = DH.n_features),
-                    nn.BatchNorm1d(num_features = DH.n_features),
-                    nn.ReLU(),
-
-                    nn.Linear(in_features = DH.n_features, out_features = 2)
-                    )
+model = MLP(initial_in = DH.n_features, final_out = 2)
 model.to(device = DEVICE) # Move to selected device
 optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
 
