@@ -46,7 +46,7 @@ model = MLP(initial_in = DH.n_features, final_out = 2)
 model.to(device = DEVICE) # Move to selected device
 optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
 
-EPOCHS = 20000
+EPOCHS = 200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20
 
@@ -135,12 +135,14 @@ print("Accuracy after training")
 accuracy_steps = 10000
 accuracy_bs = 20
 C = 50
+CHECK_INTERVAL = accuracy_steps // 20
+
 train_accuracies = evaluate_accuracy(
                                     steps = accuracy_steps, 
                                     batch_size = accuracy_bs, 
                                     generate_batch_f = DH.generate_batch, 
                                     selected_model = model, 
-                                    check_interval = STAT_TRACK_INTERVAL,
+                                    check_interval = CHECK_INTERVAL,
                                     split_name = "Train"
                                     )
 
@@ -149,7 +151,7 @@ val_accuracies = evaluate_accuracy(
                                 batch_size = accuracy_bs, 
                                 generate_batch_f = DH.generate_batch, 
                                 selected_model = model, 
-                                check_interval = STAT_TRACK_INTERVAL,
+                                check_interval = CHECK_INTERVAL,
                                 split_name = "Val"
                                 )
 
