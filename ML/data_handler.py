@@ -14,6 +14,11 @@ class DataHandler:
 
         # self.data - Holds the inputs for each example
         # self.labels - Holds the corresponding targets for each example
+        # self.TRAIN_S - Training set
+        # self.VAL_S - Validation set
+        # self.TEST_S - Test set
+        
+        # self.n_features - Number of inputs that will be passed into a model (i.e. the number of columns/features in the pandas dataframe)
         
     def retrieve_data(self, ticker, start_date, end_date, interval):
 
@@ -74,6 +79,9 @@ class DataHandler:
 
         # Convert the pandas dataframe into a PyTorch tensor and save the data as an attribute
         self.data = self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32)
+        
+        # Set the number of features that will go into the first layer of a model
+        self.n_features = self.data.shape[1]
 
     def dataframe_to_ptt(self, pandas_dataframe, desired_dtype = torch_float_32):
         
@@ -113,3 +121,6 @@ class DataHandler:
         self.TRAIN_S = (self.data[0:split_idx["Train"]], self.labels[0:split_idx["Train"]])
         self.VAL_S = (self.data[split_idx["Train"]:val_end_idx], self.labels[split_idx["Train"]:val_end_idx])
         self.TEST_S = (self.data[val_end_idx:], self.labels[val_end_idx:])
+        
+        del self.data
+        del self.labels
