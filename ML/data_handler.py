@@ -83,10 +83,13 @@ class DataHandler:
 
         return torch_tensor(pandas_dataframe.values, dtype = desired_dtype)
 
-    def generate_batch(self, batch_size):
+    def generate_batch(self, batch_size, split_selected):
         
-        # Generate indexes which correspond to each example in self.labels and self.data (perform using CUDA if possible)
-        num_examples = self.labels.shape[0]
+        # Find the inputs and labels in the split selected and find the number of examples in this split
+        inputs, labels = getattr(self, f"{split_selected.upper()}_S") # i.e. self.TRAIN_S, self.VAL_S, self.TEST_S
+        num_examples = labels.shape[0]
+        
+        # Generate indexes which correspond to each example in the labels and inputs of this split (perform using CUDA if possible)
         u_distrib = torch_ones(num_examples, device = self.device) / num_examples # Uniform distribution
         example_idxs = torch_multinomial(input = u_distrib, num_samples = batch_size, replacement = True, generator = self.generator)
 
@@ -95,4 +98,18 @@ class DataHandler:
 
         # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
         # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
-        return self.data[example_idxs].to(device = self.device), self.labels[example_idxs].to(device = self.device) 
+        return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device) 
+    
+    def create_splits(self):
+        total_examples = self.data.shape[0]
+        split_idx = {
+                    "Train": int(0.8 * total_examples),
+                    "Val": int(0.1 * total_examples),
+                    "Test": int(0.1 * total_examples)
+                    }
+        val_end_idx = split_idx["Train"] + split_idx["Val"]
+
+        # Create the splits, each tuple = (inputs, labels)
+        self.TRAIN_S = (self.data[0:split_idx["Train"]], self.labels[0:split_idx["Train"]])
+        self.VAL_S = (self.data[split_idx["Train"]:val_end_idx], self.labels[split_idx["Train"]:val_end_idx])
+        self.TEST_S = (self.data[val_end_idx:], self.labels[val_end_idx:])

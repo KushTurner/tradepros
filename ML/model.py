@@ -23,8 +23,15 @@ DH.retrieve_data(
 print(DH.data.shape)
 print(DH.data.isnan().any().item()) # Check if the tensor contains "nan"
 
-# Test batch
-X, Y = DH.generate_batch(batch_size = 5)
-print(X.shape, Y.shape)
-print(X)
-print(Y)
+# Create train/val/test splits
+DH.create_splits()
+
+# Testing generate_batch
+X1, Y1 = DH.generate_batch(batch_size = 5, split_selected = "train")
+print(X1.shape, Y1.shape)
+
+X2, Y2 = DH.generate_batch(batch_size = 5, split_selected = "val")
+print(X2.shape, Y2.shape)
+
+X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test")
+print(X3.shape, Y3.shape)
