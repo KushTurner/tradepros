@@ -14,7 +14,7 @@ def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check
         for i in range(steps):
             # Generate batch from a split
             Xa, Ya = generate_batch_f(batch_size, split_name)
-            
+
             # Forward pass
             logits = selected_model(Xa)
 
@@ -31,7 +31,9 @@ def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check
     
     return accuracies
 
-
+def find_accuracy(predictions, targets, batch_size):
+    return (count_correct_preds(predictions, targets) / batch_size) * 100
+    
 def count_correct_preds(predictions, targets):
 
     # Selects the highest probability assigned between the two outputs (i.e. the highest probability of the stock price going up or down)
