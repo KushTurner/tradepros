@@ -12,9 +12,9 @@ def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check
     with torch_no_grad():
         
         for i in range(steps):
-            # Generate batch from test split
-            Xa, Ya = generate_batch_f(batch_size, "test")
-
+            # Generate batch from a split
+            Xa, Ya = generate_batch_f(batch_size, split_name)
+            
             # Forward pass
             logits = selected_model(Xa)
 

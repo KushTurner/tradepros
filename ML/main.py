@@ -117,7 +117,7 @@ val_accuracies = evaluate_accuracy(
                                 generate_batch_f = DH.generate_batch, 
                                 selected_model = model, 
                                 check_interval = STAT_TRACK_INTERVAL,
-                                split_name = "Validation"
+                                split_name = "Val"
                                 )
 
 train_accuracies = torch.tensor(train_accuracies).view(-1, B).mean(1)
