@@ -1,8 +1,10 @@
 import torch
 import torch.nn.functional as F
-from data_handler import DataHandler
 from matplotlib import pyplot as plt
+
+from data_handler import DataHandler
 from models import MLP
+from tools import evaluate_accuracy
 
 DEVICE = "cuda" if torch.cuda.is_available else "cpu"
 print(f"DEVICE | {DEVICE}")
@@ -92,5 +94,37 @@ val_loss_i = torch.tensor(val_loss_i).view(-1, A).mean(1)
 fig, ax = plt.subplots()
 ax.plot([i for i in range(int(EPOCHS / A))], train_loss_i, label = "Train")
 ax.plot([i for i in range(int(EPOCHS / A))], val_loss_i, label = "Validation")
+ax.legend()
+plt.show()
+
+print("-----------------------------------------------------------------")
+# Find accuracy on train and validation split
+accuracy_steps = 10000
+accuracy_bs = 20
+B = 50
+train_accuracies = evaluate_accuracy(
+                                    steps = accuracy_steps, 
+                                    batch_size = accuracy_bs, 
+                                    generate_batch_f = DH.generate_batch, 
+                                    selected_model = model, 
+                                    check_interval = STAT_TRACK_INTERVAL,
+                                    split_name = "Train"
+                                    )
+
+val_accuracies = evaluate_accuracy(
+                                steps = accuracy_steps, 
+                                batch_size = accuracy_bs, 
+                                generate_batch_f = DH.generate_batch, 
+                                selected_model = model, 
+                                check_interval = STAT_TRACK_INTERVAL,
+                                split_name = "Validation"
+                                )
+
+train_accuracies = torch.tensor(train_accuracies).view(-1, B).mean(1)
+val_accuracies = torch.tensor(val_accuracies).view(-1, B).mean(1)
+
+fig, ax = plt.subplots()
+ax.plot([i for i in range(int(accuracy_steps / B))], train_accuracies, label = "Train")
+ax.plot([i for i in range(int(accuracy_steps / B))], val_accuracies, label = "Validation")
 ax.legend()
 plt.show()
