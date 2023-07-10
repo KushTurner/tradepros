@@ -16,23 +16,23 @@ class MLP(nn.Module):
                                     # -----------------------------------------------------------------
                                     # Config 1:
 
-                                    # nn.Linear(in_features = initial_in, out_features = initial_in * 2),
-                                    # nn.BatchNorm1d(num_features = initial_in * 2),
-                                    # nn.ReLU(),
+                                    nn.Linear(in_features = initial_in, out_features = initial_in * 2),
+                                    nn.BatchNorm1d(num_features = initial_in * 2),
+                                    nn.ReLU(),
 
-                                    # nn.Linear(in_features = initial_in * 2, out_features = initial_in * 2),
-                                    # nn.BatchNorm1d(num_features = initial_in * 2),
-                                    # nn.ReLU(),
+                                    nn.Linear(in_features = initial_in * 2, out_features = initial_in * 2),
+                                    nn.BatchNorm1d(num_features = initial_in * 2),
+                                    nn.ReLU(),
 
-                                    # nn.Linear(in_features = initial_in * 2, out_features = initial_in * 2),
-                                    # nn.BatchNorm1d(num_features = initial_in * 2),
-                                    # nn.ReLU(),
+                                    nn.Linear(in_features = initial_in * 2, out_features = initial_in * 2),
+                                    nn.BatchNorm1d(num_features = initial_in * 2),
+                                    nn.ReLU(),
 
-                                    # nn.Linear(in_features = initial_in * 2, out_features = initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
+                                    nn.Linear(in_features = initial_in * 2, out_features = initial_in),
+                                    nn.BatchNorm1d(num_features = initial_in),
+                                    nn.ReLU(),
 
-                                    # nn.Linear(in_features = initial_in, out_features = final_out)
+                                    nn.Linear(in_features = initial_in, out_features = final_out)
 
                                     # -----------------------------------------------------------------
                                     # Config 2:
@@ -50,23 +50,23 @@ class MLP(nn.Module):
                                     # -----------------------------------------------------------------
                                     # Config 3:
 
-                                    nn.Linear(in_features = initial_in, out_features = initial_in * 2),
-                                    nn.BatchNorm1d(num_features = initial_in * 2),
-                                    nn.ReLU(),
+                                    # nn.Linear(in_features = initial_in, out_features = initial_in * 2),
+                                    # nn.BatchNorm1d(num_features = initial_in * 2),
+                                    # nn.ReLU(),
 
-                                    nn.Linear(in_features = initial_in * 2, out_features = initial_in * 2),
-                                    nn.BatchNorm1d(num_features = initial_in * 2),
-                                    nn.ReLU(),
+                                    # nn.Linear(in_features = initial_in * 2, out_features = initial_in * 2),
+                                    # nn.BatchNorm1d(num_features = initial_in * 2),
+                                    # nn.ReLU(),
 
-                                    nn.Linear(in_features = initial_in * 2, out_features = initial_in),
-                                    nn.BatchNorm1d(num_features = initial_in),
-                                    nn.ReLU(),
+                                    # nn.Linear(in_features = initial_in * 2, out_features = initial_in),
+                                    # nn.BatchNorm1d(num_features = initial_in),
+                                    # nn.ReLU(),
 
-                                    nn.Linear(in_features = initial_in, out_features = initial_in // 2),
-                                    nn.BatchNorm1d(num_features = initial_in // 2),
-                                    nn.ReLU(),
+                                    # nn.Linear(in_features = initial_in, out_features = initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
+                                    # nn.ReLU(),
 
-                                    nn.Linear(in_features = initial_in // 2, out_features = final_out)
+                                    # nn.Linear(in_features = initial_in // 2, out_features = final_out)
                                     
                                     )
         

@@ -67,7 +67,12 @@ for i in range(EPOCHS):
     loss = F.cross_entropy(logits, Ytr)
 
     with torch.no_grad():
-        
+
+        # Note: Must set to evaluation mode as BatchNorm layers and Dropout layers behave differently during training and evaluation
+        # BatchNorm layers - stops updating the moving averages in BatchNorm layers and uses running statistics instead of per-batch statistics
+        # Dropout layers - de-activated during evaluation
+        model.eval()
+
         # Find train accuracy on current batch
         preds = F.softmax(logits, dim = 1) # Softmax to find probability distribution
         train_accuracy = find_accuracy(predictions = preds, targets = Ytr, batch_size = BATCH_SIZE)
@@ -82,7 +87,8 @@ for i in range(EPOCHS):
         v_preds = F.softmax(v_logits, dim = 1) # Softmax to find probability distribution
         val_accuracy = find_accuracy(predictions = v_preds, targets = Yva, batch_size = BATCH_SIZE)
         val_accuracy_i.append(val_accuracy)
-    
+
+        model.train()
 
     # Backward pass
     optimiser.zero_grad()
@@ -100,6 +106,8 @@ for i in range(EPOCHS):
     if i == 0 or (i + 1) % STAT_TRACK_INTERVAL == 0:
         print(f"Epoch: {i + 1} | TrainLoss: {loss.item()} | ValLoss: {v_loss.item()} | CurrentTrainAccuracy: {train_accuracy} | CurrentValAccuracy: {val_accuracy}")
 
+# Set model to evaluation mode (For dropout + batch norm layers)
+model.eval()
 
 print("-----------------------------------------------------------------")
 print("Loss during training")
