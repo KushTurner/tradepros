@@ -8,9 +8,9 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         
         # Accuracies tested (32 batch size, 200_000 steps)
-        # (1) TrainAccuracy(%): 52.032000000000004 | ValAccuracy(%): 53.05950000000001
-        # (2) TrainAccuracy(%): 51.43600000000001 | ValAccuracy(%): 51.741499999999995
-        # (3) TrainAccuracy(%): 52.141999999999996 | ValAccuracy(%): 53.42750000000001
+        # (1) TrainAccuracy(%): 52.349500000000006 | ValAccuracy(%): 53.997499999999995
+        # (2) TrainAccuracy(%): 52.05499999999999 | ValAccuracy(%): 54.777
+        # (3) TrainAccuracy(%): 52.3425 | ValAccuracy(%): 54.234
         
         self.model = nn.Sequential( 
                                     # -----------------------------------------------------------------
