@@ -6,7 +6,7 @@ from data_handler import DataHandler
 from models import MLP
 from tools import evaluate_accuracy, find_accuracy
 
-DEVICE = "cuda" if torch.cuda.is_available else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"DEVICE | {DEVICE}")
 
 M_SEED = 2004
