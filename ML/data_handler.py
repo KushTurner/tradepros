@@ -135,19 +135,53 @@ class DataHandler:
         # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
         return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device) 
     
-    def create_splits(self):
-        total_examples = self.data.shape[0]
+    def create_splits(self, num_context_days = None):
+        
+        # Split distribution percentages (Will be modified depending on the num_context_days)
         split_idx = {
-                    "Train": int(0.8 * total_examples),
-                    "Val": int(0.1 * total_examples),
-                    "Test": int(0.1 * total_examples)
+                    "Train": 0.8,
+                    "Val": 0.1,
+                    "Test": 0.1
                     }
-        val_end_idx = split_idx["Train"] + split_idx["Val"]
+        
+        # MLP 
+        if num_context_days == None:
+            # Update split indexes
+            total_examples = self.data.shape[0]
+            for split_name in split_idx.keys():
+                split_idx[split_name] = int(split_idx[split_name] * total_examples)
 
+            # Cut off between train and val split
+            val_end_idx = split_idx["Train"] + split_idx["Val"]
+
+        # RNN
+        else:
+            # Let num_context_days = 10, batch_size = 32
+            # Single batch should be [10 x [32 * num_features] ]
+            # 32 x [ClosingP, OpeningP, Volume, etc..] 10 days ago
+            # The next batch for the recurrence will be the day after that day
+            # 32 x [ClosingP, OpeningP, Volume, etc..] 9 days ago
+            # Repeats until all 10 days have been passed in (for a single batch)
+
+            # Find the amount of total sequences we can have (4510 examples = 451 sequences) 
+            # Note: Cut off from the start of the data and labels as they will be older data
+            remainder_days = self.data.shape[0] % num_context_days
+            self.data = self.data[remainder_days:]
+            self.labels = self.labels[remainder_days:]
+            total_examples = self.data.shape[0]
+
+            # Update split indexes
+            for split_name in split_idx.keys():
+                split_idx[split_name] = int(split_idx[split_name] * total_examples)
+
+            # Cut off between train and val split
+            val_end_idx = split_idx["Train"] + split_idx["Val"]
+            
         # Create the splits, each tuple = (inputs, labels)
         self.TRAIN_S = (self.data[0:split_idx["Train"]], self.labels[0:split_idx["Train"]])
         self.VAL_S = (self.data[split_idx["Train"]:val_end_idx], self.labels[split_idx["Train"]:val_end_idx])
         self.TEST_S = (self.data[val_end_idx:], self.labels[val_end_idx:])
-        
+
+        # Clear memory
         del self.data
         del self.labels
