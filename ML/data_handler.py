@@ -4,6 +4,7 @@ from torch import int64 as torch_int_64
 from torch import tensor as torch_tensor
 from torch import ones as torch_ones
 from torch import multinomial as torch_multinomial
+from torch import stack as torch_stack
 
 class DataHandler:
 
@@ -134,7 +135,7 @@ class DataHandler:
         # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
         # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
         return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device) 
-    
+
     def create_splits(self, num_context_days = None):
         
         # Split distribution percentages (Will be modified depending on the num_context_days)
@@ -146,11 +147,15 @@ class DataHandler:
         
         # MLP 
         if num_context_days == None:
+            
+            # data.shape = [number of single day examples, number of features for each day]
+            # labels.shape = [number of single day examples, correct prediction for stock trend for the following day]
+
             # Update split indexes
             total_examples = self.data.shape[0]
             for split_name in split_idx.keys():
                 split_idx[split_name] = int(split_idx[split_name] * total_examples)
-
+            
             # Cut off between train and val split
             val_end_idx = split_idx["Train"] + split_idx["Val"]
 
@@ -168,9 +173,15 @@ class DataHandler:
             remainder_days = self.data.shape[0] % num_context_days
             self.data = self.data[remainder_days:]
             self.labels = self.labels[remainder_days:]
-            total_examples = self.data.shape[0]
+
+            # Convert the data and labels into sequences of 10 consecutive days
+            # data.shape = (number of 10 consecutive days sequences, 10 consecutive days of examples, number of features in each day)
+            # labels.shape = (number of 10 consecutive days sequences, 10 correct predictions for the stock trend for the following day)
+            self.data = torch_stack([self.data[i:i + num_context_days] for i in range(0, self.data.shape[0], num_context_days)], dim = 0)
+            self.labels = torch_stack([self.labels[i:i + num_context_days] for i in range(0, self.labels.shape[0], num_context_days)], dim = 0)
 
             # Update split indexes
+            total_examples = self.data.shape[0]
             for split_name in split_idx.keys():
                 split_idx[split_name] = int(split_idx[split_name] * total_examples)
 
