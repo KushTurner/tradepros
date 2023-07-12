@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
 from data_handler import DataHandler
-from models import MLP
+from models import MLP, RNN
 from tools import evaluate_accuracy, find_accuracy
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -19,13 +19,14 @@ G.manual_seed(M_SEED)
 
 # Initialising data handler
 DH = DataHandler(device = DEVICE, generator = G)
+num_context_days = 10 # Number of days used as context (Used for RNN)
 DH.retrieve_data(
                 ticker = "amzn", 
                 start_date = "7/07/2003",
                 end_date = "7/07/2023", 
                 interval = "1d",
                 normalise = False,
-                standardise = True
+                standardise = False
                 )
 print(DH.data.shape)
 print(DH.data.isnan().any().item()) # Check if the tensor contains "nan"
@@ -34,21 +35,25 @@ print(DH.data.isnan().any().item()) # Check if the tensor contains "nan"
 DH.create_splits(num_context_days = 10)
 
 # Testing generate_batch
-X1, Y1 = DH.generate_batch(batch_size = 5, split_selected = "train")
+X1, Y1 = DH.generate_batch(batch_size = 5, split_selected = "train", num_context_days = num_context_days)
 print(X1.shape, Y1.shape)
 
-X2, Y2 = DH.generate_batch(batch_size = 5, split_selected = "val")
+X2, Y2 = DH.generate_batch(batch_size = 5, split_selected = "val", num_context_days = num_context_days)
 print(X2.shape, Y2.shape)
 
-X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test")
+X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test", num_context_days = num_context_days)
 print(X3.shape, Y3.shape)
 
 
-model = MLP(initial_in = DH.n_features, final_out = 2)
-model.to(device = DEVICE) # Move to selected device
-optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
+# model = MLP(initial_in = DH.n_features, final_out = 2)
+# optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
 
-EPOCHS = 200000
+model = RNN(initial_in = DH.n_features, final_out = 2)
+optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
+
+model.to(device = DEVICE) # Move to selected device
+
+EPOCHS = 4000 #200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20
 
@@ -59,7 +64,7 @@ val_accuracy_i = []
 
 for i in range(EPOCHS):
     # Generate inputs and labels
-    Xtr, Ytr = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "train")
+    Xtr, Ytr = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "train", num_context_days = num_context_days)
 
     # Forward pass
     logits = model(Xtr)
@@ -81,7 +86,7 @@ for i in range(EPOCHS):
         train_accuracy_i.append(find_accuracy(predictions = preds, targets = Ytr, batch_size = BATCH_SIZE))
 
         # Find validation loss
-        Xva, Yva = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "val")
+        Xva, Yva = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "val", num_context_days = num_context_days)
         v_logits = model(Xva)
         v_loss = F.cross_entropy(v_logits, Yva)
 
@@ -153,7 +158,8 @@ train_accuracies = evaluate_accuracy(
                                     generate_batch_f = DH.generate_batch, 
                                     selected_model = model, 
                                     check_interval = CHECK_INTERVAL,
-                                    split_name = "Train"
+                                    split_name = "Train",
+                                    num_context_days = num_context_days
                                     )
 
 val_accuracies = evaluate_accuracy(
@@ -162,7 +168,8 @@ val_accuracies = evaluate_accuracy(
                                 generate_batch_f = DH.generate_batch, 
                                 selected_model = model, 
                                 check_interval = CHECK_INTERVAL,
-                                split_name = "Val"
+                                split_name = "Val",
+                                num_context_days = num_context_days
                                 )
 
 train_accuracies = torch.tensor(train_accuracies).view(-1, C).mean(1)

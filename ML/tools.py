@@ -3,7 +3,7 @@ from torch import max as torch_max
 from torch import sum as torch_sum
 from torch.nn import functional as F
 
-def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check_interval, split_name):
+def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check_interval, split_name, num_context_days):
     
     accuracies = []
     num_correct = 0
@@ -13,7 +13,7 @@ def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check
         
         for i in range(steps):
             # Generate batch from a split
-            Xa, Ya = generate_batch_f(batch_size, split_name)
+            Xa, Ya = generate_batch_f(batch_size, split_name, num_context_days)
 
             # Forward pass
             logits = selected_model(Xa)

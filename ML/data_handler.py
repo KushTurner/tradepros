@@ -119,7 +119,7 @@ class DataHandler:
 
         return torch_tensor(pandas_dataframe.values, dtype = desired_dtype)
 
-    def generate_batch(self, batch_size, split_selected):
+    def generate_batch(self, batch_size, split_selected, num_context_days = None):
         
         # Find the inputs and labels in the split selected and find the number of examples in this split
         inputs, labels = getattr(self, f"{split_selected.upper()}_S") # i.e. self.TRAIN_S, self.VAL_S, self.TEST_S
@@ -132,10 +132,35 @@ class DataHandler:
         # Move indices to the "cpu" so that we can index the dataset, which is currently stored on the CPU
         example_idxs = example_idxs.to(device = "cpu")
 
-        # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
-        # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
-        return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device) 
+        if num_context_days == None:
 
+            # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
+            # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
+            return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device) 
+
+        else:
+            # Notes:
+            # - num_examples = Number of "num_context_days" sequences
+            # - Batch should be of shape [num_context_days, batch_size, sequence length] (So each day will have e.g. 32 examples)
+            # - For the labels, the target for each day in the context day should be the target of the last day in the sequence (i.e labels[example_idx][-1])
+            # - In other words, with the context of e.g. 10 days, we are trying to predict the trend for the 11th day
+
+            # # Each day in "num_context_days" should have "batch_size" sequences
+            # b_inputs = []
+            # for i in range(num_context_days):
+            #     # i = The current day in the sequence, j = the index inside the example_idxs for the batch
+            #     current_day_I = torch_stack([inputs[example_idxs[j]][i] for j in range(batch_size)], dim = 0)
+            #     b_inputs.append(current_day_I)
+            # b_inputs = torch_stack(b_inputs, dim = 0)
+            # b_labels = torch_stack([labels[example_idx][-1] for example_idx in example_idxs])
+
+            # Each day in "num_context_days" should have "batch_size" sequences (Performs the same code as above)
+            b_inputs = torch_stack(tensors = [torch_stack([inputs[example_idxs[j]][i] for j in range(batch_size)], dim = 0) for i in range(num_context_days)], dim = 0)
+            b_labels = torch_stack([labels[example_idx][-1] for example_idx in example_idxs])
+            
+            # Return the batch inputs and labels
+            return b_inputs.to(device = self.device), b_labels.to(device = self.device)
+        
     def create_splits(self, num_context_days = None):
         
         # Split distribution percentages (Will be modified depending on the num_context_days)
@@ -155,7 +180,7 @@ class DataHandler:
             total_examples = self.data.shape[0]
             for split_name in split_idx.keys():
                 split_idx[split_name] = int(split_idx[split_name] * total_examples)
-            
+
             # Cut off between train and val split
             val_end_idx = split_idx["Train"] + split_idx["Val"]
 
