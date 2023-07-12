@@ -21,9 +21,11 @@ G.manual_seed(M_SEED)
 DH = DataHandler(device = DEVICE, generator = G)
 DH.retrieve_data(
                 ticker = "amzn", 
-                start_date = "7/07/2003", 
+                start_date = "7/07/2003",
                 end_date = "7/07/2023", 
-                interval = "1d" 
+                interval = "1d",
+                normalise = False,
+                standardise = True
                 )
 print(DH.data.shape)
 print(DH.data.isnan().any().item()) # Check if the tensor contains "nan"
