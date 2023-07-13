@@ -104,13 +104,34 @@ class RNN(nn.Module):
     def __init__(self, initial_in, final_out):
         super(RNN, self).__init__()
 
-        self.L1 = nn.Linear(initial_in, initial_in)
-        self.L2 = nn.Linear(initial_in , initial_in // 2)
-        self.L3 = nn.Linear(initial_in  // 2, initial_in // 4)
+        # Accuracies tested (32 batch size, 200_000 steps)
+        
+        # Unnormalised + Unstandardised data
+        # (1) TrainAccuracy(%):  | ValAccuracy(%): 
 
-        self.layers = [layer for layer in self._modules.values()] # All layers except output layer
+        # Normalised data
+        # (1) TrainAccuracy(%):  | ValAccuracy(%): 
 
+        # Standardised data
+        # (1) TrainAccuracy(%):  | ValAccuracy(%): 
+
+        self.layers = nn.Sequential(
+
+                                    nn.Linear(initial_in, initial_in),
+                                    nn.BatchNorm1d(num_features = initial_in),
+                                    nn.ReLU(),
+
+                                    nn.Linear(initial_in , initial_in // 2),
+                                    nn.BatchNorm1d(num_features = initial_in // 2),
+                                    nn.ReLU(),
+
+                                    nn.Linear(initial_in  // 2, initial_in // 4),
+                                    nn.BatchNorm1d(num_features = initial_in // 4),
+                                    nn.ReLU(),
+                                    )
         self.O = nn.Linear(initial_in // 4, final_out)
+
+        self.initialise_weights(non_linearity = "relu")
 
     def __call__(self, inputs):
         
@@ -136,13 +157,18 @@ class RNN(nn.Module):
             current_day_batch = inputs[i][:][:]
             
             # Pass through all layers except the output layer
-            output = self.forward(inputs = current_day_batch)
+            output = self.layers(current_day_batch)
 
         # After all days, find and return the output
         return self.O(output)
-
-    def forward(self, inputs):
+    
+    def initialise_weights(self, non_linearity):
         
+        # Uses Kai Ming uniform for ReLU activation functions, but Kai Ming normal for other activation functions
+        init_function = nn.init.kaiming_uniform_ if non_linearity == "relu" else nn.init.kaiming_normal_
+        
+        # Apply Kai-Ming initialisation to all linear layer weights
         for layer in self.layers:
-            inputs = layer(inputs)
-        return inputs
+            if isinstance(layer, nn.Linear):
+                init_function(layer.weight, mode = "fan_in", nonlinearity = non_linearity)
+        init_function(self.O.weight, mode = "fan_in", nonlinearity = non_linearity)

@@ -69,10 +69,7 @@ class DataHandler:
 
         # Set all columns in the data to the float datatype (All values must be homogenous when passed as a tensor into a model)
         DATA = DATA.astype(float)
-
-        # Shuffle data (Do this before separating the labels from the dataframe)
-        ##########################################
-
+        
         # Separate the labels from the main dataframe (the other columns will be used as inputs)
         labels = DATA["Target"]
         self.labels = self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64)
@@ -156,10 +153,9 @@ class DataHandler:
 
             # Each day in "num_context_days" should have "batch_size" sequences (Performs the same code as above)
             b_inputs = torch_stack(tensors = [torch_stack([inputs[example_idxs[j]][i] for j in range(batch_size)], dim = 0) for i in range(num_context_days)], dim = 0)
-            b_labels = torch_stack([labels[example_idx][-1] for example_idx in example_idxs])
             
             # Return the batch inputs and labels
-            return b_inputs.to(device = self.device), b_labels.to(device = self.device)
+            return b_inputs.to(device = self.device), labels[example_idxs].to(device = self.device)
         
     def create_splits(self, num_context_days = None):
         
@@ -193,30 +189,34 @@ class DataHandler:
             # 32 x [ClosingP, OpeningP, Volume, etc..] 9 days ago
             # Repeats until all 10 days have been passed in (for a single batch)
 
-            # Find the amount of total sequences we can have (4510 examples = 451 sequences) 
-            # Note: Cut off from the start of the data and labels as they will be older data
-            remainder_days = self.data.shape[0] % num_context_days
-            self.data = self.data[remainder_days:]
-            self.labels = self.labels[remainder_days:]
-
-            # Convert the data and labels into sequences of 10 consecutive days
+            # The number of sequences of length "num_context_days" in the data
+            num_sequences = self.labels.shape[0] - (num_context_days - 1) # E.g. if num_context_days = 10, 4530 --> (4530 - 10 - 1) = 
+            
+            # Trim labels (The same is done for self.data when converting to sequences)
+            self.labels = self.labels[:num_sequences] # labels.shape = (Correct predictions for all sequences in self.data)
+            
+            # Convert the data into sequences of 10 consecutive days
             # data.shape = (number of 10 consecutive days sequences, 10 consecutive days of examples, number of features in each day)
-            # labels.shape = (number of 10 consecutive days sequences, 10 correct predictions for the stock trend for the following day)
-            self.data = torch_stack([self.data[i:i + num_context_days] for i in range(0, self.data.shape[0], num_context_days)], dim = 0)
-            self.labels = torch_stack([self.labels[i:i + num_context_days] for i in range(0, self.labels.shape[0], num_context_days)], dim = 0)
-
+            self.data = torch_stack([self.data[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
+            
             # Update split indexes
             total_examples = self.data.shape[0]
             for split_name in split_idx.keys():
                 split_idx[split_name] = int(split_idx[split_name] * total_examples)
-
+            
             # Cut off between train and val split
             val_end_idx = split_idx["Train"] + split_idx["Val"]
-            
+
+        # Shuffle data
+        ##################################################################
+
         # Create the splits, each tuple = (inputs, labels)
         self.TRAIN_S = (self.data[0:split_idx["Train"]], self.labels[0:split_idx["Train"]])
         self.VAL_S = (self.data[split_idx["Train"]:val_end_idx], self.labels[split_idx["Train"]:val_end_idx])
         self.TEST_S = (self.data[val_end_idx:], self.labels[val_end_idx:])
+
+        # print(self.TRAIN_S[0].shape, self.VAL_S[0].shape, self.TEST_S[0].shape)
+        # print(self.TRAIN_S[1].shape, self.VAL_S[1].shape, self.TEST_S[1].shape)
 
         # Clear memory
         del self.data
