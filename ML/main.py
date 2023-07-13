@@ -29,10 +29,10 @@ DH.retrieve_data(
                 standardise = False
                 )
 print(DH.data.shape)
-print(DH.data.isnan().any().item()) # Check if the tensor contains "nan"
+print("ContainsNaN",DH.data.isnan().any().item()) # Check if the tensor contains "nan"
 
 # Create train/val/test splits
-DH.create_splits(num_context_days = 10)
+DH.create_splits(num_context_days = num_context_days)
 
 # Testing generate_batch
 X1, Y1 = DH.generate_batch(batch_size = 5, split_selected = "train", num_context_days = num_context_days)

@@ -5,6 +5,9 @@ from torch import tensor as torch_tensor
 from torch import ones as torch_ones
 from torch import multinomial as torch_multinomial
 from torch import stack as torch_stack
+from torch import randperm as torch_randperm
+from torch import equal as torch_eq
+from torch import index_select as torch_index_select
 
 class DataHandler:
 
@@ -69,7 +72,7 @@ class DataHandler:
 
         # Set all columns in the data to the float datatype (All values must be homogenous when passed as a tensor into a model)
         DATA = DATA.astype(float)
-        
+
         # Separate the labels from the main dataframe (the other columns will be used as inputs)
         labels = DATA["Target"]
         self.labels = self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64)
@@ -207,8 +210,17 @@ class DataHandler:
             # Cut off between train and val split
             val_end_idx = split_idx["Train"] + split_idx["Val"]
 
-        # Shuffle data
-        ##################################################################
+        # Shuffling the data sequences
+        permutation_indices = torch_randperm(self.data.size(0), device = self.device, generator = self.generator) # Generate random permutation of indices
+        permutation_indices = permutation_indices.to(device = "cpu") # Move to CPU as self.data is on the CPU
+
+        prev_data = self.data.clone()
+        prev_labels = self.labels.clone()
+        self.data = self.data[permutation_indices] # Assign indices to data
+        self.labels = self.labels[permutation_indices] # Assign indices to labels
+
+        # print(torch_eq(self.data, prev_data[permutation_indices]))
+        # print(torch_eq(self.labels, prev_labels[permutation_indices]))
 
         # Create the splits, each tuple = (inputs, labels)
         self.TRAIN_S = (self.data[0:split_idx["Train"]], self.labels[0:split_idx["Train"]])
