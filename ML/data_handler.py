@@ -6,8 +6,6 @@ from torch import ones as torch_ones
 from torch import multinomial as torch_multinomial
 from torch import stack as torch_stack
 from torch import randperm as torch_randperm
-from torch import equal as torch_eq
-from torch import index_select as torch_index_select
 
 class DataHandler:
 
@@ -214,13 +212,13 @@ class DataHandler:
         permutation_indices = torch_randperm(self.data.size(0), device = self.device, generator = self.generator) # Generate random permutation of indices
         permutation_indices = permutation_indices.to(device = "cpu") # Move to CPU as self.data is on the CPU
 
-        prev_data = self.data.clone()
-        prev_labels = self.labels.clone()
+        # prev_data = self.data.clone()
+        # prev_labels = self.labels.clone()
         self.data = self.data[permutation_indices] # Assign indices to data
         self.labels = self.labels[permutation_indices] # Assign indices to labels
 
-        # print(torch_eq(self.data, prev_data[permutation_indices]))
-        # print(torch_eq(self.labels, prev_labels[permutation_indices]))
+        # print(torch_equal(self.data, prev_data[permutation_indices]))
+        # print(torch_equal(self.labels, prev_labels[permutation_indices])) 
 
         # Create the splits, each tuple = (inputs, labels)
         self.TRAIN_S = (self.data[0:split_idx["Train"]], self.labels[0:split_idx["Train"]])
