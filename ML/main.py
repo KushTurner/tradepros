@@ -25,8 +25,8 @@ DH.retrieve_data(
                 start_date = "7/07/2003",
                 end_date = "7/07/2023", 
                 interval = "1d",
-                normalise = True,
-                standardise = False
+                normalise = False,
+                standardise = True
                 )
 print(DH.data.shape)
 print("ContainsNaN",DH.data.isnan().any().item()) # Check if the tensor contains "nan"
@@ -120,7 +120,7 @@ print("-----------------------------------------------------------------")
 print("Loss during training")
 
 # Plotting train / validation loss
-A = 80
+A = 50
 train_loss_i = torch.tensor(train_loss_i).view(-1, A).mean(1)
 val_loss_i = torch.tensor(val_loss_i).view(-1, A).mean(1)
 
@@ -133,7 +133,7 @@ plt.show()
 print("-----------------------------------------------------------------")
 print("Accuracy during training")
 
-B = 800
+B = 500
 train_accuracy_i = torch.tensor(train_accuracy_i).view(-1, B).mean(1)
 val_accuracy_i = torch.tensor(val_accuracy_i).view(-1, B).mean(1)
 

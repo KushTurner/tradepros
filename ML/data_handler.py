@@ -68,6 +68,9 @@ class DataHandler:
         # Removes rows which contain "NaN" inside of any columns
         DATA.dropna(inplace = True)
 
+        # Remove "TomorrowClose" as the model shouldn't "know" what tomorrow's closing price is
+        DATA.drop("TomorrowClose", axis = 1, inplace = True)
+        
         # Set all columns in the data to the float datatype (All values must be homogenous when passed as a tensor into a model)
         DATA = DATA.astype(float)
 
@@ -75,19 +78,19 @@ class DataHandler:
         labels = DATA["Target"]
         self.labels = self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64)
         DATA.drop("Target", axis = 1, inplace = True)
-        
+
         # Normalise or standardise data (If both are True, only normalise the data)
         # Note: Only one should be performed
         if normalise == True:
             # Normalise specific columns (input values to be between 0 and 1)
             # Note: Preserves relative relationships between data points but eliminates differences in magnitude
-            cols_to_alter = ["open", "high", "low", "close", "adjclose", "volume", "TomorrowClose"]
+            cols_to_alter = ["open", "high", "low", "close", "adjclose", "volume"]
             DATA[cols_to_alter] = self.normalise_columns(dataframe = DATA, cols_to_norm = cols_to_alter)
             
         elif standardise == True:
             # Standardise specific columns (mean 0, unit variance)
             # Note: Brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
-            cols_to_alter = ["open", "high", "low", "close", "adjclose", "volume", "TomorrowClose"]
+            cols_to_alter = ["open", "high", "low", "close", "adjclose", "volume"]
             DATA[cols_to_alter] = self.standardise_columns(dataframe = DATA, cols_to_standard = cols_to_alter)
         
         # Convert the pandas dataframe into a PyTorch tensor and save the data as an attribute
@@ -95,6 +98,7 @@ class DataHandler:
         
         # Set the number of features that will go into the first layer of a model
         self.n_features = self.data.shape[1]
+        print(self.n_features)
     
     def normalise_columns(self, dataframe, cols_to_norm):
         # Return normalised columns
