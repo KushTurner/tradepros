@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.content {
+    width: 100%;
+}
+
+html {
+    background-color: #080808;
+}
+
+.navbar-item {
+    color: #9395A5;
+}
+
+.navbar-item:hover {
+    color: #5267FE;
+}
+
+
