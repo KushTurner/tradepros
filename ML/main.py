@@ -17,21 +17,31 @@ torch.manual_seed(M_SEED)
 G = torch.Generator(device = DEVICE)
 G.manual_seed(M_SEED)
 
+
 # Initialising data handler
 DH = DataHandler(device = DEVICE, generator = G)
-num_context_days = None # 10 # Number of days used as context (Used for RNN)
 DH.retrieve_data(
-                ticker = "amzn", 
+                tickers = ["amzn", "ebay", "baba", "3690.HK"],
                 start_date = "7/07/2003",
                 end_date = "7/07/2023", 
                 interval = "1d",
                 normalise = True,
                 standardise = False
                 )
-print(DH.data.shape)
-print("ContainsNaN",DH.data.isnan().any().item()) # Check if the tensor contains "nan"
+
+for company_data in DH.data:
+    print("ContainsNaN", company_data.isnan().any().item()) # Check if the tensor contains "nan"
+
+# model = MLP(initial_in = DH.n_features, final_out = 2)
+# optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
+
+model = RNN(initial_in = DH.n_features, final_out = 2)
+optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
+
+model.to(device = DEVICE) # Move to selected device
 
 # Create train/val/test splits
+num_context_days = 10 if isinstance(model, RNN) else 1 # Number of days used as context (Used for RNN)
 DH.create_splits(num_context_days = num_context_days)
 
 # Testing generate_batch
@@ -44,15 +54,7 @@ print(X2.shape, Y2.shape)
 X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test", num_context_days = num_context_days)
 print(X3.shape, Y3.shape)
 
-
-model = MLP(initial_in = DH.n_features, final_out = 2)
-optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
-
-# model = RNN(initial_in = DH.n_features, final_out = 2)
-# optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
-
-model.to(device = DEVICE) # Move to selected device
-
+# Training:
 EPOCHS = 200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20

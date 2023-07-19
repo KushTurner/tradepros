@@ -19,7 +19,7 @@ class MLP(nn.Module):
         # (1) TrainAccuracy(%): 54.7555 | ValAccuracy(%): 51.783
         # (2) TrainAccuracy(%): 53.181 | ValAccuracy(%): 53.077
         # (3) TrainAccuracy(%): 54.82 | ValAccuracy(%): 51.0835
-        
+
         self.model = nn.Sequential( 
                                     # -----------------------------------------------------------------
                                     # Config 1:
@@ -98,15 +98,15 @@ class RNN(nn.Module):
     def __init__(self, initial_in, final_out):
         super(RNN, self).__init__()
 
-        # Accuracies tested (32 batch size, 200_000 steps, lr = 1e-3)
+        # Accuracies tested (32 batch size, 200_000 steps, lr = 1e-3) [After removing biased column "TomorrowClose"]
 
         # Normalised data
-        # (1) TrainAccuracy(%):  | ValAccuracy(%): 
-        # (2) TrainAccuracy(%):  | ValAccuracy(%): 
+        # (1) TrainAccuracy(%): 62.1 | ValAccuracy(%): 50.56749999999999 
+        # (2) TrainAccuracy(%): 65.8865 | ValAccuracy(%): 51.367
 
         # Standardised data
-        # (1) TrainAccuracy(%):  | ValAccuracy(%): 
-        # (2) TrainAccuracy(%):  | ValAccuracy(%): 
+        # (1) TrainAccuracy(%):  65.0045 | ValAccuracy(%): 51.1425
+        # (2) TrainAccuracy(%): 63.404 | ValAccuracy(%): 51.0755
 
         self.layers = nn.Sequential(
                                     # 1
