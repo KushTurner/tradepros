@@ -19,14 +19,14 @@ G.manual_seed(M_SEED)
 
 # Initialising data handler
 DH = DataHandler(device = DEVICE, generator = G)
-num_context_days = 10 # Number of days used as context (Used for RNN)
+num_context_days = None # 10 # Number of days used as context (Used for RNN)
 DH.retrieve_data(
                 ticker = "amzn", 
                 start_date = "7/07/2003",
                 end_date = "7/07/2023", 
                 interval = "1d",
-                normalise = False,
-                standardise = True
+                normalise = True,
+                standardise = False
                 )
 print(DH.data.shape)
 print("ContainsNaN",DH.data.isnan().any().item()) # Check if the tensor contains "nan"
@@ -45,11 +45,11 @@ X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test", num_context_
 print(X3.shape, Y3.shape)
 
 
-# model = MLP(initial_in = DH.n_features, final_out = 2)
-# optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
+model = MLP(initial_in = DH.n_features, final_out = 2)
+optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
 
-model = RNN(initial_in = DH.n_features, final_out = 2)
-optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
+# model = RNN(initial_in = DH.n_features, final_out = 2)
+# optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
 
 model.to(device = DEVICE) # Move to selected device
 

@@ -11,15 +11,15 @@ class MLP(nn.Module):
         # Accuracies tested (32 batch size, 200_000 steps)
         
         # Normalised data
-        # (1) TrainAccuracy(%):  | ValAccuracy(%): 
-        # (2) TrainAccuracy(%):  | ValAccuracy(%): 
-        # (3) TrainAccuracy(%):  | ValAccuracy(%): 
+        # (1) TrainAccuracy(%): 54.4945 | ValAccuracy(%): 48.707499999999996
+        # (2) TrainAccuracy(%): 51.978 | ValAccuracy(%): 51.6345
+        # (3) TrainAccuracy(%): 55.5385 | ValAccuracy(%): 48.427 
 
         # Standardised data
-        # (1) TrainAccuracy(%):  | ValAccuracy(%): 
-        # (2) TrainAccuracy(%):  | ValAccuracy(%): 
-        # (3) TrainAccuracy(%):  | ValAccuracy(%): 
-
+        # (1) TrainAccuracy(%): 54.7555 | ValAccuracy(%): 51.783
+        # (2) TrainAccuracy(%): 53.181 | ValAccuracy(%): 53.077
+        # (3) TrainAccuracy(%): 54.82 | ValAccuracy(%): 51.0835
+        
         self.model = nn.Sequential( 
                                     # -----------------------------------------------------------------
                                     # Config 1:
