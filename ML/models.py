@@ -8,7 +8,7 @@ class MLP(nn.Module):
 
         super(MLP, self).__init__()
         
-        # Accuracies tested (32 batch size, 200_000 steps)
+        # Accuracies tested (32 batch size, 200_000 steps) [After removing biased column "TomorrowClose"]
         
         # Normalised data
         # (1) TrainAccuracy(%): 54.4945 | ValAccuracy(%): 48.707499999999996
@@ -98,18 +98,35 @@ class RNN(nn.Module):
     def __init__(self, initial_in, final_out):
         super(RNN, self).__init__()
 
-        # Accuracies tested (32 batch size, 200_000 steps, lr = 1e-3) [After removing biased column "TomorrowClose"]
+        # Accuracies tested (32 batch size, 200_000 steps, lr = 1e-3) [After using data from more than one company]
 
         # Normalised data
-        # (1) TrainAccuracy(%): 62.1 | ValAccuracy(%): 50.56749999999999 
-        # (2) TrainAccuracy(%): 65.8865 | ValAccuracy(%): 51.367
+        # (1) TrainAccuracy(%): 59.1195| ValAccuracy(%): 54.59349999999999 
+        # (2) TrainAccuracy(%): 59.845499999999994 | ValAccuracy(%): 54.517
 
         # Standardised data
-        # (1) TrainAccuracy(%):  65.0045 | ValAccuracy(%): 51.1425
-        # (2) TrainAccuracy(%): 63.404 | ValAccuracy(%): 51.0755
+        # (1) TrainAccuracy(%): 60.0520000000000 | ValAccuracy(%): 53.2265 
+        # (2) TrainAccuracy(%): 60.668 | ValAccuracy(%): 52.5595
 
         self.layers = nn.Sequential(
                                     # 1
+                                    # nn.Linear(initial_in, initial_in),
+                                    # nn.BatchNorm1d(num_features = initial_in),
+                                    # nn.ReLU(),
+
+                                    # nn.Linear(initial_in , initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),``
+                                    # nn.ReLU(),
+
+                                    # nn.Linear(initial_in  // 2, initial_in // 4),
+                                    # nn.BatchNorm1d(num_features = initial_in // 4),
+                                    # nn.ReLU(),
+
+                                    # 2
+                                    nn.Linear(initial_in, initial_in),
+                                    nn.BatchNorm1d(num_features = initial_in),
+                                    nn.ReLU(),
+
                                     nn.Linear(initial_in, initial_in),
                                     nn.BatchNorm1d(num_features = initial_in),
                                     nn.ReLU(),
@@ -118,30 +135,13 @@ class RNN(nn.Module):
                                     nn.BatchNorm1d(num_features = initial_in // 2),
                                     nn.ReLU(),
 
+                                    nn.Linear(initial_in // 2, initial_in // 2),
+                                    nn.BatchNorm1d(num_features = initial_in // 2),
+                                    nn.ReLU(),
+
                                     nn.Linear(initial_in  // 2, initial_in // 4),
                                     nn.BatchNorm1d(num_features = initial_in // 4),
                                     nn.ReLU(),
-
-                                    # 2
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in , initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in // 2, initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in  // 2, initial_in // 4),
-                                    # nn.BatchNorm1d(num_features = initial_in // 4),
-                                    # nn.ReLU(),
                                     )
         self.O = nn.Linear(initial_in // 4, final_out)
 

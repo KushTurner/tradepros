@@ -54,7 +54,7 @@ class DataHandler:
             # - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
             transformation = self.normalise_columns if normalise == True else self.standardise_columns
             cols_to_alter = ["open", "high", "low", "close", "adjclose", "volume"]
-            DATA[cols_to_alter] = transformation(dataframe = DATA, cols_to_norm = cols_to_alter)
+            DATA[cols_to_alter] = transformation(DATA, cols_to_alter) # (Parameters = dataframe, cols_to_norm/cols_to_alter)
             
             # Add this companies data to the list
             self.data.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))

@@ -25,8 +25,8 @@ DH.retrieve_data(
                 start_date = "7/07/2003",
                 end_date = "7/07/2023", 
                 interval = "1d",
-                normalise = True,
-                standardise = False
+                normalise = False,
+                standardise = True
                 )
 
 for company_data in DH.data:
