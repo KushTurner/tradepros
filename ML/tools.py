@@ -13,7 +13,7 @@ def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check
         
         for i in range(steps):
             # Generate batch from a split
-            Xa, Ya = generate_batch_f(batch_size, split_name, num_context_days)
+            Xa, Ya = generate_batch_f(batch_size, split_name, num_context_days, selected_model.N_OR_S)
 
             # Forward pass
             logits = selected_model(Xa)

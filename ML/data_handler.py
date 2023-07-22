@@ -17,15 +17,16 @@ class DataHandler:
 
         # self.data - Holds the inputs for each example
         # self.labels - Holds the corresponding targets for each example
-        # self.TRAIN_S - Training set
-        # self.VAL_S - Validation set
-        # self.TEST_S - Test set
+        # self.TRAIN_S(N/S) - Training set
+        # self.VAL_S(N/S) - Validation set
+        # self.TEST_S(N/S) - Test set
         
         # self.n_features - Number of inputs that will be passed into a model (i.e. the number of columns/features in the pandas dataframe)
 
-    def retrieve_data(self, tickers, start_date, end_date, interval, normalise = False, standardise = False):
+    def retrieve_data(self, tickers, start_date, end_date, interval):
         
-        self.data = []
+        self.data_n = [] # Normalised data
+        self.data_s = [] # Standardised data
         self.labels = []
         
         # For each company, modify the data 
@@ -47,22 +48,24 @@ class DataHandler:
             self.labels.append(self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64))
             DATA.drop("Target", axis = 1, inplace = True)
 
-            # Normalise or standardise data (If both are True, only normalise the data)
+            # Create normalised and standardised versions of the data
             # Notes:
-            # - Only one should be performed
+            # - Created 2 because some models may perform better on standardised data than normalised data and vice versa
             # - Min-max normalisation preserves relative relationships between data points but eliminates differences in magnitude
             # - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
-            transformation = self.normalise_columns if normalise == True else self.standardise_columns
             cols_to_alter = ["open", "high", "low", "close", "adjclose", "volume"]
-            DATA[cols_to_alter] = transformation(DATA, cols_to_alter) # (Parameters = dataframe, cols_to_norm/cols_to_alter)
+            S_DATA = DATA.copy()
+            S_DATA[cols_to_alter] = self.standardise_columns(dataframe = S_DATA, cols_to_standard = cols_to_alter)
+            DATA[cols_to_alter] = self.normalise_columns(dataframe = DATA, cols_to_norm = cols_to_alter)
             
             # Add this companies data to the list
-            self.data.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
+            self.data_n.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
+            self.data_s.append(self.dataframe_to_ptt(pandas_dataframe = S_DATA, desired_dtype = torch_float_32))
 
-            print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape}")
+            print(f"Ticker: {ticker} | DataShape: {self.data_n[-1].shape} | LabelsShape: {self.labels[-1].shape}")
         
         # Set the number of features that will go into the first layer of a model
-        self.n_features = self.data[-1].shape[1]
+        self.n_features = self.data_n[-1].shape[1]
         print(f"Number of data features: {self.n_features}")
 
     def modify_data(self, D, interval):
@@ -129,10 +132,10 @@ class DataHandler:
 
         return torch_tensor(pandas_dataframe.values, dtype = desired_dtype)
 
-    def generate_batch(self, batch_size, split_selected, num_context_days = None):
+    def generate_batch(self, batch_size, split_selected, num_context_days = 1, N_OR_S = "N"):
         
         # Find the inputs and labels in the split selected and find the number of examples in this split
-        inputs, labels = getattr(self, f"{split_selected.upper()}_S") # i.e. self.TRAIN_S, self.VAL_S, self.TEST_S
+        inputs, labels = getattr(self, f"{split_selected.upper()}_S{N_OR_S}") # i.e. self.TRAIN_S, self.VAL_S, self.TEST_S [With an "N" or "S" at the end to generate batch from standardised or normalised data]
         num_examples = labels.shape[0]
         
         # Generate indexes which correspond to each example in the labels and inputs of this split (perform using CUDA if possible)
@@ -142,7 +145,7 @@ class DataHandler:
         # Move indices to the "cpu" so that we can index the dataset, which is currently stored on the CPU
         example_idxs = example_idxs.to(device = "cpu")
 
-        if num_context_days == None:
+        if num_context_days == 1:
 
             # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
             # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
@@ -185,72 +188,81 @@ class DataHandler:
             # Combine all companies data together
             # data.shape = [number of single day examples, number of features for each day]
             # labels.shape = [number of single day examples, correct prediction for stock trend for the following day]
-
-            all_data = []
+            
+            all_data_n = []
+            all_data_s = []
             all_labels = []
 
-            for i, (c_data, c_labels) in enumerate(zip(self.data, self.labels)):
+            for i, (c_labels, c_data_n, c_data_s) in enumerate(zip(self.labels, self.data_n, self.data_s)):
                 # Add the data and labels for this company to the lists
-                all_data.append(c_data)
+                all_data_n.append(c_data_n)
+                all_data_s.append(c_data_s)
                 all_labels.append(c_labels)
-                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
+                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
 
             # Concatenate all the data and labels from all the companies
-            self.data = torch_cat(all_data, dim = 0)
+            self.data_n = torch_cat(all_data_n, dim = 0)
+            self.data_s = torch_cat(all_data_s, dim = 0)
             self.labels = torch_cat(all_labels, dim = 0)
 
         # RNN
         else:
             
             # Create all the data sequences from each company
-            all_data_sequences = []
+            all_data_sequences_n = []
+            all_data_sequences_s = []
             all_labels = []
 
-            for i, (c_data, c_labels) in enumerate(zip(self.data, self.labels)):
-            
+            # Data (Normalised and standardised versions)
+            for i, (c_labels, c_data_n, c_data_s) in enumerate(zip(self.labels, self.data_n, self.data_s)):
+
+                # The number of sequences of length "num_context_days" in this company's data
+                num_sequences = c_labels.shape[0] - (num_context_days - 1) # E.g. if num_context_days = 10, 4530 --> (4530 - 10 - 1) = 
+
+                # Trim labels (The same is done for self.data when converting to sequences)
+                c_labels = c_labels[:num_sequences] # labels.shape = (Correct predictions for all sequences in self.data)
+
+                # Add the labels for this company to the lists
+                all_labels.append(c_labels)
+
                 # Let num_context_days = 10, batch_size = 32
                 # Single batch should be [10 x [32 * num_features] ]
                 # 32 x [ClosingP, OpeningP, Volume, etc..] 10 days ago
                 # The next batch for the recurrence will be the day after that day
                 # 32 x [ClosingP, OpeningP, Volume, etc..] 9 days ago
                 # Repeats until all 10 days have been passed in (for a single batch)
-
-                # The number of sequences of length "num_context_days" in the data
-                num_sequences = c_labels.shape[0] - (num_context_days - 1) # E.g. if num_context_days = 10, 4530 --> (4530 - 10 - 1) = 
-                
-                # Trim labels (The same is done for self.data when converting to sequences)
-                c_labels = c_labels[:num_sequences] # labels.shape = (Correct predictions for all sequences in self.data)
-                
-                # Convert the data into sequences of 10 consecutive days
                 # c_data.shape = (number of 10 consecutive days sequences, 10 consecutive days of examples, number of features in each day)
-                c_data = torch_stack([c_data[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
-
+                c_data_n = torch_stack([c_data_n[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
+                c_data_s = torch_stack([c_data_s[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
                 # Add the data sequences and labels for this company to the lists
-                all_data_sequences.append(c_data)
-                all_labels.append(c_labels)
+                all_data_sequences_n.append(c_data_n)
+                all_data_sequences_s.append(c_data_s)
                 
-                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
+                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
 
             # Concatenate all the data sequences and labels from all the companies
-            self.data = torch_cat(all_data_sequences, dim = 0)
+            self.data_n = torch_cat(all_data_sequences_n, dim = 0)
+            self.data_s = torch_cat(all_data_sequences_s)
             self.labels = torch_cat(all_labels, dim = 0)
         
-        print(f"DataShape: {self.data.shape} | LabelsShape: {self.labels.shape}")
+        print(f"DataShapeN: {self.data_n.shape} | DataShapeS: {self.data_s.shape} | LabelsShape: {self.labels.shape}")
 
         # Shuffling the data sequences
-        permutation_indices = torch_randperm(self.data.size(0), device = self.device, generator = self.generator) # Generate random permutation of indices
+        permutation_indices = torch_randperm(self.labels.shape[0], device = self.device, generator = self.generator) # Generate random permutation of indices
         permutation_indices = permutation_indices.to(device = "cpu") # Move to CPU as self.data is on the CPU
 
         # prev_data = self.data.clone()
         # prev_labels = self.labels.clone()
-        self.data = self.data[permutation_indices] # Assign indices to data
-        self.labels = self.labels[permutation_indices] # Assign indices to labels
+        # Assign indices to data and labels
+        self.data_n = self.data_n[permutation_indices]
+        self.data_s = self.data_s[permutation_indices]
+        self.labels = self.labels[permutation_indices]
         
         # print(torch_equal(self.data, prev_data[permutation_indices]))
         # print(torch_equal(self.labels, prev_labels[permutation_indices])) 
 
         # Update split indexes
-        total_examples = self.data.shape[0]
+        total_examples = self.labels.shape[0]
         for split_name in split_idx.keys():
             split_idx[split_name] = int(split_idx[split_name] * total_examples)
         
@@ -258,13 +270,16 @@ class DataHandler:
         val_end_idx = split_idx["Train"] + split_idx["Val"]
 
         # Create the splits, each tuple = (inputs, labels)
-        self.TRAIN_S = (self.data[0:split_idx["Train"]], self.labels[0:split_idx["Train"]])
-        self.VAL_S = (self.data[split_idx["Train"]:val_end_idx], self.labels[split_idx["Train"]:val_end_idx])
-        self.TEST_S = (self.data[val_end_idx:], self.labels[val_end_idx:])
+        for t_letter in ("N", "S"): # t_letter = transformation letter
+            print(f"Letter: {t_letter}")
+            setattr(self, f"TRAIN_S{t_letter}", (getattr(self, f'data_{t_letter.lower()}')[0:split_idx["Train"]], self.labels[0:split_idx["Train"]]))
+            setattr(self, f"VAL_S{t_letter}", (getattr(self, f'data_{t_letter.lower()}')[split_idx["Train"]:val_end_idx], self.labels[split_idx["Train"]:val_end_idx]))
+            setattr(self, f"TEST_S{t_letter}", (getattr(self, f'data_{t_letter.lower()}')[val_end_idx:], self.labels[val_end_idx:]))
 
-        print(f"DataShapes| Train {self.TRAIN_S[0].shape} | Validation {self.VAL_S[0].shape}| Test {self.TEST_S[0].shape}")
-        print(f"LabelShapes| Train {self.TRAIN_S[1].shape} | Validation {self.VAL_S[1].shape}| Test {self.TEST_S[1].shape}")
+            print(f"DataShapes| Train {getattr(self, f'TRAIN_S{t_letter}')[0].shape} | Validation {getattr(self, f'VAL_S{t_letter}')[0].shape}| Test {getattr(self, f'TEST_S{t_letter}')[0].shape}")
+            print(f"LabelShapes| Train {getattr(self, f'TRAIN_S{t_letter}')[1].shape} | Validation {getattr(self, f'VAL_S{t_letter}')[1].shape}| Test {getattr(self, f'TEST_S{t_letter}')[1].shape}")
 
         # Clear memory
-        del self.data
+        del self.data_n
+        del self.data_s
         del self.labels

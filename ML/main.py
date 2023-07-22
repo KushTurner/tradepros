@@ -25,37 +25,35 @@ DH.retrieve_data(
                 start_date = "7/07/2003",
                 end_date = "7/07/2023", 
                 interval = "1d",
-                normalise = False,
-                standardise = True
                 )
 
-for company_data in DH.data:
+for company_data in DH.data_n:
     print("ContainsNaN", company_data.isnan().any().item()) # Check if the tensor contains "nan"
 
-# model = MLP(initial_in = DH.n_features, final_out = 2)
-# optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
+model = MLP(initial_in = DH.n_features, final_out = 2, N_OR_S = "S")
+optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
 
-model = RNN(initial_in = DH.n_features, final_out = 2)
-optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
+# model = RNN(initial_in = DH.n_features, final_out = 2, N_OR_S = "N")
+# optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
 
 model.to(device = DEVICE) # Move to selected device
 
-# Create train/val/test splits
+# Create train/val/test splits (Normalised and standardised versions)
 num_context_days = 10 if isinstance(model, RNN) else 1 # Number of days used as context (Used for RNN)
 DH.create_splits(num_context_days = num_context_days)
 
 # Testing generate_batch
-X1, Y1 = DH.generate_batch(batch_size = 5, split_selected = "train", num_context_days = num_context_days)
+X1, Y1 = DH.generate_batch(batch_size = 5, split_selected = "train", num_context_days = num_context_days, N_OR_S = "S")
 print(X1.shape, Y1.shape)
 
-X2, Y2 = DH.generate_batch(batch_size = 5, split_selected = "val", num_context_days = num_context_days)
+X2, Y2 = DH.generate_batch(batch_size = 5, split_selected = "val", num_context_days = num_context_days, N_OR_S = "S")
 print(X2.shape, Y2.shape)
 
-X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test", num_context_days = num_context_days)
+X3, Y3 = DH.generate_batch(batch_size = 5, split_selected = "test", num_context_days = num_context_days, N_OR_S = "S")
 print(X3.shape, Y3.shape)
 
 # Training:
-EPOCHS = 200000
+EPOCHS = 10000 #200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20
 
@@ -66,7 +64,7 @@ val_accuracy_i = []
 
 for i in range(EPOCHS):
     # Generate inputs and labels
-    Xtr, Ytr = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "train", num_context_days = num_context_days)
+    Xtr, Ytr = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "train", num_context_days = num_context_days, N_OR_S = model.N_OR_S)
 
     # Forward pass
     logits = model(Xtr)
@@ -88,7 +86,7 @@ for i in range(EPOCHS):
         train_accuracy_i.append(find_accuracy(predictions = preds, targets = Ytr, batch_size = BATCH_SIZE))
 
         # Find validation loss
-        Xva, Yva = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "val", num_context_days = num_context_days)
+        Xva, Yva = DH.generate_batch(batch_size = BATCH_SIZE, split_selected = "val", num_context_days = num_context_days, N_OR_S = model.N_OR_S)
         v_logits = model(Xva)
         v_loss = F.cross_entropy(v_logits, Yva)
 

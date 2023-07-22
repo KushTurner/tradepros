@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class MLP(nn.Module):
 
-    def __init__(self, initial_in, final_out):
+    def __init__(self, initial_in, final_out, N_OR_S):
 
         super(MLP, self).__init__()
         
@@ -79,6 +79,9 @@ class MLP(nn.Module):
                                     )
         
         self.initialise_weights(non_linearity = "relu")
+        
+        # Determines whether the model will use normalised or standardised data for training and inference
+        self.N_OR_S = N_OR_S
     
     def __call__(self, inputs):
         return self.model(inputs)
@@ -95,7 +98,7 @@ class MLP(nn.Module):
 
 class RNN(nn.Module):
 
-    def __init__(self, initial_in, final_out):
+    def __init__(self, initial_in, final_out, N_OR_S):
         super(RNN, self).__init__()
 
         # Accuracies tested (32 batch size, 200_000 steps, lr = 1e-3) [After using data from more than one company]
@@ -146,6 +149,9 @@ class RNN(nn.Module):
         self.O = nn.Linear(initial_in // 4, final_out)
 
         self.initialise_weights(non_linearity = "relu")
+
+        # Determines whether the model will use normalised or standardised data for training and inference
+        self.N_OR_S = N_OR_S
 
     def __call__(self, inputs):
         
