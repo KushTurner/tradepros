@@ -7,6 +7,7 @@ from torch import multinomial as torch_multinomial
 from torch import stack as torch_stack
 from torch import randperm as torch_randperm
 from torch import cat as torch_cat
+from torch import chunk as torch_chunk
 
 class DataHandler:
 
@@ -18,8 +19,9 @@ class DataHandler:
         # self.data - Holds the inputs for each example
         # self.labels - Holds the corresponding targets for each example
         # self.TRAIN_S(N/S) - Training set
-        # self.VAL_S(N/S) - Validation set
         # self.TEST_S(N/S) - Test set
+        # self.TRAIN_FOLDS - Training folds
+        # self.VAL_FOLDS - Validation folds
         
         # self.n_features - Number of inputs that will be passed into a model (i.e. the number of columns/features in the pandas dataframe)
 
@@ -110,7 +112,7 @@ class DataHandler:
 
         # Set all columns in the D to the float datatype (All values must be homogenous when passed as a tensor into a model) and return the dataframe
         return D.astype(float)
-    
+
     def normalise_columns(self, dataframe, cols_to_norm):
         # Return normalised columns
         return (dataframe[cols_to_norm] - dataframe[cols_to_norm].min()) / (dataframe[cols_to_norm].max() - dataframe[cols_to_norm].min())
@@ -132,13 +134,13 @@ class DataHandler:
 
         return torch_tensor(pandas_dataframe.values, dtype = desired_dtype)
 
-    def generate_batch(self, batch_size, split_selected, num_context_days = 1, N_OR_S = "N"):
+    def generate_batch(self, batch_size, dataset, num_context_days):
         
-        # Find the inputs and labels in the split selected and find the number of examples in this split
-        inputs, labels = getattr(self, f"{split_selected.upper()}_S{N_OR_S}") # i.e. self.TRAIN_S, self.VAL_S, self.TEST_S [With an "N" or "S" at the end to generate batch from standardised or normalised data]
+        # Find the inputs and labels in the dataset and find the number of examples in this set
+        inputs, labels = dataset
         num_examples = labels.shape[0]
         
-        # Generate indexes which correspond to each example in the labels and inputs of this split (perform using CUDA if possible)
+        # Generate indexes which correspond to each example in the labels and inputs of this dataset (perform using CUDA if possible)
         u_distrib = torch_ones(num_examples, device = self.device) / num_examples # Uniform distribution
         example_idxs = torch_multinomial(input = u_distrib, num_samples = batch_size, replacement = True, generator = self.generator)
 
@@ -172,16 +174,10 @@ class DataHandler:
             
             # Return the batch inputs and labels
             return b_inputs.to(device = self.device), labels[example_idxs].to(device = self.device)
-        
-    def create_splits(self, num_context_days = 1):
-        
-        # Split distribution percentages (Will be modified depending on the num_context_days)
-        split_idx = {
-                    "Train": 0.8,
-                    "Val": 0.1,
-                    "Test": 0.1
-                    }
-        
+
+    def create_data_sequences(self, num_context_days):
+        # Converts self.data_n, self.data_s, self.labels into data sequences
+
         # MLP 
         if num_context_days == 1:
             
@@ -260,26 +256,53 @@ class DataHandler:
         
         # print(torch_equal(self.data, prev_data[permutation_indices]))
         # print(torch_equal(self.labels, prev_labels[permutation_indices])) 
+    
+    def separate_data_sequences(self):
+        # Separates data sequences into training and test sets 
+        # - The training set will be used for folds during training
+        # - The test set will be used as a final evaluation of then model after cross-validation
 
-        # Update split indexes
-        total_examples = self.labels.shape[0]
-        for split_name in split_idx.keys():
-            split_idx[split_name] = int(split_idx[split_name] * total_examples)
+        train_end_idx = int(self.labels.shape[0] * 0.8)
         
-        # Cut off between train and val split
-        val_end_idx = split_idx["Train"] + split_idx["Val"]
+        self.TRAIN_SN = (self.data_n[0:train_end_idx], self.labels[0:train_end_idx])
+        self.TRAIN_SS = (self.data_s[0:train_end_idx], self.labels[0:train_end_idx])
+        self.TEST_SN = (self.data_n[train_end_idx:], self.labels[train_end_idx:])
+        self.TEST_SS = (self.data_s[train_end_idx:], self.labels[train_end_idx:])
 
-        # Create the splits, each tuple = (inputs, labels)
-        for t_letter in ("N", "S"): # t_letter = transformation letter
-            print(f"Letter: {t_letter}")
-            setattr(self, f"TRAIN_S{t_letter}", (getattr(self, f'data_{t_letter.lower()}')[0:split_idx["Train"]], self.labels[0:split_idx["Train"]]))
-            setattr(self, f"VAL_S{t_letter}", (getattr(self, f'data_{t_letter.lower()}')[split_idx["Train"]:val_end_idx], self.labels[split_idx["Train"]:val_end_idx]))
-            setattr(self, f"TEST_S{t_letter}", (getattr(self, f'data_{t_letter.lower()}')[val_end_idx:], self.labels[val_end_idx:]))
+        print(train_end_idx)
+        print(f"TRAIN SET | Inputs: {self.TRAIN_SS[0].shape} | Labels: {self.TRAIN_SS[1].shape}")
+        print(f"TEST SET | Inputs: {self.TEST_SS[0].shape} | Labels: {self.TEST_SS[1].shape}")
+    
+    def create_sets(self, num_context_days):
+        # Convert self.data_n, self.data_s, self.labels into data sequences 
+        self.create_data_sequences(num_context_days = num_context_days)
 
-            print(f"DataShapes| Train {getattr(self, f'TRAIN_S{t_letter}')[0].shape} | Validation {getattr(self, f'VAL_S{t_letter}')[0].shape}| Test {getattr(self, f'TEST_S{t_letter}')[0].shape}")
-            print(f"LabelShapes| Train {getattr(self, f'TRAIN_S{t_letter}')[1].shape} | Validation {getattr(self, f'VAL_S{t_letter}')[1].shape}| Test {getattr(self, f'TEST_S{t_letter}')[1].shape}")
+        # Separate the data sequences into to two sets (Training and test)
+        self.separate_data_sequences()
 
-        # Clear memory
-        del self.data_n
-        del self.data_s
-        del self.labels
+    def create_folds(self, num_folds, N_OR_S = "N"):
+        # Creates folds out of the training set
+        
+        # TRAIN_SN or TRAIN_SS
+        training_set = getattr(self, f"TRAIN_S{N_OR_S}")
+
+        # Divide the data and labels into k folds
+        # Note: self.d_folds_(n/s) and self.l_folds(n/s) will be a tuple of k folds, with each fold being a tensor
+        setattr(self, f"d_folds_{N_OR_S.lower()}", torch_chunk(input = training_set[0], chunks = num_folds, dim = 0)) # self.d_folds_(n/s)
+        setattr(self, f"l_folds_{N_OR_S.lower()}", torch_chunk(input = training_set[1], chunks = num_folds, dim = 0)) # self.l_folds_(n/s)
+ 
+    def retrieve_k_folds(self, k, N_OR_S = "N"):
+        
+        # Select the kth fold as the validation set and the remaining folds for training (k will be zero indexed)
+        # Note: Will overwrite the previous self.TRAIN_FOLDS and self.VAL_FOLDS after selecting a new fold
+
+        D_FOLDS = getattr(self, f"d_folds_{N_OR_S.lower()}")
+        L_FOLDS = getattr(self, f"l_folds_{N_OR_S.lower()}")
+
+        print(f"TRAIN FOLDS | Inputs: {torch_cat([D_FOLDS[i] for i in range(len(D_FOLDS)) if i != k]).shape} | Labels: {torch_cat([L_FOLDS[i] for i in range(len(D_FOLDS)) if i != k]).shape}")
+        print(f"VAL FOLD | Inputs: {D_FOLDS[k].shape} | Labels: {L_FOLDS[k].shape}")
+
+        # Training folds and validation fold
+        # Note: Each tuple = (data folds, corresponding label folds)
+        # Return the training folds  and validation folds
+        return (torch_cat([D_FOLDS[i] for i in range(len(D_FOLDS)) if i != k]), torch_cat([L_FOLDS[i] for i in range(len(D_FOLDS)) if i != k])), (D_FOLDS[k], L_FOLDS[k])
