@@ -43,12 +43,12 @@ num_context_days = 10 if isinstance(model, RNN) else 1 # Number of days used as 
 num_folds = 10 # Number of folds used in cross-validation
 
 # Create training and test sets and data sequences for this model (must be repeated for each model as num_context_days can vary depending on the model used)
-DH.create_sets(num_context_days = num_context_days)
+DH.create_sets(num_context_days = num_context_days, shuffle_data_sequences = False)
 # Create k folds
 DH.create_folds(num_folds = 10, N_OR_S = model.N_OR_S)
 
 # Generate folds for this training iteration
-TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(k = 0, N_OR_S = model.N_OR_S)
+TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2, N_OR_S = model.N_OR_S)
 
 # Testing generate_batch
 X1, Y1 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_days = num_context_days)
@@ -61,7 +61,7 @@ X3, Y3 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_da
 print(X3.shape, Y3.shape)
 
 # Training:
-EPOCHS = 100 #200000
+EPOCHS = 1000 #200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20
 
@@ -75,10 +75,15 @@ fold_v_accuracies = []
 fold_t_losses = []
 fold_v_losses = []
 
-for k in range(num_folds):
+num_sets = (num_folds - 1) # Number of sets i.e. the number of (TRAIN_FOLDS, VAL_FOLDS) generated, e.g. if num_folds = 5, there will be 4 sets
 
-    # Generate folds for this training iteration
-    TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(k = k, N_OR_S = model.N_OR_S)
+for k in range(num_sets):
+
+    # Generate folds for this training iteration    
+    # Notes:
+    # - Window size starts at 2: Window sizes = (2 + 0), (2 + 1) (2 + 2) (2 + 3)
+    # - Number of total sets = (num_folds - 1)
+    TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2 + k, N_OR_S = model.N_OR_S)
 
     for i in range(EPOCHS):
         # Generate inputs and labels
@@ -101,8 +106,7 @@ for k in range(num_folds):
             # Find train accuracy on current batch
             preds = F.softmax(logits, dim = 1) # Softmax to find probability distribution
             train_accuracy = find_accuracy(predictions = preds, targets = Ytr, batch_size = BATCH_SIZE)
-            train_accuracy_i.append(train_accuracy)
-
+            
             # Find validation loss
             Xva, Yva = DH.generate_batch(batch_size = BATCH_SIZE, dataset = VAL_FOLDS, num_context_days = num_context_days)
             v_logits = model(Xva)
@@ -111,7 +115,6 @@ for k in range(num_folds):
             # Find validation accuracy on current batch
             v_preds = F.softmax(v_logits, dim = 1) # Softmax to find probability distribution
             val_accuracy = find_accuracy(predictions = v_preds, targets = Yva, batch_size = BATCH_SIZE)
-            val_accuracy_i.append(val_accuracy)
 
             model.train()
 
@@ -127,6 +130,9 @@ for k in range(num_folds):
 
         train_loss_i.append(loss.item())
         val_loss_i.append(v_loss.item())
+
+        train_accuracy_i.append(train_accuracy)
+        val_accuracy_i.append(val_accuracy)
 
         if i == 0 or (i + 1) % STAT_TRACK_INTERVAL == 0:
             print(f"K: {k + 1} | Epoch: {i + 1} | TrainLoss: {loss.item()} | ValLoss: {v_loss.item()} | CurrentTrainAccuracy: {train_accuracy} | CurrentValAccuracy: {val_accuracy}")
@@ -154,7 +160,7 @@ print(f"ValLosses: {fold_v_losses}")
 print("-----------------------------------------------------------------")
 print("Metrics across folds")
 
-print(f"TrainAccuracy: {sum(fold_t_accuracies) / num_folds}) | ValAccuracy: {sum(fold_v_accuracies) / num_folds} | TrainLoss: {sum(fold_t_losses) / num_folds} | ValLoss: {sum(fold_v_losses) / num_folds}")
+print(f"TrainAccuracy: {sum(fold_t_accuracies) / num_sets}) | ValAccuracy: {sum(fold_v_accuracies) / num_sets} | TrainLoss: {sum(fold_t_losses) / num_sets} | ValLoss: {sum(fold_v_losses) / num_sets}")
 
 print("-----------------------------------------------------------------")
 print("Loss during training")
@@ -168,21 +174,21 @@ val_loss_i = torch.tensor(val_loss_i).view(-1, A).mean(1)
 # val_loss_i = torch.tensor(torch.log10(val_loss_i)).view(-1, A).mean(1)
 
 fig, ax = plt.subplots()
-ax.plot([i for i in range(int((EPOCHS * num_folds) / A))], train_loss_i, label = "Train")
-ax.plot([i for i in range(int((EPOCHS * num_folds) / A))], val_loss_i, label = "Validation")
-ax.legend()
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / A))], train_loss_i, label = "Train")
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / A))], val_loss_i, label = "Validation")
+ax.legend()#
 plt.show()
 
 print("-----------------------------------------------------------------")
 print("Accuracy during training")
 
-B = 500
+B = 100
 train_accuracy_i = torch.tensor(train_accuracy_i).view(-1, B).mean(1)
 val_accuracy_i = torch.tensor(val_accuracy_i).view(-1, B).mean(1)
 
 fig, ax = plt.subplots()
-ax.plot([i for i in range(int((EPOCHS * num_folds) / B))], train_accuracy_i, label = "Train")
-ax.plot([i for i in range(int((EPOCHS * num_folds) / B))], val_accuracy_i, label = "Validation")
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / B))], train_accuracy_i, label = "Train")
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / B))], val_accuracy_i, label = "Validation")
 ax.legend()
 plt.show()
 

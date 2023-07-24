@@ -20,8 +20,6 @@ class DataHandler:
         # self.labels - Holds the corresponding targets for each example
         # self.TRAIN_S(N/S) - Training set
         # self.TEST_S(N/S) - Test set
-        # self.TRAIN_FOLDS - Training folds
-        # self.VAL_FOLDS - Validation folds
         
         # self.n_features - Number of inputs that will be passed into a model (i.e. the number of columns/features in the pandas dataframe)
 
@@ -175,7 +173,7 @@ class DataHandler:
             # Return the batch inputs and labels
             return b_inputs.to(device = self.device), labels[example_idxs].to(device = self.device)
 
-    def create_data_sequences(self, num_context_days):
+    def create_data_sequences(self, num_context_days, shuffle_data_sequences):
         # Converts self.data_n, self.data_s, self.labels into data sequences
 
         # MLP 
@@ -235,6 +233,9 @@ class DataHandler:
                 all_data_sequences_s.append(c_data_s)
                 
                 print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
+            
+            if shuffle_data_sequences == True:
+                self.shuffle_data_sequences()
 
             # Concatenate all the data sequences and labels from all the companies
             self.data_n = torch_cat(all_data_sequences_n, dim = 0)
@@ -242,20 +243,6 @@ class DataHandler:
             self.labels = torch_cat(all_labels, dim = 0)
         
         print(f"DataShapeN: {self.data_n.shape} | DataShapeS: {self.data_s.shape} | LabelsShape: {self.labels.shape}")
-
-        # Shuffling the data sequences
-        permutation_indices = torch_randperm(self.labels.shape[0], device = self.device, generator = self.generator) # Generate random permutation of indices
-        permutation_indices = permutation_indices.to(device = "cpu") # Move to CPU as self.data is on the CPU
-
-        # prev_data = self.data.clone()
-        # prev_labels = self.labels.clone()
-        # Assign indices to data and labels
-        self.data_n = self.data_n[permutation_indices]
-        self.data_s = self.data_s[permutation_indices]
-        self.labels = self.labels[permutation_indices]
-        
-        # print(torch_equal(self.data, prev_data[permutation_indices]))
-        # print(torch_equal(self.labels, prev_labels[permutation_indices])) 
     
     def separate_data_sequences(self):
         # Separates data sequences into training and test sets 
@@ -273,9 +260,25 @@ class DataHandler:
         print(f"TRAIN SET | Inputs: {self.TRAIN_SS[0].shape} | Labels: {self.TRAIN_SS[1].shape}")
         print(f"TEST SET | Inputs: {self.TEST_SS[0].shape} | Labels: {self.TEST_SS[1].shape}")
     
-    def create_sets(self, num_context_days):
+    def shuffle_data_sequences(self):
+        # Shuffling the data sequences
+
+        permutation_indices = torch_randperm(self.labels.shape[0], device = self.device, generator = self.generator) # Generate random permutation of indices
+        permutation_indices = permutation_indices.to(device = "cpu") # Move to CPU as self.data is on the CPU
+
+        # prev_data = self.data.clone()
+        # prev_labels = self.labels.clone()
+        # Assign indices to data and labels
+        self.data_n = self.data_n[permutation_indices]
+        self.data_s = self.data_s[permutation_indices]
+        self.labels = self.labels[permutation_indices]
+        
+        # print(torch_equal(self.data, prev_data[permutation_indices]))
+        # print(torch_equal(self.labels, prev_labels[permutation_indices])) 
+
+    def create_sets(self, num_context_days, shuffle_data_sequences):
         # Convert self.data_n, self.data_s, self.labels into data sequences 
-        self.create_data_sequences(num_context_days = num_context_days)
+        self.create_data_sequences(num_context_days = num_context_days, shuffle_data_sequences = shuffle_data_sequences)
 
         # Separate the data sequences into to two sets (Training and test)
         self.separate_data_sequences()
@@ -291,18 +294,25 @@ class DataHandler:
         setattr(self, f"d_folds_{N_OR_S.lower()}", torch_chunk(input = training_set[0], chunks = num_folds, dim = 0)) # self.d_folds_(n/s)
         setattr(self, f"l_folds_{N_OR_S.lower()}", torch_chunk(input = training_set[1], chunks = num_folds, dim = 0)) # self.l_folds_(n/s)
  
-    def retrieve_k_folds(self, k, N_OR_S = "N"):
+    def retrieve_k_folds(self, window_size, N_OR_S = "N"):
         
-        # Select the kth fold as the validation set and the remaining folds for training (k will be zero indexed)
-        # Note: Will overwrite the previous self.TRAIN_FOLDS and self.VAL_FOLDS after selecting a new fold
+        # Implementation of walk-forward / expanding window cross validation:
+        # = Selects the fold at the end of the window as the validation set and the remaining folds for training (k will be zero indexed)
+        # - Models will always be trained on past data with the validation set being new unseen data.
 
-        D_FOLDS = getattr(self, f"d_folds_{N_OR_S.lower()}")
-        L_FOLDS = getattr(self, f"l_folds_{N_OR_S.lower()}")
-
-        print(f"TRAIN FOLDS | Inputs: {torch_cat([D_FOLDS[i] for i in range(len(D_FOLDS)) if i != k]).shape} | Labels: {torch_cat([L_FOLDS[i] for i in range(len(D_FOLDS)) if i != k]).shape}")
-        print(f"VAL FOLD | Inputs: {D_FOLDS[k].shape} | Labels: {L_FOLDS[k].shape}")
+        # Retrieve only the first "window_size" folds
+        D_FOLDS = getattr(self, f"d_folds_{N_OR_S.lower()}")[:window_size]
+        L_FOLDS = getattr(self, f"l_folds_{N_OR_S.lower()}")[:window_size]
+        
+        # Example:
+        # Train: [Fold1], Validation: Fold2
+        # Train: [Fold1, Fold2], Validation: Fold3
+        # Train: [Fold1, Fold2, Fold3], Validation: Fold4
+        # Train: [Fold1, Fold2, Fold3, Fold4], Validation: Fold5
+        print(f"TRAIN FOLDS | Inputs: {torch_cat([D_FOLDS[i] for i in range(window_size - 1)]).shape} | Labels: {torch_cat([L_FOLDS[i] for i in range(window_size - 1)]).shape}")
+        print(f"VAL FOLD | Inputs: {D_FOLDS[-1].shape} | Labels: {L_FOLDS[-1].shape}")
 
         # Training folds and validation fold
         # Note: Each tuple = (data folds, corresponding label folds)
         # Return the training folds  and validation folds
-        return (torch_cat([D_FOLDS[i] for i in range(len(D_FOLDS)) if i != k]), torch_cat([L_FOLDS[i] for i in range(len(D_FOLDS)) if i != k])), (D_FOLDS[k], L_FOLDS[k])
+        return (torch_cat([D_FOLDS[i] for i in range(window_size - 1)]), torch_cat([L_FOLDS[i] for i in range(window_size - 1)])), (D_FOLDS[-1], L_FOLDS[-1])
