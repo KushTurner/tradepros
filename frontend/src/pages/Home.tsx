@@ -1,4 +1,29 @@
+import Instructions from '../components/Instructions';
 import Footer from './Footer';
+
+const instructionsData = [
+  {
+    index: 1,
+    header: 'Create An Account',
+    description: 'Sign up with your email in under 2 minutes',
+  },
+  {
+    index: 2,
+    header: 'Analyse Companies',
+    description: 'Determine which companies you want to invest into',
+  },
+  {
+    index: 3,
+    header: 'Start Investing Instantly',
+    description:
+      'Buy and Sell a variety of stocks with a $100,000 of virtual money',
+  },
+  {
+    index: 4,
+    header: 'Compete Against Your Friends',
+    description: 'See who has profited the most using our leaderboard',
+  },
+];
 
 function Home() {
   return (
@@ -53,41 +78,14 @@ function Home() {
         </div>
         <div className="text-white flex flex-col items-center font-display md:mr-5">
           <ul className="md:columns-2">
-            <li className="rounded-lg bg-[#080808] m-2 p-5 mb-4 pl-8">
-              <h5 className="font-bold text-md mb-2">
-                <span className="text-[#5367FE]">1.</span> Create An Account
-              </h5>
-              <p className="text-[#9395A5] text-sm">
-                Sign up with your email in under 2 minutes
-              </p>
-            </li>
-            <li className="rounded-lg bg-[#080808] m-2 p-5 mb-4 pl-8">
-              <h5 className="font-bold text-md mb-2">
-                <span className="text-[#5367FE]">2.</span> Analyse Companies
-              </h5>
-              <p className="text-[#9395A5] text-sm">
-                Determine which companies you want to invest into
-              </p>
-            </li>
-            <li className="rounded-lg bg-[#080808] m-2 p-5 mb-4 pl-8">
-              <h5 className="font-bold text-md mb-2">
-                <span className="text-[#5367FE]">3.</span> Start Investing
-                Instantly
-              </h5>
-              <p className="text-[#9395A5] text-sm">
-                Buy and Sell a variety of stocks with a $100,000 of virtual
-                money
-              </p>
-            </li>
-            <li className="rounded-lg bg-[#080808] m-2 p-5 mb-4 pl-8">
-              <h5 className="font-bold text-md mb-2">
-                <span className="text-[#5367FE]">4.</span> Compete Against Your
-                Friends
-              </h5>
-              <p className="text-[#9395A5] text-sm">
-                See who has profited the most using our leaderboard
-              </p>
-            </li>
+            {instructionsData.map((instructs) => (
+              <Instructions
+                key={instructs.index}
+                index={instructs.index}
+                header={instructs.header}
+                description={instructs.description}
+              />
+            ))}
           </ul>
         </div>
       </div>
