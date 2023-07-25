@@ -61,7 +61,7 @@ X3, Y3 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_da
 print(X3.shape, Y3.shape)
 
 # Training:
-EPOCHS = 1000 #200000
+EPOCHS = 5000 #200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20
 

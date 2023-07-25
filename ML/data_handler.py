@@ -8,6 +8,8 @@ from torch import stack as torch_stack
 from torch import randperm as torch_randperm
 from torch import cat as torch_cat
 from torch import chunk as torch_chunk
+from torch import argsort as torch_argsort
+from pandas import to_datetime as pd_to_datetime
 
 class DataHandler:
 
@@ -28,6 +30,7 @@ class DataHandler:
         self.data_n = [] # Normalised data
         self.data_s = [] # Standardised data
         self.labels = []
+        self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
         
         # For each company, modify the data 
         for ticker in tickers:
@@ -62,8 +65,11 @@ class DataHandler:
             self.data_n.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
             self.data_s.append(self.dataframe_to_ptt(pandas_dataframe = S_DATA, desired_dtype = torch_float_32))
 
+            # Add the dates to the list
+            self.dates.append(DATA.index.tolist())
+
             print(f"Ticker: {ticker} | DataShape: {self.data_n[-1].shape} | LabelsShape: {self.labels[-1].shape}")
-        
+
         # Set the number of features that will go into the first layer of a model
         self.n_features = self.data_n[-1].shape[1]
         print(f"Number of data features: {self.n_features}")
@@ -186,12 +192,14 @@ class DataHandler:
             all_data_n = []
             all_data_s = []
             all_labels = []
+            all_dates = []
 
-            for i, (c_labels, c_data_n, c_data_s) in enumerate(zip(self.labels, self.data_n, self.data_s)):
-                # Add the data and labels for this company to the lists
+            for i, (c_labels, c_dates, c_data_n, c_data_s) in enumerate(zip(self.labels, self.dates, self.data_n, self.data_s)):
+                # Add the data. labels and dates for this company to the lists
                 all_data_n.append(c_data_n)
                 all_data_s.append(c_data_s)
                 all_labels.append(c_labels)
+                all_dates.extend(c_dates)
                 print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
 
             # Concatenate all the data and labels from all the companies
@@ -206,9 +214,10 @@ class DataHandler:
             all_data_sequences_n = []
             all_data_sequences_s = []
             all_labels = []
+            all_dates = []
 
             # Data (Normalised and standardised versions)
-            for i, (c_labels, c_data_n, c_data_s) in enumerate(zip(self.labels, self.data_n, self.data_s)):
+            for i, (c_labels, c_dates, c_data_n, c_data_s) in enumerate(zip(self.labels, self.dates, self.data_n, self.data_s)):
 
                 # The number of sequences of length "num_context_days" in this company's data
                 num_sequences = c_labels.shape[0] - (num_context_days - 1) # E.g. if num_context_days = 10, 4530 --> (4530 - 10 - 1) = 
@@ -216,8 +225,8 @@ class DataHandler:
                 # Trim labels (The same is done for self.data when converting to sequences)
                 c_labels = c_labels[:num_sequences] # labels.shape = (Correct predictions for all sequences in self.data)
 
-                # Add the labels for this company to the lists
-                all_labels.append(c_labels)
+                # Trim dates
+                c_dates = c_dates[:num_sequences]
 
                 # Let num_context_days = 10, batch_size = 32
                 # Single batch should be [10 x [32 * num_features] ]
@@ -228,22 +237,35 @@ class DataHandler:
                 # c_data.shape = (number of 10 consecutive days sequences, 10 consecutive days of examples, number of features in each day)
                 c_data_n = torch_stack([c_data_n[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
                 c_data_s = torch_stack([c_data_s[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
+
                 # Add the data sequences and labels for this company to the lists
                 all_data_sequences_n.append(c_data_n)
                 all_data_sequences_s.append(c_data_s)
-                
+
+                # Add the labels for this company to the lists
+                all_labels.append(c_labels)
+
+                # Add the dates for this company to the list
+                all_dates.extend(c_dates) # Extend so that it is a single list
+
                 print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
-            
-            if shuffle_data_sequences == True:
-                self.shuffle_data_sequences()
 
             # Concatenate all the data sequences and labels from all the companies
             self.data_n = torch_cat(all_data_sequences_n, dim = 0)
             self.data_s = torch_cat(all_data_sequences_s)
             self.labels = torch_cat(all_labels, dim = 0)
+
+        # Sorting / Shuffling data sequences
+        if shuffle_data_sequences == True:
+            self.shuffle_data_sequences() # Random shuffle
+        else:
+            self.sort_data_sequences(dates = all_dates) # Chronological order
         
-        print(f"DataShapeN: {self.data_n.shape} | DataShapeS: {self.data_s.shape} | LabelsShape: {self.labels.shape}")
+        # Remove dates (no longer required)
+        del self.dates
     
+        print(f"DataShapeN: {self.data_n.shape} | DataShapeS: {self.data_s.shape} | LabelsShape: {self.labels.shape}")
+
     def separate_data_sequences(self):
         # Separates data sequences into training and test sets 
         # - The training set will be used for folds during training
@@ -255,8 +277,7 @@ class DataHandler:
         self.TRAIN_SS = (self.data_s[0:train_end_idx], self.labels[0:train_end_idx])
         self.TEST_SN = (self.data_n[train_end_idx:], self.labels[train_end_idx:])
         self.TEST_SS = (self.data_s[train_end_idx:], self.labels[train_end_idx:])
-
-        print(train_end_idx)
+        
         print(f"TRAIN SET | Inputs: {self.TRAIN_SS[0].shape} | Labels: {self.TRAIN_SS[1].shape}")
         print(f"TEST SET | Inputs: {self.TEST_SS[0].shape} | Labels: {self.TEST_SS[1].shape}")
     
@@ -275,6 +296,24 @@ class DataHandler:
         
         # print(torch_equal(self.data, prev_data[permutation_indices]))
         # print(torch_equal(self.labels, prev_labels[permutation_indices])) 
+    
+    def sort_data_sequences(self, dates):
+        
+        # Convert the list of pandas timestamps into unix timestamps (Number of seconds that have elapsed since January 1, 1970 (UTC))
+        # Notes: 
+        # - Converted to unix timestamps so that we can perform torch.argsort()
+        # - self.data and self.labels at this stage will be the companies data placed one after another, so the dates must be sorted into chronological order
+        # - descending = True because the timestamps are seconds elapsed so larger numbers = further back in time
+        unix_timestamps = torch_tensor([pd_to_datetime(time_stamp).timestamp() for time_stamp in dates])
+        sort_indices = torch_argsort(unix_timestamps, descending = True) # Returns the indices which will sort self.data and self.labels in chronological order 
+
+        print("SORTED: DATALABELSDATES", self.data_n.shape, self.labels.shape, sort_indices.shape)
+        
+        # Sort data and labels
+        self.data_n = self.data_n[sort_indices]
+        self.data_s = self.data_s[sort_indices]
+        self.labels = self.labels[sort_indices]
+
 
     def create_sets(self, num_context_days, shuffle_data_sequences):
         # Convert self.data_n, self.data_s, self.labels into data sequences 
