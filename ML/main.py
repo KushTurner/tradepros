@@ -25,6 +25,7 @@ DH.retrieve_data(
                 start_date = "7/07/2003",
                 end_date = "7/07/2023", 
                 interval = "1d",
+                transform_after = True
                 )
 
 for company_data in DH.data_n:
@@ -135,7 +136,7 @@ for k in range(num_sets):
         val_accuracy_i.append(val_accuracy)
 
         if i == 0 or (i + 1) % STAT_TRACK_INTERVAL == 0:
-            print(f"K: {k + 1} | Epoch: {i + 1} | TrainLoss: {loss.item()} | ValLoss: {v_loss.item()} | CurrentTrainAccuracy: {train_accuracy} | CurrentValAccuracy: {val_accuracy}")
+            print(f"K: {k + 1}/{num_sets} | Epoch: {i + 1} | TrainLoss: {loss.item()} | ValLoss: {v_loss.item()} | CurrentTrainAccuracy: {train_accuracy} | CurrentValAccuracy: {val_accuracy}")
 
 
     # Record metrics for this fold:

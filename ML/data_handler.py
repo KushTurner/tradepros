@@ -25,12 +25,14 @@ class DataHandler:
         
         # self.n_features - Number of inputs that will be passed into a model (i.e. the number of columns/features in the pandas dataframe)
 
-    def retrieve_data(self, tickers, start_date, end_date, interval):
+    def retrieve_data(self, tickers, start_date, end_date, interval, transform_after):
+        # Note: transform_after = True means that all of the companies' data will be standardised / normalised together, instead of separately
         
         self.data_n = [] # Normalised data
         self.data_s = [] # Standardised data
         self.labels = []
         self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
+        cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"] # Columns to normalise / standardise
         
         # For each company, modify the data 
         for ticker in tickers:
@@ -52,15 +54,15 @@ class DataHandler:
             DATA.drop("Target", axis = 1, inplace = True)
 
             # Create normalised and standardised versions of the data
-            # Notes:
-            # - Created 2 because some models may perform better on standardised data than normalised data and vice versa
-            # - Min-max normalisation preserves relative relationships between data points but eliminates differences in magnitude
-            # - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
-            cols_to_alter = ["open", "high", "low", "close", "adjclose", "volume"]
             S_DATA = DATA.copy()
-            S_DATA[cols_to_alter] = self.standardise_columns(dataframe = S_DATA, cols_to_standard = cols_to_alter)
-            DATA[cols_to_alter] = self.normalise_columns(dataframe = DATA, cols_to_norm = cols_to_alter)
-            
+            if transform_after == False: # Standardising / Normalising companies separately
+                # Notes:
+                # - Created 2 because some models may perform better on standardised data than normalised data and vice versa
+                # - Min-max normalisation preserves relative relationships between data points but eliminates differences in magnitude
+                # - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
+                S_DATA[cols_to_alter] = self.standardise_columns(dataframe = S_DATA, cols_to_standard = cols_to_alter)
+                DATA[cols_to_alter] = self.normalise_columns(dataframe = DATA, cols_to_norm = cols_to_alter)
+
             # Add this companies data to the list
             self.data_n.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
             self.data_s.append(self.dataframe_to_ptt(pandas_dataframe = S_DATA, desired_dtype = torch_float_32))
@@ -69,6 +71,21 @@ class DataHandler:
             self.dates.append(DATA.index.tolist())
 
             print(f"Ticker: {ticker} | DataShape: {self.data_n[-1].shape} | LabelsShape: {self.labels[-1].shape}")
+
+        # Standardising / Normalising companies together
+        if transform_after == True:
+
+            # Find indexes of all the columns we want to alter
+            col_indexes = [DATA.columns.get_loc(column_name) for column_name in cols_to_alter]
+
+            # Combine all of the companies data, and select the only the column features that we want to alter
+            combined_data = torch_cat(self.data_n, dim = 0)[:, col_indexes]
+
+            # Create standardised + normalised versions of the data
+            # print("B", self.data_n[-1][0])
+            self.standardise_data(combined_data = combined_data, col_indexes = col_indexes) # Applied to self.data_s
+            self.normalise_data(combined_data = combined_data, col_indexes = col_indexes) # Applied to self.data_n
+            # print("A", self.data_n[-1][0])
 
         # Set the number of features that will go into the first layer of a model
         self.n_features = self.data_n[-1].shape[1]
@@ -100,7 +117,7 @@ class DataHandler:
             # Find the average closing price of the last p days/weeks/months
             rolling_averages =  D["close"].rolling(window = p).mean()  
 
-            cr_column_name = f"CloseRation_{p}"
+            cr_column_name = f"CloseRatio_{p}"
             # Find the ratio closing price and the average closing price over the last p days/weeks/months (Inclusive of the current day)
             D[cr_column_name] = D["close"] / rolling_averages
 
@@ -129,6 +146,29 @@ class DataHandler:
         
         # Return standardised columns
         return (dataframe[cols_to_standard] - mean) / std
+    
+    def standardise_data(self, combined_data, col_indexes):
+
+        # Find the mean and std of all the companies across all of the columns to alter 
+        mean = combined_data.mean(dim = 0)
+        std = combined_data.std(dim = 0)
+
+        # Standardise for each company
+        for i in range(len(self.data_s)): 
+            self.data_s[i][:,col_indexes] -= mean
+            self.data_s[i][:,col_indexes] /= std
+    
+    def normalise_data(self, combined_data, col_indexes):
+
+        # Find the minimums and maximums of all of the companies, for each column (and the difference between them) 
+        minimums, _ = combined_data.min(dim = 0)
+        maximums, _ = combined_data.max(dim = 0)
+        differences = maximums - minimums
+
+        # Normalise for each company
+        for i in range(len(self.data_n)):
+            self.data_n[i][:, col_indexes] -= minimums
+            self.data_n[i][:, col_indexes] /= differences
 
     def dataframe_to_ptt(self, pandas_dataframe, desired_dtype = torch_float_32):
         
@@ -307,13 +347,12 @@ class DataHandler:
         unix_timestamps = torch_tensor([pd_to_datetime(time_stamp).timestamp() for time_stamp in dates])
         sort_indices = torch_argsort(unix_timestamps, descending = True) # Returns the indices which will sort self.data and self.labels in chronological order 
 
-        print("SORTED: DATALABELSDATES", self.data_n.shape, self.labels.shape, sort_indices.shape)
+        #print("SORTED: DATALABELSDATES", self.data_n.shape, self.labels.shape, sort_indices.shape)
         
         # Sort data and labels
         self.data_n = self.data_n[sort_indices]
         self.data_s = self.data_s[sort_indices]
         self.labels = self.labels[sort_indices]
-
 
     def create_sets(self, num_context_days, shuffle_data_sequences):
         # Convert self.data_n, self.data_s, self.labels into data sequences 
