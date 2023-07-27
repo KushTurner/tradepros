@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 
 from data_handler import DataHandler
 from models import MLP, RNN
-from tools import evaluate_accuracy, find_accuracy
+from tools import evaluate_accuracy, find_P_A_R
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"DEVICE | {DEVICE}")
@@ -62,19 +62,33 @@ X3, Y3 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_da
 print(X3.shape, Y3.shape)
 
 # Training:
-EPOCHS = 5000 #200000
+EPOCHS = 2000 #200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20
 
+# Over epochs
 train_loss_i = []
 val_loss_i = []
 train_accuracy_i = []
 val_accuracy_i = []
+train_precision_i = []
+val_precision_i = []
+train_recall_i = []
+val_recall_i = []
+train_f1_i = []
+val_f1_i = []
 
+# Over folds
 fold_t_accuracies = []
 fold_v_accuracies = []
 fold_t_losses = []
 fold_v_losses = []
+fold_t_precisions = []
+fold_v_precisions = []
+fold_t_recalls = []
+fold_v_recalls = []
+fold_t_f1s = []
+fold_v_f1s = []
 
 num_sets = (num_folds - 1) # Number of sets i.e. the number of (TRAIN_FOLDS, VAL_FOLDS) generated, e.g. if num_folds = 5, there will be 4 sets
 
@@ -104,18 +118,16 @@ for k in range(num_sets):
             # Dropout layers - de-activated during evaluation
             model.eval()
 
-            # Find train accuracy on current batch
+            # Find the accuracy, precision, recall and f1 score on the training batch
             preds = F.softmax(logits, dim = 1) # Softmax to find probability distribution
-            train_accuracy = find_accuracy(predictions = preds, targets = Ytr, batch_size = BATCH_SIZE)
+            train_accuracy, train_precision, train_recall, train_f1 = find_P_A_R(predictions = preds, targets = Ytr)
             
-            # Find validation loss
+            # Find the loss, accuracy, precision, recall and f1 score on a validation batch
             Xva, Yva = DH.generate_batch(batch_size = BATCH_SIZE, dataset = VAL_FOLDS, num_context_days = num_context_days)
             v_logits = model(Xva)
             v_loss = F.cross_entropy(v_logits, Yva)
-
-            # Find validation accuracy on current batch
-            v_preds = F.softmax(v_logits, dim = 1) # Softmax to find probability distribution
-            val_accuracy = find_accuracy(predictions = v_preds, targets = Yva, batch_size = BATCH_SIZE)
+            v_preds = F.softmax(v_logits, dim = 1)
+            val_accuracy, val_precision, val_recall, val_f1 = find_P_A_R(predictions = v_preds, targets = Yva)
 
             model.train()
 
@@ -128,24 +140,42 @@ for k in range(num_sets):
 
         # ----------------------------------------------
         # Tracking stats
-
+        
         train_loss_i.append(loss.item())
         val_loss_i.append(v_loss.item())
 
         train_accuracy_i.append(train_accuracy)
         val_accuracy_i.append(val_accuracy)
 
+        train_precision_i.append(train_precision)
+        val_precision_i.append(val_precision)
+
+        train_recall_i.append(train_recall)
+        val_recall_i.append(val_recall)
+
+        train_f1_i.append(train_f1)
+        val_f1_i.append(val_f1)
+
         if i == 0 or (i + 1) % STAT_TRACK_INTERVAL == 0:
-            print(f"K: {k + 1}/{num_sets} | Epoch: {i + 1} | TrainLoss: {loss.item()} | ValLoss: {v_loss.item()} | CurrentTrainAccuracy: {train_accuracy} | CurrentValAccuracy: {val_accuracy}")
+            print(f"K: {k + 1}/{num_sets} | Epoch: {i + 1} | TLoss: {loss.item()} | VLoss: {v_loss.item()} | TAccuracy: {train_accuracy} | VAccuracy: {val_accuracy} | TPrecision: {train_precision} | VPrecision: {val_precision} | TRecall: {train_recall} | VRecall: {val_recall} | TF1 {train_f1} | VF1: {val_f1}")
 
 
     # Record metrics for this fold:
     # -EPOCHS: = Last EPOCHS items (i.e. all the statistics from this fold)
+    fold_t_losses.append((sum(train_loss_i[-EPOCHS:]) / EPOCHS))
+    fold_v_losses.append((sum(val_loss_i[-EPOCHS:]) / EPOCHS))
+
     fold_t_accuracies.append((sum(train_accuracy_i[-EPOCHS:]) / EPOCHS))
     fold_v_accuracies.append((sum(val_accuracy_i[-EPOCHS:]) / EPOCHS))
 
-    fold_t_losses.append((sum(train_loss_i[-EPOCHS:]) / EPOCHS))
-    fold_v_losses.append((sum(val_loss_i[-EPOCHS:]) / EPOCHS))
+    fold_t_precisions.append((sum(train_precision_i[-EPOCHS:]) / EPOCHS))
+    fold_v_precisions.append((sum(val_precision_i[-EPOCHS:]) / EPOCHS))
+
+    fold_t_recalls.append((sum(train_recall_i[-EPOCHS:]) / EPOCHS))
+    fold_v_recalls.append((sum(val_recall_i[-EPOCHS:]) / EPOCHS))
+
+    fold_t_f1s.append((sum(train_f1_i[-EPOCHS:]) / EPOCHS))
+    fold_v_f1s.append((sum(val_f1_i[-EPOCHS:]) / EPOCHS))
 
 # Set model to evaluation mode (For dropout + batch norm layers)
 model.eval()
@@ -157,11 +187,17 @@ print(f"TrainAccuracies: {fold_t_accuracies}")
 print(f"ValAccuracies: {fold_v_accuracies}")
 print(f"TrainLosses: {fold_t_losses}")
 print(f"ValLosses: {fold_v_losses}")
+print(f"TrainPrecisions: {fold_t_precisions}")
+print(f"ValPrecisions: {fold_v_precisions}")
+print(f"TrainRecalls: {fold_t_recalls}")
+print(f"ValRecalls: {fold_v_recalls}")
+print(f"TrainF1s: {fold_t_f1s}")
+print(f"ValF1s: {fold_v_f1s}")
 
 print("-----------------------------------------------------------------")
 print("Metrics across folds")
 
-print(f"TrainAccuracy: {sum(fold_t_accuracies) / num_sets}) | ValAccuracy: {sum(fold_v_accuracies) / num_sets} | TrainLoss: {sum(fold_t_losses) / num_sets} | ValLoss: {sum(fold_v_losses) / num_sets}")
+print(f"TAccuracy: {sum(fold_t_accuracies) / num_sets}) | VAccuracy: {sum(fold_v_accuracies) / num_sets} | TLoss: {sum(fold_t_losses) / num_sets} | VLoss: {sum(fold_v_losses) / num_sets} | TPrecision: {sum(fold_t_precisions) / num_sets} | VPrecision: {sum(fold_v_precisions) / num_sets} | TRecall: {sum(fold_t_recalls) / num_sets} | VRecall {sum(fold_v_recalls) / num_sets} | TF1: {sum(fold_t_f1s) / num_sets} | VF1: {sum(fold_v_f1s) / num_sets}")
 
 print("-----------------------------------------------------------------")
 print("Loss during training")
@@ -192,6 +228,46 @@ ax.plot([i for i in range(int((EPOCHS * (num_sets)) / B))], train_accuracy_i, la
 ax.plot([i for i in range(int((EPOCHS * (num_sets)) / B))], val_accuracy_i, label = "Validation")
 ax.legend()
 plt.show()
+
+print("-----------------------------------------------------------------")
+print("Precision during training")
+
+C = 100
+train_precision_i = torch.tensor(train_precision_i).view(-1, C).mean(1)
+val_precision_i = torch.tensor(val_precision_i).view(-1, C).mean(1)
+
+fig, ax = plt.subplots()
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / C))], train_precision_i, label = "Train")
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / C))], val_precision_i, label = "Validation")
+ax.legend()
+plt.show()
+
+print("-----------------------------------------------------------------")
+print("Recall during training")
+
+D = 100
+train_recall_i = torch.tensor(train_recall_i).view(-1, D).mean(1)
+val_recall_i = torch.tensor(val_recall_i).view(-1, D).mean(1)
+
+fig, ax = plt.subplots()
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / D))], train_recall_i, label = "Train")
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / D))], val_recall_i, label = "Validation")
+ax.legend()
+plt.show()
+
+print("-----------------------------------------------------------------")
+print("F1 score during training")
+
+E = 100
+train_f1_i = torch.tensor(train_f1_i).view(-1, E).mean(1)
+val_f1_i = torch.tensor(val_f1_i).view(-1, E).mean(1)
+
+fig, ax = plt.subplots()
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / E))], train_f1_i, label = "Train")
+ax.plot([i for i in range(int((EPOCHS * (num_sets)) / E))], val_f1_i, label = "Validation")
+ax.legend()
+plt.show()
+
 
 # print("-----------------------------------------------------------------")
 # print("Accuracy after training")
