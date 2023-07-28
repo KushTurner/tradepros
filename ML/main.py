@@ -31,18 +31,17 @@ DH.retrieve_data(
 for company_data in DH.data_n:
     print("ContainsNaN", company_data.isnan().any().item()) # Check if the tensor contains "nan"
 
-# model = MLP(initial_in = DH.n_features, final_out = 2, N_OR_S = "S")
-# optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
+model = MLP(initial_in = DH.n_features, final_out = 2, N_OR_S = "N")
+optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
 
-model = RNN(initial_in = DH.n_features, final_out = 2, N_OR_S = "N")
-optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
+# model = RNN(initial_in = DH.n_features, final_out = 2, N_OR_S = "N")
+# optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
 
 model.to(device = DEVICE) # Move to selected device
 
 # Prepare data specific to this model:
 num_context_days = 10 if isinstance(model, RNN) else 1 # Number of days used as context (Used for RNN)
 num_folds = 10 # Number of folds used in cross-validation
-
 # Create training and test sets and data sequences for this model (must be repeated for each model as num_context_days can vary depending on the model used)
 DH.create_sets(num_context_days = num_context_days, shuffle_data_sequences = False)
 # Create k folds
@@ -62,7 +61,7 @@ X3, Y3 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_da
 print(X3.shape, Y3.shape)
 
 # Training:
-EPOCHS = 2000 #200000
+EPOCHS = 25000 #200000
 BATCH_SIZE = 32
 STAT_TRACK_INTERVAL = EPOCHS // 20
 
