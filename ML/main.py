@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from matplotlib import pyplot as plt
 
-from data_handler import DataHandler
+from data_handler import *
 from models import MLP, RNN
 from tools import evaluate_accuracy, find_P_A_R
 
@@ -17,6 +17,9 @@ torch.manual_seed(M_SEED)
 G = torch.Generator(device = DEVICE)
 G.manual_seed(M_SEED)
 
+# Initialising text data handler
+TDH = TextDataHandler(device = DEVICE, generator = G)
+TDH.retrieve_data()
 
 # Initialising data handler
 DH = DataHandler(device = DEVICE, generator = G)
@@ -34,7 +37,7 @@ for company_data in DH.data_n:
 # model = MLP(initial_in = DH.n_features, final_out = 2, N_OR_S = "S")
 # optimiser = torch.optim.SGD(params = model.parameters(), lr = 0.0001)
 
-model = RNN(initial_in = DH.n_features, final_out = 2, N_OR_S = "S")
+model = RNN(initial_in = DH.n_features, final_out = 2, N_OR_S = "N")
 optimiser = torch.optim.Adam(params = model.parameters(), lr = 1e-3)
 
 model.to(device = DEVICE) # Move to selected device

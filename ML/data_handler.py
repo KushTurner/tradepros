@@ -10,6 +10,7 @@ from torch import cat as torch_cat
 from torch import chunk as torch_chunk
 from torch import argsort as torch_argsort
 from pandas import to_datetime as pd_to_datetime
+from pandas import read_csv as pd_read_csv
 
 class DataHandler:
 
@@ -394,3 +395,29 @@ class DataHandler:
         # Note: Each tuple = (data folds, corresponding label folds)
         # Return the training folds  and validation folds
         return (torch_cat([D_FOLDS[i] for i in range(window_size - 1)]), torch_cat([L_FOLDS[i] for i in range(window_size - 1)])), (D_FOLDS[-1], L_FOLDS[-1])
+
+
+class TextDataHandler: 
+    """ Will be used to train my own sentiment analysis model after using a pretrained model to label the unlabelled dataset with sentiment values """
+
+    def __init__(self, device, generator):
+
+        self.device = device # CUDA or CPU
+        self.generator = generator # Reproducibilit
+    
+    def retrieve_data(self):
+        
+        # Note:
+        # - Contains data from January 1st 2015 - December 31st 2019 (Inclusive)
+        # - The reason why MERGED.shape is larger when DATA.shape is smaller than TWEET_COMPANY.shape is because a single tweet (in DATA) can reference multiple different companies
+
+        # Data containing the tweet id, writer, post date, tweet, number of comments, likes and retweets
+        DATA = pd_read_csv("ML/sentiment_data/Tweet.csv")
+
+        # The IDs to all the tweets and what company they were referring to
+        TWEET_COMPANY = pd_read_csv("ML/sentiment_data/Company_Tweet.csv")
+
+        # Merge the company tickers with each tweet according to tweet id
+        MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
+
+        print(MERGED)
