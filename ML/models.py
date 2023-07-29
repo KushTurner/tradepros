@@ -78,15 +78,15 @@ class RNN(nn.Module):
     def __init__(self, initial_in, final_out, N_OR_S):
         super(RNN, self).__init__()
 
-        # Accuracies tested (32 batch size, 200_000 steps, lr = 1e-3) [After using data from more than one company]
+        # Cross validation results (Epochs = 5000, num_folds = 10)
 
         # Normalised data
-        # (1) TrainAccuracy(%): 59.1195| ValAccuracy(%): 54.59349999999999 
-        # (2) TrainAccuracy(%): 59.845499999999994 | ValAccuracy(%): 54.517
+        # (1) TAccuracy: 57.44354166666666) | VAccuracy: 54.31861111111112 | TLoss: 0.6760456508689456 | VLoss: 0.7043166189339425 | TPrecision: 0.5758899828110903 | VPrecision: 0.5400229215866872 | TRecall: 0.5345691893685933 | VRecall 0.5903054536139032 | TF1: 0.5416557570162557 | VF1: 0.5394078170391472    
+        # (2) TAccuracy: 57.39618055555556) | VAccuracy: 53.26263888888889 | TLoss: 0.6748167537026935 | VLoss: 0.6937137216462029 | TPrecision: 0.5792144796145935 | VPrecision: 0.541103975897471 | TRecall: 0.5192639991477738 | VRecall 0.5236433334519626 | TF1: 0.5311361625404567 | VF1: 0.5082877600090694
 
         # Standardised data
-        # (1) TrainAccuracy(%): 60.0520000000000 | ValAccuracy(%): 53.2265 
-        # (2) TrainAccuracy(%): 60.668 | ValAccuracy(%): 52.5595
+        # (1) TAccuracy: 57.8063888888889) | VAccuracy: 54.16430555555556 | TLoss: 0.6744753837863603 | VLoss: 0.7034466716210048 | TPrecision: 0.5799920688806193 | VPrecision: 0.537433772745333 | TRecall: 0.5397820134660448 | VRecall 0.5859260845369195 | TF1: 0.5468734678021602 | VF1: 0.5341009027190929
+        # (2) TAccuracy: 57.66645833333333) | VAccuracy: 53.292986111111105 | TLoss: 0.6741172053244379 | VLoss: 0.6992408750971157 | TPrecision: 0.5784034473296962 | VPrecision: 0.5323862838852966 | TRecall: 0.5455958952027022 | VRecall 0.5749857534019637 | TF1: 0.54754735092235 | VF1: 0.5214294278356074
 
         self.layers = nn.Sequential(
                                     # 1
@@ -95,7 +95,7 @@ class RNN(nn.Module):
                                     # nn.ReLU(),
 
                                     # nn.Linear(initial_in , initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),``
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
                                     # nn.ReLU(),
 
                                     # nn.Linear(initial_in  // 2, initial_in // 4),
