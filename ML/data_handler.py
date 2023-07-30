@@ -426,9 +426,9 @@ class TextDataHandler:
         print(MERGED)
 
         # Label the merged dataset with sentiment values
-        self.label_dataset()
+        self.label_dataset(dataset = MERGED)
 
-    def label_dataset(self):
+    def label_dataset(self, dataset):
         # Labels the unlabeled dataset (containing the tweets about the top companies from 2015 to 2020)
 
         # Look for ".env" file
@@ -443,9 +443,47 @@ class TextDataHandler:
             response = requests_post(API_URL, headers=headers, json=payload)
             return response.json()
         
-        output = query({
-            "inputs": ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!"],
-        })
 
-        print(output)
+        # Getting predictions from the model:
+        
+        # Aggregate all tweets into a single list
+        all_tweets = dataset["body"].tolist()
+        print(len(all_tweets))
+
+        # outputs = query({
+        #                 "inputs": ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"],
+        #                 })
+        
+        outputs = query({
+                        "inputs": all_tweets[-100:],
+                        })
+        
+
+        print(outputs)
+
+        # Lambda functions
+        select_highest = lambda x:x["score"]
+        numeric_label = lambda x: 1 if x == "positive" else -1 if x == "negative" else 0
+
+        # Each input example returns a list of dicts
+        # E.g. [{'label': 'negative', 'score': 0.9692284464836121}, {'label': 'neutral', 'score': 0.022001001983880997}, {'label': 'positive', 'score': 0.008770582266151905}]
+        tweet_scores = []
+        for prob_distribution_list in outputs:
+            
+            # Select the dictionary in the list of dicts based on the probability score
+            # E.g. {'label': 'negative', 'score': 0.9692284464836121}
+            label_dict = max(prob_distribution_list, key = select_highest)
+
+            # Score the tweet as -1, 0 or 1 based on the label and add it to the scores list
+            tweet_scores.append(numeric_label(label_dict["label"]))
+
+            # print(label_dict)
+            # print(tweet_scores[i])
+
+        # Faster version:
+        tweet_scores_2 = [numeric_label(max(prob_distribution_list, key = select_highest)["label"]) for prob_distribution_list in outputs]
+
+        print(tweet_scores == tweet_scores_2)
+        print(tweet_scores)
+        print(tweet_scores_2)
         
