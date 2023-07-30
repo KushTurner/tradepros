@@ -11,9 +11,6 @@ from torch import chunk as torch_chunk
 from torch import argsort as torch_argsort
 from pandas import to_datetime as pd_to_datetime
 from pandas import read_csv as pd_read_csv
-from dotenv import load_dotenv
-from os import getenv as os_get_env
-from requests import post as requests_post
 
 class DataHandler:
 
@@ -431,59 +428,19 @@ class TextDataHandler:
     def label_dataset(self, dataset):
         # Labels the unlabeled dataset (containing the tweets about the top companies from 2015 to 2020)
 
-        # Look for ".env" file
-        load_dotenv()
-        
-        # API url for accessing the finBERT model
-        API_URL = "https://api-inference.huggingface.co/models/ProsusAI/finbert"
-        headers = {"Authorization": f"Bearer {os_get_env('api_key')}"}
+        from finBERT.model import FinBERT 
+        # Load the finbert model
+        finbert = FinBERT()
 
-        # Function for querying the model
-        def query(payload):
-            response = requests_post(API_URL, headers=headers, json=payload)
-            return response.json()
-        
+        # Get predictions from the model
+        #text_inputs = ["Amazon's prices have went up", "Amazon's stock has increased by 10%!", "Amazon's stock has decreased by 10%!"]
+        """
+        Notes: 
+        - The returned outputs will be in the format [Positive, Negative, Neutral]
+        - Returns the same results as the results from the inference API
+        """
+        text_inputs = ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"]
+        predictions = finbert.get_predictions(text_inputs = text_inputs)
+        print(predictions)
+        print()
 
-        # Getting predictions from the model:
-        
-        # Aggregate all tweets into a single list
-        all_tweets = dataset["body"].tolist()
-        print(len(all_tweets))
-
-        # outputs = query({
-        #                 "inputs": ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"],
-        #                 })
-        
-        outputs = query({
-                        "inputs": all_tweets[-100:],
-                        })
-        
-
-        print(outputs)
-
-        # Lambda functions
-        select_highest = lambda x:x["score"]
-        numeric_label = lambda x: 1 if x == "positive" else -1 if x == "negative" else 0
-
-        # Each input example returns a list of dicts
-        # E.g. [{'label': 'negative', 'score': 0.9692284464836121}, {'label': 'neutral', 'score': 0.022001001983880997}, {'label': 'positive', 'score': 0.008770582266151905}]
-        tweet_scores = []
-        for prob_distribution_list in outputs:
-            
-            # Select the dictionary in the list of dicts based on the probability score
-            # E.g. {'label': 'negative', 'score': 0.9692284464836121}
-            label_dict = max(prob_distribution_list, key = select_highest)
-
-            # Score the tweet as -1, 0 or 1 based on the label and add it to the scores list
-            tweet_scores.append(numeric_label(label_dict["label"]))
-
-            # print(label_dict)
-            # print(tweet_scores[i])
-
-        # Faster version:
-        tweet_scores_2 = [numeric_label(max(prob_distribution_list, key = select_highest)["label"]) for prob_distribution_list in outputs]
-
-        print(tweet_scores == tweet_scores_2)
-        print(tweet_scores)
-        print(tweet_scores_2)
-        
