@@ -11,6 +11,9 @@ from torch import chunk as torch_chunk
 from torch import argsort as torch_argsort
 from pandas import to_datetime as pd_to_datetime
 from pandas import read_csv as pd_read_csv
+from dotenv import load_dotenv
+from os import getenv as os_get_env
+from requests import post as requests_post
 
 class DataHandler:
 
@@ -408,7 +411,7 @@ class TextDataHandler:
     def retrieve_data(self):
         
         # Note:
-        # - Contains data from January 1st 2015 - December 31st 2019 (Inclusive)
+        # - Contains data on the top companies from January 1st 2015 - December 31st 2019 (Inclusive)
         # - The reason why MERGED.shape is larger when DATA.shape is smaller than TWEET_COMPANY.shape is because a single tweet (in DATA) can reference multiple different companies
 
         # Data containing the tweet id, writer, post date, tweet, number of comments, likes and retweets
@@ -421,3 +424,28 @@ class TextDataHandler:
         MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
 
         print(MERGED)
+
+        # Label the merged dataset with sentiment values
+        self.label_dataset()
+
+    def label_dataset(self):
+        # Labels the unlabeled dataset (containing the tweets about the top companies from 2015 to 2020)
+
+        # Look for ".env" file
+        load_dotenv()
+        
+        # API url for accessing the finBERT model
+        API_URL = "https://api-inference.huggingface.co/models/ProsusAI/finbert"
+        headers = {"Authorization": f"Bearer {os_get_env('api_key')}"}
+
+        # Function for querying the model
+        def query(payload):
+            response = requests_post(API_URL, headers=headers, json=payload)
+            return response.json()
+        
+        output = query({
+            "inputs": ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!"],
+        })
+
+        print(output)
+        
