@@ -466,10 +466,10 @@ class TextDataHandler:
         print(batch_size, num_batches, num_inputs)
         all_predictions = []
 
-        print(torch.cuda.memory_summary(device = "cuda"))
+        # print(torch.cuda.memory_summary(device = "cuda"))
         for i in range(0, num_batches):
-            if (i + 1) % 5 == 0:
-                print(torch.cuda.memory_summary(device = "cuda"))
+            if (i + 1) % 100 == 0:
+                # print(torch.cuda.memory_summary(device = "cuda"))
                 print(f"i: {i} | ExamplesLabeled: {len(all_predictions)}/{num_inputs}")
             predictions = finbert.get_predictions(text_inputs = text_inputs[i * batch_size:(i + 1) * batch_size])
 
@@ -478,8 +478,10 @@ class TextDataHandler:
 
         print(len(predictions))
 
-        # Create new column for the sentiment scores assigned
+        # Create new column for the sentiment scores assigned [Closer to: -1 = More negative, 0 = More neutral, 1 = More positivel]
         labeled_dataset["s_score"] = all_predictions
+        
+        print(labeled_dataset)
 
         # Save the labeled dataset as a csv file
         labeled_dataset.to_csv("ML/sentiment_data/labeled_dataset.csv", index = True)
