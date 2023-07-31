@@ -11,6 +11,9 @@ from torch import chunk as torch_chunk
 from torch import argsort as torch_argsort
 from pandas import to_datetime as pd_to_datetime
 from pandas import read_csv as pd_read_csv
+from os.path import exists as os_path_exists
+from math import ceil as math_ceil
+import torch.cuda 
 
 class DataHandler:
 
@@ -411,36 +414,76 @@ class TextDataHandler:
         # - Contains data on the top companies from January 1st 2015 - December 31st 2019 (Inclusive)
         # - The reason why MERGED.shape is larger when DATA.shape is smaller than TWEET_COMPANY.shape is because a single tweet (in DATA) can reference multiple different companies
 
-        # Data containing the tweet id, writer, post date, tweet, number of comments, likes and retweets
-        DATA = pd_read_csv("ML/sentiment_data/Tweet.csv")
 
-        # The IDs to all the tweets and what company they were referring to
-        TWEET_COMPANY = pd_read_csv("ML/sentiment_data/Company_Tweet.csv")
+        # Labeled data already created
+        if os_path_exists("ML/sentiment_data/labeled_dataset.csv"):
+            print("Loading labeled dataset")
+            LABELED_DATA = pd_read_csv("ML/sentiment_data/labeled_dataset.csv")
 
-        # Merge the company tickers with each tweet according to tweet id
-        MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
+        # Not created yet
+        else:
+            print("Creating labeled dataset")
+            # Data containing the tweet id, writer, post date, tweet, number of comments, likes and retweets
+            DATA = pd_read_csv("ML/sentiment_data/Tweet.csv")
 
-        print(MERGED)
+            # The IDs to all the tweets and what company they were referring to
+            TWEET_COMPANY = pd_read_csv("ML/sentiment_data/Company_Tweet.csv")
 
-        # Label the merged dataset with sentiment values
-        self.label_dataset(dataset = MERGED)
+            # Merge the company tickers with each tweet according to tweet id
+            MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
+
+            # Label the merged dataset with sentiment values
+            LABELED_DATA = self.label_dataset(dataset = MERGED)
+
+            print(LABELED_DATA)
+
+        
+        #print(pd_read_csv("ML/sentiment_data/labeled_dataset.csv"))
 
     def label_dataset(self, dataset):
         # Labels the unlabeled dataset (containing the tweets about the top companies from 2015 to 2020)
 
         from finBERT.model import FinBERT 
         # Load the finbert model
-        finbert = FinBERT()
+        finbert = FinBERT(device = self.device)
+        print(finbert.model.device)
 
         # Get predictions from the model
-        #text_inputs = ["Amazon's prices have went up", "Amazon's stock has increased by 10%!", "Amazon's stock has decreased by 10%!"]
         """
         Notes: 
         - The returned outputs will be in the format [Positive, Negative, Neutral]
         - Returns the same results as the results from the inference API
         """
         text_inputs = ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"]
-        predictions = finbert.get_predictions(text_inputs = text_inputs)
-        print(predictions)
-        print()
+        text_inputs = ["Why did Amazon increase their prices again!", "Amazon's stock has increased by 10%!", "Amazon's stock has decreased by 10%!"]
+
+        labeled_dataset = dataset.copy() # Create a copy of the dataset (Saving as a csv file)
+        text_inputs = labeled_dataset["body"].tolist()
+
+        batch_size = 10
+        num_inputs = len(text_inputs)
+        num_batches = math_ceil(num_inputs / batch_size)
+        print(batch_size, num_batches, num_inputs)
+        all_predictions = []
+
+        print(torch.cuda.memory_summary(device = "cuda"))
+        for i in range(0, num_batches):
+            if (i + 1) % 5 == 0:
+                print(torch.cuda.memory_summary(device = "cuda"))
+                print(f"i: {i} | ExamplesLabeled: {len(all_predictions)}/{num_inputs}")
+            predictions = finbert.get_predictions(text_inputs = text_inputs[i * batch_size:(i + 1) * batch_size])
+
+            # Add the predictions to the list
+            all_predictions.extend(predictions)
+
+        print(len(predictions))
+
+        # Create new column for the sentiment scores assigned
+        labeled_dataset["s_score"] = all_predictions
+
+        # Save the labeled dataset as a csv file
+        labeled_dataset.to_csv("ML/sentiment_data/labeled_dataset.csv", index = True)
+
+        print("DONE")
+        return labeled_dataset
 
