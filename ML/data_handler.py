@@ -13,7 +13,7 @@ from pandas import to_datetime as pd_to_datetime
 from pandas import read_csv as pd_read_csv
 from os.path import exists as os_path_exists
 from math import ceil as math_ceil
-import torch.cuda 
+from torch.cuda import memory_summary as torch_cuda_memory_summary
 
 class DataHandler:
 
@@ -443,15 +443,11 @@ class TextDataHandler:
     def label_dataset(self, dataset):
         # Labels the unlabeled dataset (containing the tweets about the top companies from 2015 to 2020)
 
-        from finBERT.model import FinBERT 
-        # Load the finbert model
-        finbert = FinBERT(device = self.device)
-        print(finbert.model.device)
 
         # Get predictions from the model
         """
         Notes: 
-        - The returned outputs will be in the format [Positive, Negative, Neutral]
+        - The returned outputs will be an integer. [-1 for negative, 0 for neutral, 1 for positive]
         - Returns the same results as the results from the inference API
         """
         text_inputs = ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"]
@@ -466,17 +462,57 @@ class TextDataHandler:
         print(batch_size, num_batches, num_inputs)
         all_predictions = []
 
-        # print(torch.cuda.memory_summary(device = "cuda"))
-        for i in range(0, num_batches):
-            if (i + 1) % 100 == 0:
-                # print(torch.cuda.memory_summary(device = "cuda"))
-                print(f"i: {i} | ExamplesLabeled: {len(all_predictions)}/{num_inputs}")
-            predictions = finbert.get_predictions(text_inputs = text_inputs[i * batch_size:(i + 1) * batch_size])
+        from transformers import pipeline
+        from huggingface_hub import login
+        from time import time as get_time
+        from dotenv import load_dotenv
+        from os import getenv as os_get_env
+    
+        # Login to hf to access the model
+        load_dotenv()
+        login(token = os_get_env("hf_access_token"))
 
-            # Add the predictions to the list
-            all_predictions.extend(predictions)
+        # Create a pipeline for the Google Flan T5 XL model
+        """
+        - max_length = 2 (For 1 character responses i.e. the sentiment value) [setting max_length to 1, sends a warning in the terminal, hence why it is set to 2 instead]
+        - device = self.device (Perform inference on GPU if possible)
+        """
+        generate_sentiment = pipeline("text2text-generation", model = "google/flan-t5-xl", device = self.device, max_length = 3)
+        print("Loaded pipeline")
 
-        print(len(predictions))
+
+        prompts = [
+                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's prices are decent'. For example, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+                ,
+                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "ebay" ticker, given the text 'Amazon's prices are decent'. For example, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+                
+                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's prices are good'. For example, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+                ,
+                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "ebay" ticker, given the text 'Amazon's prices are good'. For example, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+                
+                ]
+        # One-by-one
+        for prompt in prompts:
+            start_time = get_time()
+            sentiments = generate_sentiment(prompt)
+            print(sentiments[0]["generated_text"])
+            end_time = get_time()
+
+            print("Time taken:", end_time - start_time)
+            
+        
+        # Batch prompt
+        start_time = get_time()
+        
+        sentiments = generate_sentiment(prompts)
+        print([sentiments[i]["generated_text"] for i in range(len(prompts))])
+
+        end_time = get_time()
+
+        print("Time taken:", end_time - start_time)
+
+        print(torch_cuda_memory_summary(device = "cuda"))
+
 
         # Create new column for the sentiment scores assigned [Closer to: -1 = More negative, 0 = More neutral, 1 = More positivel]
         labeled_dataset["s_score"] = all_predictions
