@@ -429,6 +429,13 @@ class TextDataHandler:
             # The IDs to all the tweets and what company they were referring to
             TWEET_COMPANY = pd_read_csv("ML/sentiment_data/Company_Tweet.csv")
 
+            # print(DATA["body"][4:10])
+
+            # for tweet in DATA["body"][4:10]:
+            #     print("H", tweet)
+
+            # print(TWEET_COMPANY[:10])
+
             # Merge the company tickers with each tweet according to tweet id
             MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
 
@@ -436,26 +443,118 @@ class TextDataHandler:
             LABELED_DATA = self.label_dataset(dataset = MERGED)
 
             print(LABELED_DATA)
-
         
         #print(pd_read_csv("ML/sentiment_data/labeled_dataset.csv"))
 
+    
+    def clean_dataset(self, dataset):
+        
+        from re import sub as re_sub
+
+        stop_words = set([
+                        "the",
+                        "and", 
+                        "in",
+                        ]
+                        )
+
+        def cleanse_text(text):
+            # Removes links, mentions, multiple spaces, hashtags and sets the text to lowercase
+            
+            # Regular expression pattern to match URLs
+            url_pattern = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+            # Regular expression pattern to match mentions
+            mention_pattern = r"@\w+"
+            # Regular expression pattern to match multiple spaces
+            multiple_spaces_pattern = r"\s+"
+            # Regular expression pattern to match multiple spaces
+            hashtag_pattern = r"#\w+"
+
+            # Remove \r and \n (New lines)
+            clean_text = text.replace("\r", "").replace("\n", "")
+
+            # Remove URLs
+            clean_text = re_sub(url_pattern, "", clean_text)
+
+            ## Remove hashtags 
+            # Note: (Might not ideal when users use e.g. #google near the start of the text, instead of at the end)
+            # clean_text = re_sub(hashtag_pattern, "", clean_text)
+
+            # Remove mentions
+            clean_text = re_sub(mention_pattern, "", clean_text)
+            
+            # Clean any remaining "@" [This happens when a "@" comes after a word without a space]
+            clean_text = clean_text.replace("@", "")
+
+            # Remove stop words (commonly occurring words which provide insignificant value to the model)
+            clean_text = clean_text.split()
+            clean_text = " ".join(word for word in clean_text if word not in stop_words)
+
+            # Remove multiple spaces (replaced with a single space)
+            # Note: Do this after removing URLs, mentions and hashtags (as they could create new gaps)
+            clean_text = re_sub(multiple_spaces_pattern, " ", clean_text)
+
+            # Remove leading and trailing spaces and return the text all in lowercase (Helps with text processing)
+            return clean_text.strip().lower()
+        
+        def format_text(tweet, ticker):
+            # Formats the relevant information into the prompt, which will be passed into the model
+            return f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's stock went down by 30% but Ebays' went up!'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+
+        print(dataset["body"].value_counts())
+        print(dataset["body"].nunique())
+
+        # Apply cleaning + formatting to all the text in the dataset
+        dataset["body"] = dataset["body"].apply(lambda x: cleanse_text(x))
+
+        print(dataset["body"].value_counts())
+        print(dataset["body"].nunique())
+
+        # for tweet in dataset["body"]:
+        #     print("!", tweet)
+
+        """ 
+        Notes: (About size)
+        Total texts = 4336444
+
+        Number of unique texts = 3,326,194 (Before cleaning)
+        Number of unique texts = 2,988,567 (After cleaning)
+
+        To limit requests to inference endpoint (Less usage on endpoint):
+        - Create a dictionary containing 2,988,567 items with the keys being ("body", "ticker_company"), with the value being the sentiment value assigned
+        - Then create a list (which will act as the sentiment column that will be added to the dataset) which will retrieve the value, given the text and company ticker for each row in the dataset
+        
+        For example:
+        sentiment_scores = {(unformatted_text, company_ticker): sentiment_value_assigned}
+        scores_column = [sentiment_scores[(unformatted_text, company_ticker)] for (unformatted_text, company_ticker) in dataset["body"]["company_ticker"]]
+        """
+        return dataset
+    
     def label_dataset(self, dataset):
         # Labels the unlabeled dataset (containing the tweets about the top companies from 2015 to 2020)
+
+        text_inputs = ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"]
+        text_inputs = ["Why did Amazon increase their prices again!", "Amazon's stock has increased by 10%!", "Amazon's stock has decreased by 10%!"]
+
+        print(dataset.columns)
+        print(dataset[:10])
+
+        # Create a copy of all the tweets and put them in a Python list
+        all_tweets = dataset[["writer", "body", "ticker_symbol"]].copy()
+
+        print(all_tweets)
+
+        # Clean the dataset
+        all_tweets = self.clean_dataset(dataset = all_tweets)
+
+        print(all_tweets)
 
 
         # Get predictions from the model
         """
         Notes: 
-        - The returned outputs will be an integer. [-1 for negative, 0 for neutral, 1 for positive]
-        - Returns the same results as the results from the inference API
+        - The returned outputs will be a single integer. [-1 for negative, 0 for neutral, 1 for positive]
         """
-        text_inputs = ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"]
-        text_inputs = ["Why did Amazon increase their prices again!", "Amazon's stock has increased by 10%!", "Amazon's stock has decreased by 10%!"]
-
-        labeled_dataset = dataset.copy() # Create a copy of the dataset (Saving as a csv file)
-        text_inputs = labeled_dataset["body"].tolist()
-
         batch_size = 10
         num_inputs = len(text_inputs)
         num_batches = math_ceil(num_inputs / batch_size)
@@ -480,7 +579,8 @@ class TextDataHandler:
             response = requests_post(API_URL, headers = headers, json = payload)
             return response.json() 
         
-
+        # Format texts into the desired prompt layout
+        #############################################
         prompts = [
                 """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's prices are decent'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
                 ,
