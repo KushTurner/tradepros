@@ -446,7 +446,6 @@ class TextDataHandler:
         
         #print(pd_read_csv("ML/sentiment_data/labeled_dataset.csv"))
 
-    
     def clean_dataset(self, dataset):
         
         from re import sub as re_sub
@@ -501,27 +500,53 @@ class TextDataHandler:
             # Formats the relevant information into the prompt, which will be passed into the model
             return f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's stock went down by 30% but Ebays' went up!'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
 
-        print(dataset["body"].value_counts())
-        print(dataset["body"].nunique())
+        print("VALUE COUNTS")
+        value_counts = dataset[["body", "ticker_symbol"]].value_counts()
+        print(value_counts)
+        print(dataset[["body", "ticker_symbol"]].nunique())
+        print("Unique combinations", len(value_counts), "Dataset size", len(dataset))
 
+        # for tweet, ticker in zip(dataset["body"], dataset["ticker_symbol"]):
+        #     print("!", tweet, f"Ticker: {ticker}")
+        
         # Apply cleaning + formatting to all the text in the dataset
         dataset["body"] = dataset["body"].apply(lambda x: cleanse_text(x))
 
-        print(dataset["body"].value_counts())
-        print(dataset["body"].nunique())
+        print("CLEANED")
+        value_counts = dataset[["body", "ticker_symbol"]].value_counts()
+        print(value_counts)
+        print(dataset[["body", "ticker_symbol"]].nunique())
+        print("Unique combinations", len(value_counts), "Dataset size", len(dataset))
 
-        # for tweet in dataset["body"]:
-        #     print("!", tweet)
+        # Remove all duplicates based on the tweet and selected ticker symbol (for entity-based sentiment analysis)
+        """Notes 
+        - groupby groups the dataframe by the selected columns
+        - .first() selects the first occurrence of each group (ensuring there are no duplicates)
+        - as_index = False to ensure that the dataframe uses a regular index instead of multiindex
+        """
+        dataset = dataset.groupby(["body", "ticker_symbol"], as_index = False).first()
+
+        print("REMOVED D")
+        value_counts = dataset[["body", "ticker_symbol"]].value_counts()
+        print(value_counts)
+        print(dataset[["body", "ticker_symbol"]].nunique())
+        print("Unique combinations", len(value_counts), "Dataset size", len(dataset))
+        
+        # for tweet, ticker in zip(dataset["body"], dataset["ticker_symbol"]):
+        #     print("!", tweet, f"Ticker: {ticker}")
 
         """ 
         Notes: (About size)
         Total texts = 4336444
 
-        Number of unique texts = 3,326,194 (Before cleaning)
-        Number of unique texts = 2,988,567 (After cleaning)
+        unique_text = "Amazon is great", ticker_symbol = "amzn" should count as a single unique instance, 
+        - If the same text appeared again but with a different ticker, that should be a different instance
+
+        Number of combinations of unique texts and ticker symbols = 3,837,993 (Before cleaning)
+        Number of combinations of unique texts and ticker symbols = 3,446,330 (After cleaning) [Removing duplicates from the cleaned dataset will set the dataset to this size]
 
         To limit requests to inference endpoint (Less usage on endpoint):
-        - Create a dictionary containing 2,988,567 items with the keys being ("body", "ticker_company"), with the value being the sentiment value assigned
+        - Create a dictionary containing 2,988,567 items with the keys being ("body", "ticker_symbol"), with the value being the sentiment value assigned
         - Then create a list (which will act as the sentiment column that will be added to the dataset) which will retrieve the value, given the text and company ticker for each row in the dataset
         
         For example:
@@ -537,7 +562,6 @@ class TextDataHandler:
         text_inputs = ["Why did Amazon increase their prices again!", "Amazon's stock has increased by 10%!", "Amazon's stock has decreased by 10%!"]
 
         print(dataset.columns)
-        print(dataset[:10])
 
         # Create a copy of all the tweets and put them in a Python list
         all_tweets = dataset[["writer", "body", "ticker_symbol"]].copy()
@@ -546,8 +570,6 @@ class TextDataHandler:
 
         # Clean the dataset
         all_tweets = self.clean_dataset(dataset = all_tweets)
-
-        print(all_tweets)
 
 
         # Get predictions from the model
