@@ -497,8 +497,8 @@ class TextDataHandler:
             return clean_text.strip().lower()
         
         def format_text(tweet, ticker):
-            # Formats the relevant information into the prompt, which will be passed into the model
-            return f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's stock went down by 30% but Ebays' went up!'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+            # Formats the relevant information into a desired prompt format, which will be passed into the model
+            return f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the '{ticker}' ticker, given the text '{tweet}'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
 
         print("VALUE COUNTS")
         value_counts = dataset[["body", "ticker_symbol"]].value_counts()
@@ -509,24 +509,14 @@ class TextDataHandler:
         # for tweet, ticker in zip(dataset["body"], dataset["ticker_symbol"]):
         #     print("!", tweet, f"Ticker: {ticker}")
         
-        # Apply cleaning + formatting to all the text in the dataset
+        # Apply cleaning to all text
         dataset["body"] = dataset["body"].apply(lambda x: cleanse_text(x))
 
-        print("CLEANED")
-        value_counts = dataset[["body", "ticker_symbol"]].value_counts()
-        print(value_counts)
-        print(dataset[["body", "ticker_symbol"]].nunique())
-        print("Unique combinations", len(value_counts), "Dataset size", len(dataset))
+        # Create a new column containing the desired prompt with the text and ticker symbol inserted for each row
+        dataset["prompt"] = dataset.apply(lambda row: format_text(tweet = row["body"], ticker = row["ticker_symbol"]), axis = 1)
 
-        # Remove all duplicates based on the tweet and selected ticker symbol (for entity-based sentiment analysis)
-        """Notes 
-        - groupby groups the dataframe by the selected columns
-        - .first() selects the first occurrence of each group (ensuring there are no duplicates)
-        - as_index = False to ensure that the dataframe uses a regular index instead of multiindex
-        """
-        dataset = dataset.groupby(["body", "ticker_symbol"], as_index = False).first()
 
-        print("REMOVED D")
+        print("CLEANED + FORMATTED")
         value_counts = dataset[["body", "ticker_symbol"]].value_counts()
         print(value_counts)
         print(dataset[["body", "ticker_symbol"]].nunique())
@@ -546,12 +536,8 @@ class TextDataHandler:
         Number of combinations of unique texts and ticker symbols = 3,446,330 (After cleaning) [Removing duplicates from the cleaned dataset will set the dataset to this size]
 
         To limit requests to inference endpoint (Less usage on endpoint):
-        - Create a dictionary containing 2,988,567 items with the keys being ("body", "ticker_symbol"), with the value being the sentiment value assigned
-        - Then create a list (which will act as the sentiment column that will be added to the dataset) which will retrieve the value, given the text and company ticker for each row in the dataset
-        
-        For example:
-        sentiment_scores = {(unformatted_text, company_ticker): sentiment_value_assigned}
-        scores_column = [sentiment_scores[(unformatted_text, company_ticker)] for (unformatted_text, company_ticker) in dataset["body"]["company_ticker"]]
+        - Get the sentiment scores on all the combinations and store them in a different dataset
+        - Merge that dataset with the dataset containing all of the tweets based on the tweet and the ticker symbol
         """
         return dataset
     
@@ -564,15 +550,38 @@ class TextDataHandler:
         print(dataset.columns)
 
         # Create a copy of all the tweets and put them in a Python list
-        all_tweets = dataset[["writer", "body", "ticker_symbol"]].copy()
+        all_tweets = dataset[["writer", "post_date", "body", "ticker_symbol"]].copy()
 
         print(all_tweets)
 
-        # Clean the dataset
+        # Create a clean and formatted version of the all_tweets dataset
         all_tweets = self.clean_dataset(dataset = all_tweets)
+        all_tweets.drop(["writer"], axis = 1, inplace = True) # Drop unrequired columns
 
+        # Create a prompt dataset
+        """
+        Notes:
+        - Remove all duplicates based on the tweet and selected ticker symbol (for entity-based sentiment analysis)
+        - Will be used for inference of the model
+        - groupby groups the dataframe by the selected columns
+        - .first() selects the first occurrence of each group (ensuring there are no duplicates)
+        - as_index = False to ensure that the dataframe uses a regular index instead of multiindex
+        """
+        prompt_dataset = all_tweets[["body", "ticker_symbol", "prompt"]].groupby(["body", "ticker_symbol"], as_index = False).first()
+        print("REMOVED DUPLICATES")
+        value_counts = prompt_dataset[["body", "ticker_symbol"]].value_counts()
+        print(value_counts)
+        print(prompt_dataset[["body", "ticker_symbol"]].nunique())
+        print("Unique combinations", len(value_counts), "prompt_dataset size", len(prompt_dataset))
 
-        # Get predictions from the model
+        prompt_dataset.drop(["body", "ticker_symbol"], axis = 1, inplace = True) # Use if merging on prompts instead of tweets and ticker symbol, else comment out
+
+        print(all_tweets)
+        print(prompt_dataset)
+
+        # ---------------------------------------------------------------------------
+        # Build a new column to store the predictions from the model
+
         """
         Notes: 
         - The returned outputs will be a single integer. [-1 for negative, 0 for neutral, 1 for positive]
@@ -601,40 +610,33 @@ class TextDataHandler:
             response = requests_post(API_URL, headers = headers, json = payload)
             return response.json() 
         
-        # Format texts into the desired prompt layout
-        #############################################
-        prompts = [
-                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's prices are decent'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
-                ,
-                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "ebay" ticker, given the text 'Amazon's prices are decent'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
-                ,
+        # Query the Google FLAN T5 XXL model with all the prompts in the prompt dataset and create a new column in the prompt dataset to store the sentiment scores 
+        # prompt_dataset["sentiment_score"] = prompt_dataset.apply(lambda row: query({"inputs": row["prompt"]}))
+        prompt_dataset["sentiment_score"] = prompt_dataset.apply(lambda row: 0, axis = 1) # TEMPORARY (the code above is correct)
 
-                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's prices are good'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
-                ,
-                """Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "ebay" ticker, given the text 'Amazon's prices are good'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
-                ,
+        # print(prompt_dataset)
+        # print(all_tweets)
 
-                f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "amzn" ticker, given the text 'Amazon's stock went down by 30% but Ebays' went up!'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
-                ,
-                f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the "ebay" ticker, given the text 'Amazon's stock went down by 30% but Ebays' went up!'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+        # Merge the two datasets
+        """
+        Notes:
+        - This essentially maps the corresponding sentiment scores based on the prompt (OR the tweet and ticker symbol), without needing to create a dictionary with hashed keys
+        - Remove all overlapping data from the prompts_dataset (labeled_data[post_date_x] should be the same as all_tweets["post_date"])
+        - Rename column "post_date_x" to "post_date"
+        """
+        print(prompt_dataset.columns)
+        print(all_tweets.columns)
+        
+        start_time = get_time()
+        # Note: Merging on either doesn't make a difference in execution time
+        labeled_dataset = all_tweets.merge(prompt_dataset, on = "prompt", how = "left") # Merge on prompts
+        # labeled_dataset = all_tweets.merge(prompt_dataset, on = ["body", "ticker_symbol"], how = "left") # Merge on labels and columns
+        end_time = get_time()
 
-                ]
-        
-        # Query the Google FLAN T5 XXL model
-        all_predictions = []
-        for prompt in prompts:
-            start_time = get_time()
-            output = query({
-                            "inputs": prompt
-                            })
-            all_predictions.extend(int(output[0]["generated_text"]))
-            end_time = get_time()
-            print("Time taken:", end_time - start_time)
-        
-        # Create new column for the sentiment scores assigned [Closer to: -1 = More negative, 0 = More neutral, 1 = More positivel]
-        labeled_dataset["s_score"] = all_predictions
-        
-        print(labeled_dataset)
+        print(end_time - start_time)
+
+        print(labeled_dataset.columns, len(labeled_dataset))
+        print(labeled_dataset[-10:])
 
         # Save the labeled dataset as a csv file
         labeled_dataset.to_csv("ML/sentiment_data/labeled_dataset.csv", index = True)
