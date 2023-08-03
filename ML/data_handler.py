@@ -461,23 +461,28 @@ class TextDataHandler:
             # Removes links, mentions, multiple spaces, hashtags and sets the text to lowercase
             
             # Regular expression pattern to match URLs
-            url_pattern = r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+            url_pattern = r"http\S+"
             # Regular expression pattern to match mentions
             mention_pattern = r"@\w+"
             # Regular expression pattern to match multiple spaces
             multiple_spaces_pattern = r"\s+"
-            # Regular expression pattern to match multiple spaces
-            hashtag_pattern = r"#\w+"
+            # # Regular expression pattern to match multiple spaces
+            # hashtag_pattern = r"#\w+"
+            # Regular expression pattern to match non-utf 8/ non ASCII character
+            character_type_pattern = r"[^\x00-\x7f]"
 
-            # Remove \r and \n (New lines)
-            clean_text = text.replace("\r", "").replace("\n", "")
+            # Remove \r and \n (New lines) and return the string in lowercase
+            clean_text = text.replace("\r", "").replace("\n", "").lower()
 
             # Remove URLs
             clean_text = re_sub(url_pattern, "", clean_text)
 
             ## Remove hashtags 
-            # Note: (Might not ideal when users use e.g. #google near the start of the text, instead of at the end)
+            # Note: (Might not ideal when users use e.g. "#google" near the start or middle of the text, instead of at the end)
             # clean_text = re_sub(hashtag_pattern, "", clean_text)
+
+            # Remove characters that are not utf-8 / ascii
+            clean_text = re_sub(character_type_pattern, "", clean_text)
 
             # Remove mentions
             clean_text = re_sub(mention_pattern, "", clean_text)
@@ -485,16 +490,16 @@ class TextDataHandler:
             # Clean any remaining "@" [This happens when a "@" comes after a word without a space]
             clean_text = clean_text.replace("@", "")
 
-            # Remove stop words (commonly occurring words which provide insignificant value to the model)
-            clean_text = clean_text.split()
-            clean_text = " ".join(word for word in clean_text if word not in stop_words)
-
             # Remove multiple spaces (replaced with a single space)
             # Note: Do this after removing URLs, mentions and hashtags (as they could create new gaps)
             clean_text = re_sub(multiple_spaces_pattern, " ", clean_text)
 
-            # Remove leading and trailing spaces and return the text all in lowercase (Helps with text processing)
-            return clean_text.strip().lower()
+            # Remove stop words (commonly occurring words which provide insignificant value to the model)
+            clean_text = clean_text.split()
+            clean_text = " ".join(word for word in clean_text if word not in stop_words)
+
+            # Remove leading and trailing spaces
+            return clean_text.strip()
         
         def format_text(tweet, ticker):
             # Formats the relevant information into a desired prompt format, which will be passed into the model
@@ -544,20 +549,35 @@ class TextDataHandler:
     def label_dataset(self, dataset):
         # Labels the unlabeled dataset (containing the tweets about the top companies from 2015 to 2020)
 
-        text_inputs = ["Amazon's stock decreased by 10%!", "Amazon's stock has increased by 2%!", "Amazon's new prices aren't good but not bad"]
-        text_inputs = ["Why did Amazon increase their prices again!", "Amazon's stock has increased by 10%!", "Amazon's stock has decreased by 10%!"]
-
         print(dataset.columns)
 
-        # Create a copy of all the tweets and put them in a Python list
-        all_tweets = dataset[["writer", "post_date", "body", "ticker_symbol"]].copy()
+        clean_data_path = "ML/sentiment_data/progress/cleaned_data.csv"
+        if os_path_exists(clean_data_path):
+            print("Loading clean data")
+            # Load the cleaned data
+            all_tweets = pd_read_csv(clean_data_path)
 
-        print(all_tweets)
+        else:
+            print("Creating cleaned data")
+            # Create a copy of all the tweets and put them in a Python list
+            all_tweets = dataset[["writer", "post_date", "body", "ticker_symbol"]].copy()
 
-        # Create a clean and formatted version of the all_tweets dataset
-        all_tweets = self.clean_dataset(dataset = all_tweets)
-        all_tweets.drop(["writer"], axis = 1, inplace = True) # Drop unrequired columns
+            print(all_tweets)
 
+            # Create a clean and formatted version of the all_tweets dataset
+            all_tweets = self.clean_dataset(dataset = all_tweets)
+            all_tweets.drop(["writer"], axis = 1, inplace = True) # Drop unrequired columns
+
+            # Create progress directory if it does not exist
+            progress_path = "ML/sentiment_data/progress"
+            if os_path_exists(progress_path) == False:
+                from os import mkdir as os_mkdir
+                os_mkdir("ML/sentiment_data/progress")
+
+            # Save cleaned data as a csv file
+            all_tweets.to_csv(clean_data_path, index = True)
+            
+        
         # Create a prompt dataset
         """
         Notes:
@@ -586,11 +606,6 @@ class TextDataHandler:
         Notes: 
         - The returned outputs will be a single integer. [-1 for negative, 0 for neutral, 1 for positive]
         """
-        batch_size = 10
-        num_inputs = len(text_inputs)
-        num_batches = math_ceil(num_inputs / batch_size)
-        print(batch_size, num_batches, num_inputs)
-
         from huggingface_hub import login
         from time import time as get_time
         from dotenv import load_dotenv
