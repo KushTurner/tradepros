@@ -498,8 +498,12 @@ class TextDataHandler:
             clean_text = clean_text.split()
             clean_text = " ".join(word for word in clean_text if word not in stop_words)
 
-            # Remove leading and trailing spaces
-            return clean_text.strip()
+            # Remove leading exclamation marks, semi colons, commas, spaces 
+            # Note: (Did not remove full stops because users may have used ellipses)
+            clean_text = clean_text.lstrip(" :!,")
+            clean_text = clean_text.rstrip(": ")
+            
+            return clean_text
         
         def format_text(tweet, ticker):
             # Formats the relevant information into a desired prompt format, which will be passed into the model
@@ -626,7 +630,7 @@ class TextDataHandler:
             return response.json() 
         
         # Query the Google FLAN T5 XXL model with all the prompts in the prompt dataset and create a new column in the prompt dataset to store the sentiment scores 
-        # prompt_dataset["sentiment_score"] = prompt_dataset.apply(lambda row: query({"inputs": row["prompt"]}))
+        # prompt_dataset["sentiment_score"] = prompt_dataset.apply(lambda row: query({"inputs": row["prompt"]}), axis = 1)
         prompt_dataset["sentiment_score"] = prompt_dataset.apply(lambda row: 0, axis = 1) # TEMPORARY (the code above is correct)
 
         # print(prompt_dataset)
