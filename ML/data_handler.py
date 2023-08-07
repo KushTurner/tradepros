@@ -399,7 +399,6 @@ class DataHandler:
         # Return the training folds  and validation folds
         return (torch_cat([D_FOLDS[i] for i in range(window_size - 1)]), torch_cat([L_FOLDS[i] for i in range(window_size - 1)])), (D_FOLDS[-1], L_FOLDS[-1])
 
-
 class TextDataHandler: 
     """ Will be used to train my own sentiment analysis model after using a pretrained model to label the unlabelled dataset with sentiment values """
 
@@ -413,38 +412,38 @@ class TextDataHandler:
         # Note:
         # - Contains data on the top companies from January 1st 2015 - December 31st 2019 (Inclusive)
         # - The reason why MERGED.shape is larger when DATA.shape is smaller than TWEET_COMPANY.shape is because a single tweet (in DATA) can reference multiple different companies
-
-
+        
         # Labeled data already created
-        if os_path_exists("ML/sentiment_data/labeled_dataset.csv"):
+        if os_path_exists("sentiment_data/labeled_dataset.csv"):
             print("Loading labeled dataset")
-            LABELED_DATA = pd_read_csv("ML/sentiment_data/labeled_dataset.csv")
+            LABELED_DATA = pd_read_csv("sentiment_data/labeled_dataset.csv")
 
         # Not created yet
         else:
             print("Creating labeled dataset")
             # Data containing the tweet id, writer, post date, tweet, number of comments, likes and retweets
-            DATA = pd_read_csv("ML/sentiment_data/Tweet.csv")
+            DATA = pd_read_csv("sentiment_data/Tweet.csv")
 
             # The IDs to all the tweets and what company they were referring to
-            TWEET_COMPANY = pd_read_csv("ML/sentiment_data/Company_Tweet.csv")
-
-            # print(DATA["body"][4:10])
-
-            # for tweet in DATA["body"][4:10]:
-            #     print("H", tweet)
-
-            # print(TWEET_COMPANY[:10])
+            TWEET_COMPANY = pd_read_csv("sentiment_data/Company_Tweet.csv")
 
             # Merge the company tickers with each tweet according to tweet id
             MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
+
+            print(MERGED[MERGED["body"] == ""])
+
+            # print(DATA[DATA.isna().any(axis = 1)])
+            # print(TWEET_COMPANY[TWEET_COMPANY.isna().any(axis = 1)])
+            # print(MERGED[MERGED.isna().any(axis = 1)])
+
+            print(MERGED[MERGED["body"].isna()])
 
             # Label the merged dataset with sentiment values
             LABELED_DATA = self.label_dataset(dataset = MERGED)
 
             print(LABELED_DATA)
         
-        #print(pd_read_csv("ML/sentiment_data/labeled_dataset.csv"))
+        #print(pd_read_csv("sentiment_data/labeled_dataset.csv"))
 
     def clean_dataset(self, dataset):
         
@@ -490,6 +489,12 @@ class TextDataHandler:
             # Clean any remaining "@" [This happens when a "@" comes after a word without a space]
             clean_text = clean_text.replace("@", "")
 
+            # Remove all "|" as this will be used as our delimiter when reading / writing the saved clean dataset
+            clean_text = clean_text.replace("|", "")
+
+            # Remove '" "' in text (Appeared in the dataset a few times)
+            clean_text = clean_text.replace('" "', "")
+
             # Remove multiple spaces (replaced with a single space)
             # Note: Do this after removing URLs, mentions and hashtags (as they could create new gaps)
             clean_text = re_sub(multiple_spaces_pattern, " ", clean_text)
@@ -502,12 +507,14 @@ class TextDataHandler:
             # Note: (Did not remove full stops because users may have used ellipses)
             clean_text = clean_text.lstrip(" :!,")
             clean_text = clean_text.rstrip(": ")
-            
+
             return clean_text
         
         def format_text(tweet, ticker):
             # Formats the relevant information into a desired prompt format, which will be passed into the model
-            return f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the '{ticker}' ticker, given the text '{tweet}'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
+            # - Format is from the llama-cpp-python library example
+            return f"Q: Assign a sentiment for the text which is relevant to the company with the '{ticker}' ticker (-1=Negative, 0=Neutral, 1=Positive, 2=Not relevant), given the text '{tweet}'. Only respond with a value. A:"
+            # return f"""Assign a sentiment(-1=Negative, 0=Neutral, 1=Positive) for the company with the '{ticker}' ticker, given the text '{tweet}'. For example, in a different scenario, if the text was 'Tesla is great' and the ticker was "tsla", your answer should be 1 (Positive sentiment) as the text talks positively about Tesla, who has the "tsla" ticker. If the tweet is not relevant to the company, your answer should be 0"""
 
         print("VALUE COUNTS")
         value_counts = dataset[["body", "ticker_symbol"]].value_counts()
@@ -521,9 +528,15 @@ class TextDataHandler:
         # Apply cleaning to all text
         dataset["body"] = dataset["body"].apply(lambda x: cleanse_text(x))
 
+        # Remove any rows where the tweet is now empty (Prevents prompts with empty texts being used)
+        dataset.drop(dataset[dataset["body"] == ""].index, inplace = True)
+
         # Create a new column containing the desired prompt with the text and ticker symbol inserted for each row
         dataset["prompt"] = dataset.apply(lambda row: format_text(tweet = row["body"], ticker = row["ticker_symbol"]), axis = 1)
 
+        # print(dataset[dataset["body"].isna()])
+        # print(dataset[dataset["body"] == ""])
+        # print(dataset[dataset["body"] == ""].index)
 
         print("CLEANED + FORMATTED")
         value_counts = dataset[["body", "ticker_symbol"]].value_counts()
@@ -555,11 +568,15 @@ class TextDataHandler:
 
         print(dataset.columns)
 
-        clean_data_path = "ML/sentiment_data/progress/cleaned_data.csv"
+        clean_data_path = "sentiment_data/progress/cleaned_data.csv"
+        custom_separator = "|"
+        from csv import QUOTE_NONE as csv_QUOTE_NONE
         if os_path_exists(clean_data_path):
             print("Loading clean data")
             # Load the cleaned data
-            all_tweets = pd_read_csv(clean_data_path)
+            all_tweets = pd_read_csv(clean_data_path, sep = custom_separator, quoting = 3)
+
+            print(all_tweets[all_tweets["body"] == ""].index)
 
         else:
             print("Creating cleaned data")
@@ -573,13 +590,14 @@ class TextDataHandler:
             all_tweets.drop(["writer"], axis = 1, inplace = True) # Drop unrequired columns
 
             # Create progress directory if it does not exist
-            progress_path = "ML/sentiment_data/progress"
+            progress_path = "sentiment_data/progress"
             if os_path_exists(progress_path) == False:
                 from os import mkdir as os_mkdir
-                os_mkdir("ML/sentiment_data/progress")
+                os_mkdir("sentiment_data/progress")
 
             # Save cleaned data as a csv file
-            all_tweets.to_csv(clean_data_path, index = True)
+            # Note: csv.QUOTE_NONE so that quotation marks aren't added around the tweets / prompts, custom separator used as delimeter as commas are used in texts
+            all_tweets.to_csv(clean_data_path, index = False, sep = custom_separator, quoting = csv_QUOTE_NONE)
             
         
         # Create a prompt dataset
@@ -588,15 +606,17 @@ class TextDataHandler:
         - Remove all duplicates based on the tweet and selected ticker symbol (for entity-based sentiment analysis)
         - Will be used for inference of the model
         - groupby groups the dataframe by the selected columns
-        - .first() selects the first occurrence of each group (ensuring there are no duplicates)
+        - .agg(lambda series: series.iloc[0]) selects the first occurrence of each group (ensuring there are no duplicates). Replaced .first() so that quotation marks aren't added to the tweets.
         - as_index = False to ensure that the dataframe uses a regular index instead of multiindex
         """
-        prompt_dataset = all_tweets[["body", "ticker_symbol", "prompt"]].groupby(["body", "ticker_symbol"], as_index = False).first()
+        prompt_dataset = all_tweets[["body", "ticker_symbol", "prompt"]].groupby(["body", "ticker_symbol"], as_index = False).first() #agg(lambda series: series.iloc[0])
+
         print("REMOVED DUPLICATES")
         value_counts = prompt_dataset[["body", "ticker_symbol"]].value_counts()
         print(value_counts)
         print(prompt_dataset[["body", "ticker_symbol"]].nunique())
         print("Unique combinations", len(value_counts), "prompt_dataset size", len(prompt_dataset))
+        print(prompt_dataset[prompt_dataset["body"] == ""])
 
         prompt_dataset.drop(["body", "ticker_symbol"], axis = 1, inplace = True) # Use if merging on prompts instead of tweets and ticker symbol, else comment out
 
@@ -608,33 +628,43 @@ class TextDataHandler:
 
         """
         Notes: 
-        - The returned outputs will be a single integer. [-1 for negative, 0 for neutral, 1 for positive]
+        - The returned outputs will be a single integer. [-1 for negative, 0 for neutral, 1 for positive, 2 for unrelated]
         """
-        from huggingface_hub import login
-        from time import time as get_time
-        from dotenv import load_dotenv
-        from os import getenv as os_get_env
-        from requests import post as requests_post
-    
-        # Login to hf to access the model
-        load_dotenv()
-        login(token = os_get_env("hf_access_token"))
-
-        # Inference endpoint
-        API_URL = os_get_env("endpoint_url")
-        headers = {"Authorization": f"Bearer {os_get_env('endpoint_access_token')}"}
-
-        # Function for querying the model
-        def query(payload):
-            response = requests_post(API_URL, headers = headers, json = payload)
-            return response.json() 
         
-        # Query the Google FLAN T5 XXL model with all the prompts in the prompt dataset and create a new column in the prompt dataset to store the sentiment scores 
-        # prompt_dataset["sentiment_score"] = prompt_dataset.apply(lambda row: query({"inputs": row["prompt"]}), axis = 1)
-        prompt_dataset["sentiment_score"] = prompt_dataset.apply(lambda row: 0, axis = 1) # TEMPORARY (the code above is correct)
+        # Load the llama 2 model
+        from llama_cpp import Llama
+        from time import time as get_time
 
-        # print(prompt_dataset)
-        # print(all_tweets)
+        LLM = Llama(model_path="llama2_inference/llama-2-13b-chat.ggmlv3.q5_0.bin", n_gpu_layers = 33, n_ctx = 1024)
+        LLM.verbose = False # Turn off printing benchmarks
+
+        print("Loaded")
+        
+        print(len(prompt_dataset))
+        prompts = prompt_dataset["prompt"][:10].to_list()
+        print(len(prompts))
+        answers = []
+
+        for prompt in prompts:
+            print(prompt)
+            print("----")
+        
+        # Generate responses from Llama 2 Model
+        start_time = get_time()
+        for prompt in prompts:
+            answers.append(LLM(prompt)["choices"][0]["text"].lstrip()) # Remove spaces at the front of the text
+
+        end_time = get_time()
+
+        print(end_time - start_time)
+
+        for answer in answers:
+            print(answer)
+            print("-----")
+
+        print(answers)
+        print([answer[:2] if answer[0] == "-" and answer[1] == "1" else answer[0] for answer in answers])
+        print(len(answers))
 
         # Merge the two datasets
         """
@@ -658,7 +688,7 @@ class TextDataHandler:
         print(labeled_dataset[-10:])
 
         # Save the labeled dataset as a csv file
-        labeled_dataset.to_csv("ML/sentiment_data/labeled_dataset.csv", index = True)
+        labeled_dataset.to_csv("sentiment_data/labeled_dataset.csv", index = True)
 
         return labeled_dataset
 

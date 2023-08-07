@@ -1,2 +1,4 @@
 sentiment_data
 .env
+venv
+llama2_inference
