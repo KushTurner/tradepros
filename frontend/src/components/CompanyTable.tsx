@@ -16,7 +16,7 @@ interface DataTableProps<TData, TValue> {
   data: TData[];
 }
 
-function DataTable<TData, TValue>({
+function CompanyTable<TData, TValue>({
   columns,
   data,
 }: DataTableProps<TData, TValue>) {
@@ -108,4 +108,4 @@ function DataTable<TData, TValue>({
   );
 }
 
-export default DataTable;
+export default CompanyTable;
