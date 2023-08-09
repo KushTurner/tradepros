@@ -8,7 +8,15 @@ export type CompanyData = {
   lowest: string;
 };
 
-export const columns: ColumnDef<CompanyData>[] = [
+export type PortfolioData = {
+  company_name: string;
+  no_of_shares: number;
+  total_investment: string;
+  current_val: string;
+  gain_loss: string;
+};
+
+export const companyColumns: ColumnDef<CompanyData>[] = [
   {
     header: 'Company Name',
     accessorKey: 'company_name',
@@ -28,5 +36,28 @@ export const columns: ColumnDef<CompanyData>[] = [
   {
     header: '24h Low Price',
     accessorKey: 'lowest',
+  },
+];
+
+export const portfolioColumns: ColumnDef<PortfolioData>[] = [
+  {
+    header: 'Company Name',
+    accessorKey: 'company_name',
+  },
+  {
+    header: 'Number of Shares',
+    accessorKey: 'no_of_shares',
+  },
+  {
+    header: 'Total Investment',
+    accessorKey: 'total_investment',
+  },
+  {
+    header: 'Current Value',
+    accessorKey: 'current_val',
+  },
+  {
+    header: 'Gain / Loss',
+    accessorKey: 'gain_loss',
   },
 ];
