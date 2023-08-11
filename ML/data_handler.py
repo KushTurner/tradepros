@@ -14,6 +14,8 @@ from pandas import read_csv as pd_read_csv
 from os.path import exists as os_path_exists
 from math import ceil as math_ceil
 from torch.cuda import memory_summary as torch_cuda_memory_summary
+from os import mkdir as os_mkdir
+from os.path import join as os_path_join
 
 class DataHandler:
 
@@ -405,14 +407,14 @@ class TextDataHandler:
     def __init__(self, device, generator):
 
         self.device = device # CUDA or CPU
-        self.generator = generator # Reproducibilit
+        self.generator = generator # Reproducibility
     
     def retrieve_data(self):
         
         # Note:
         # - Contains data on the top companies from January 1st 2015 - December 31st 2019 (Inclusive)
         # - The reason why MERGED.shape is larger when DATA.shape is smaller than TWEET_COMPANY.shape is because a single tweet (in DATA) can reference multiple different companies
-        
+
         # Labeled data already created
         if os_path_exists("sentiment_data/labeled_dataset.csv"):
             print("Loading labeled dataset")
@@ -592,7 +594,6 @@ class TextDataHandler:
             # Create progress directory if it does not exist
             progress_path = "sentiment_data/progress"
             if os_path_exists(progress_path) == False:
-                from os import mkdir as os_mkdir
                 os_mkdir("sentiment_data/progress")
 
             # Save cleaned data as a csv file
@@ -630,41 +631,81 @@ class TextDataHandler:
         Notes: 
         - The returned outputs will be a single integer. [-1 for negative, 0 for neutral, 1 for positive, 2 for unrelated]
         """
+        checkpoints_path = "sentiment_data/progress/sentiment_cps"
+        prompts = prompt_dataset["prompt"][:121]
+
+        if os_path_exists(checkpoints_path) == False:
+            print("Querying model")
+            os_mkdir(checkpoints_path)
+
+            # Load the llama 2 model
+            from llama_cpp import Llama
+            from time import time as get_time
+            from pickle import dump as pickle_dump
+
+            LLM = Llama(model_path="llama2_inference/llama-2-13b-chat.ggmlv3.q5_0.bin", n_gpu_layers = 33, n_ctx = 1024)
+            LLM.verbose = False # Turn off printing benchmarks
+            print("Loaded model")
+            
+            # Split the prompts into parts to save parts of prompts when querying the model (Checkpoints)
+            
+            num_cpoints = 10
+            print(len(prompts))
+            num_prompts_per_cp = math_ceil(len(prompts) / num_cpoints)
+
+            for prompt in prompts:
+                print(prompt)
+                print("----")
+            
+            # Generate responses from Llama 2 Model
+            sentiments = []
+            j = 0
+            num_prompts = len(prompts)
+            start_time = get_time()
+
+            for i, prompt in enumerate(prompts):
+                #sentiments.append(LLM(prompt)["choices"][0]["text"].lstrip()) # Remove spaces at the front of the answer text
+                sentiments.append(i)
+                # print(sentiments[-1])
+                # print("||||||")
+
+                # Save checkpoint (Reset the list for the next section of prompts)
+                if (i + 1) % num_prompts_per_cp == 0 or i == (num_prompts - 1):
+                    print(i)
+                    with open(os_path_join(checkpoints_path, f"sentiments_cp{j}"), "wb") as f:
+                        print("Length", len(sentiments))
+                        pickle_dump(sentiments, f)
+                    sentiments = []
+                    j += 1
+
+            end_time = get_time()
+            print(end_time - start_time)
+
+        # Combine all sentiments from each checkpoint into a single list
+        from pickle import load as pickle_load
+        from os import listdir as os_list_dir
+        print("Combining sentiments")
+        print(os_list_dir(checkpoints_path))
+        all_sentiments = []
+        for sentiment_cp_fname in os_list_dir(checkpoints_path):
+            with open(os_path_join(checkpoints_path, sentiment_cp_fname), "rb") as sf:
+                sentiments = pickle_load(sf)
+            all_sentiments.extend(sentiments)
         
-        # Load the llama 2 model
-        from llama_cpp import Llama
-        from time import time as get_time
+        print(all_sentiments)
 
-        LLM = Llama(model_path="llama2_inference/llama-2-13b-chat.ggmlv3.q5_0.bin", n_gpu_layers = 33, n_ctx = 1024)
-        LLM.verbose = False # Turn off printing benchmarks
-
-        print("Loaded")
-        
-        print(len(prompt_dataset))
-        prompts = prompt_dataset["prompt"][:10].to_list()
-        print(len(prompts))
-        answers = []
-
-        for prompt in prompts:
-            print(prompt)
-            print("----")
-        
-        # Generate responses from Llama 2 Model
-        start_time = get_time()
-        for prompt in prompts:
-            answers.append(LLM(prompt)["choices"][0]["text"].lstrip()) # Remove spaces at the front of the text
-
-        end_time = get_time()
-
-        print(end_time - start_time)
-
-        for answer in answers:
-            print(answer)
+        print("End")
+        for i in range(len(all_sentiments)):
+            print(prompts[i])
             print("-----")
+            print(all_sentiments[i])
+            print()
+            print()
+            print()
 
-        print(answers)
-        print([answer[:2] if answer[0] == "-" and answer[1] == "1" else answer[0] for answer in answers])
-        print(len(answers))
+        print(all_sentiments)
+        print([answer[:2] if answer[0] == "-" and answer[1] == "1" else answer[0] for answer in all_sentiments])
+        print(len(all_sentiments))
 
         # Merge the two datasets
         """
