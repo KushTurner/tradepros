@@ -6,7 +6,7 @@ import Footer from './Footer';
 function Portfolio() {
   return (
     <div>
-      <div className="font-display text-white bg-[#121318] rounded-xl mt-5 mx-[16px] p-5 md:pb-20">
+      <div className="font-display text-white bg-[#121318] rounded-xl mt-5 mx-[16px] p-5 md:pb-20 md:mt-10">
         <div className="mb-10 md:ml-2 lg:ml-6">
           <h1 className="text-2xl font-bold mb-2">Portfolio</h1>
           <p className="text-[#9395A5]">Update 16/02/2022 at 02:30PM</p>

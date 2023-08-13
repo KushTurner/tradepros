@@ -3,7 +3,6 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  getSortedRowModel,
 } from '@tanstack/react-table';
 import { useMediaQuery } from 'react-responsive';
 
@@ -21,7 +20,6 @@ function CompanyTable<TData, TValue>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     state: {
       columnVisibility: {
         no_of_shares: isLaptopAndDesktop,
@@ -38,7 +36,6 @@ function CompanyTable<TData, TValue>({
             {headerGroup.headers.map((header) => (
               <th
                 key={header.id}
-                onClick={header.column.getToggleSortingHandler()}
                 className="py-2 text-left text-xs text-[#6E707F] pr-5 lg:pl-16 md:pl-10 lg:text-base"
               >
                 {flexRender(

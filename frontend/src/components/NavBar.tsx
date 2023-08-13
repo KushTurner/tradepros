@@ -9,7 +9,7 @@ function NavBar() {
   return (
     <nav>
       <header className="bg-[#121318] py-6 rounded-b-xl md:hidden">
-        <h1 className="font-display text-lg font-bold text-white ml-6">
+        <h1 className="font-display text-lg font-bold text-white ml-6 hover:cursor-pointer">
           TradePros
         </h1>
       </header>

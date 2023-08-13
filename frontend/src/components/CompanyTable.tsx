@@ -48,7 +48,7 @@ function CompanyTable<TData, TValue>({
                 <th
                   key={header.id}
                   onClick={header.column.getToggleSortingHandler()}
-                  className="py-2 text-left text-xs text-[#6E707F] pr-5 lg:pl-16 md:pl-10 lg:text-base"
+                  className="py-2 text-left text-xs text-[#6E707F] pr-5 lg:pl-16 md:pl-10 lg:text-base hover:cursor-pointer"
                 >
                   {flexRender(
                     header.column.columnDef.header,

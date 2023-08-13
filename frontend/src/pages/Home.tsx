@@ -77,7 +77,7 @@ function Home() {
           </p>
         </div>
         <div className="text-white flex flex-col items-center font-display md:mr-5">
-          <ul className="md:columns-2">
+          <ul className="grid grid-cols-1 md:grid-cols-2">
             {instructionsData.map((instructs) => (
               <Instructions
                 key={instructs.index}
