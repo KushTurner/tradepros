@@ -1,6 +1,7 @@
 
 from typing import Any
 import torch.nn as nn
+from torch import zeros as torch_zeros
 
 class MLP(nn.Module):
 
@@ -75,7 +76,7 @@ class MLP(nn.Module):
 
 class RNN(nn.Module):
 
-    def __init__(self, initial_in, final_out, N_OR_S):
+    def __init__(self, initial_in, final_out, N_OR_S, device):
         super(RNN, self).__init__()
 
         # Cross validation results (Epochs = 5000, num_folds = 10)
@@ -123,12 +124,18 @@ class RNN(nn.Module):
                                     nn.BatchNorm1d(num_features = initial_in // 4),
                                     nn.ReLU(),
                                     )
+        # Hidden state layer
+        self.hidden_layer = nn.Linear(initial_in // 4, out_features = initial_in // 4, bias = True)
+        self.hidden_state_af = nn.ReLU()
+
         self.O = nn.Linear(initial_in // 4, final_out)
 
         self.initialise_weights(non_linearity = "relu")
 
         # Determines whether the model will use normalised or standardised data for training and inference
         self.N_OR_S = N_OR_S
+
+        self.device = device
 
     def __call__(self, inputs):
         
@@ -147,6 +154,8 @@ class RNN(nn.Module):
         # [batch_size, 2nd day, sequence features]
 
         num_context_days = inputs.shape[0]
+        batch_size = inputs.shape[1]
+        self.hidden_state = torch_zeros(batch_size, self.hidden_layer.weight.shape[1], device = self.device) # Initialise hidden state at the start of each forward pass as zeroes
 
         # Recurrence:
         for i in range(num_context_days):
@@ -156,8 +165,18 @@ class RNN(nn.Module):
             # Pass through all layers except the output layer
             output = self.layers(current_day_batch)
 
-        # After all days, find and return the output
-        return self.O(output)
+            # Pass the previous hidden state and current output (after the linear layers) into the hidden layer and then the activation function for the hidden layer
+            """Note:
+            - If this is the first training step, the hidden state would be all zeroes. This means that it would have no effect on the output for this step.
+            - If this isn't the first training step, the hidden state will be added with the current output after the linear layers
+            """
+            self.hidden_state = self.hidden_state_af(self.hidden_layer(self.hidden_state + output))
+    
+        # Predict output for the "num_context_days + 1"th day 
+        # Note: Shape should be [batch_size, 2], describing the probability assigned (after softmax) that the stock price will go up or down for each sequence in the batch
+        output = self.O(self.hidden_state)
+
+        return output
     
     def initialise_weights(self, non_linearity):
         
