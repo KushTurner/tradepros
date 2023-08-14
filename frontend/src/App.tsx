@@ -6,6 +6,7 @@ import Market from './pages/Market';
 import Portfolio from './pages/Portfolio';
 import Watchlist from './pages/Watchlist';
 import SignIn from './pages/SignIn';
+import Register from './pages/Register';
 
 function App() {
   const location = useLocation();
@@ -21,6 +22,7 @@ function App() {
         <Route path="/portfolio" element={<Portfolio />} />
         <Route path="/watchlist" element={<Watchlist />} />
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/register" element={<Register />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
