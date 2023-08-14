@@ -58,14 +58,20 @@ function NavBar() {
         </div>
         <div className="mt-8 flex justify-evenly mx-2 mr-6">
           <li className="navbar-item mr-2 w-full md:ml-0 md:mr-3 p-1 md:mb-0 rounded-lg bg-[#E8E9ED] md:bg-[#121318] text-center text-lg font-bold md:px-4">
-            <Link className="text-[#5266FE] md:font-normal" to="/signin">
+            <Link
+              className="text-[#5266FE] md:font-normal md:font-display"
+              to="/signin"
+            >
               Sign In
             </Link>
           </li>
           <li className="navbar-item ml-2 w-full md:ml-0 md:mr-3 p-1 rounded-lg bg-[#5266FE] text-center text-lg font-bold md:px-4">
-            <button type="button" className="text-[#E8E9ED] md:font-normal">
+            <Link
+              className="text-white md:font-normal md:font-display"
+              to="/register"
+            >
               Register
-            </button>
+            </Link>
           </li>
         </div>
       </ul>
