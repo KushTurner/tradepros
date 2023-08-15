@@ -16,6 +16,7 @@ from math import ceil as math_ceil
 from torch.cuda import memory_summary as torch_cuda_memory_summary
 from os import mkdir as os_mkdir
 from os.path import join as os_path_join
+from torch import arange as torch_arange
 
 class DataHandler:
 
@@ -184,21 +185,15 @@ class DataHandler:
 
         return torch_tensor(pandas_dataframe.values, dtype = desired_dtype)
 
-    def generate_batch(self, batch_size, dataset, num_context_days):
+    def generate_batch(self, batch_size, dataset, num_context_days, start_idx):
         
         # Find the inputs and labels in the dataset and find the number of examples in this set
         inputs, labels = dataset
-        num_examples = labels.shape[0]
-        
-        # Generate indexes which correspond to each example in the labels and inputs of this dataset (perform using CUDA if possible)
-        u_distrib = torch_ones(num_examples, device = self.device) / num_examples # Uniform distribution
-        example_idxs = torch_multinomial(input = u_distrib, num_samples = batch_size, replacement = True, generator = self.generator)
 
-        # Move indices to the "cpu" so that we can index the dataset, which is currently stored on the CPU
-        example_idxs = example_idxs.to(device = "cpu")
+        # Generate batch indexes starting from the start index, which correspond to each example in the labels and inputs of this dataset (perform using CUDA if possible)
+        example_idxs = [start_idx + idx for idx in range(batch_size)]
 
         if num_context_days == 1:
-
             # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
             # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
             return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device) 
@@ -707,7 +702,6 @@ class TextDataHandler:
         print([answer[:2] if answer[0] == "-" and answer[1] == "1" else answer[0] for answer in all_sentiments])
         print(len(all_sentiments))
 
-        # Merge the two datasets
         """
         Notes:
         - This essentially maps the corresponding sentiment scores based on the prompt (OR the tweet and ticker symbol), without needing to create a dictionary with hashed keys

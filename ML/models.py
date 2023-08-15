@@ -187,4 +187,5 @@ class RNN(nn.Module):
         for layer in self.layers:
             if isinstance(layer, nn.Linear):
                 init_function(layer.weight, mode = "fan_in", nonlinearity = non_linearity)
+        init_function(self.hidden_layer.weight, mode = "fan_in", nonlinearity = non_linearity)
         init_function(self.O.weight, mode = "fan_in", nonlinearity = non_linearity)
