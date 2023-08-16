@@ -53,11 +53,11 @@ model.to(device = DEVICE) # Move to selected device
 
 # Prepare data specific to this model:
 num_context_days = 10 if isinstance(model, RNN) else 1 # Number of days used as context (Used for RNN)
-num_folds = 10 # Number of folds used in cross-validation
+num_folds = 5 # Number of folds used in cross-validation
 # Create training and test sets and data sequences for this model (must be repeated for each model as num_context_days can vary depending on the model used)
 DH.create_sets(num_context_days = num_context_days, shuffle_data_sequences = False)
 # Create k folds
-DH.create_folds(num_folds = 10, N_OR_S = model.N_OR_S)
+DH.create_folds(num_folds = num_folds, N_OR_S = model.N_OR_S)
 
 # Generate folds for this training iteration
 TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2, N_OR_S = model.N_OR_S)
@@ -73,9 +73,7 @@ X3, Y3 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_da
 print(X3.shape, Y3.shape)
 
 # Training:
-EPOCHS = 5000 #200000
 BATCH_SIZE = 32
-STAT_TRACK_INTERVAL = EPOCHS // 20
 
 # Over epochs
 train_loss_i = []
@@ -186,12 +184,13 @@ for k in range(num_sets):
         train_f1_i.append(train_f1)
         val_f1_i.append(val_f1)
 
-        if i == 0 or i - num_trains == 0 or (i + 1) % validation_interval == 0:
+        if i == 0 or (num_trains % i) == 1 or (i + 1) % validation_interval == 0: # First, last, validation interval
             print(f"K: {k + 1}/{num_sets} | Epoch: {i + 1}/{num_trains} | TLoss: {loss.item()} | VLoss: {v_loss.item()} | TAccuracy: {train_accuracy} | VAccuracy: {val_accuracy} | TPrecision: {train_precision} | VPrecision: {val_precision} | TRecall: {train_recall} | VRecall: {val_recall} | TF1 {train_f1} | VF1: {val_f1}")
 
 
     # Record metrics for this fold:
     # -num_trains: = Last num_trains items (i.e. all the statistics from this fold)
+    # /num_trains = Average metric in this fold
     fold_t_losses.append((sum(train_loss_i[-num_trains:]) / num_trains))
     fold_v_losses.append((sum(val_loss_i[-num_trains:]) / num_trains))
 
@@ -206,23 +205,6 @@ for k in range(num_sets):
 
     fold_t_f1s.append((sum(train_f1_i[-num_trains:]) / num_trains))
     fold_v_f1s.append((sum(val_f1_i[-num_trains:]) / num_trains))
-
-    # # Record metrics for this fold:
-    # # -EPOCHS: = Last EPOCHS items (i.e. all the statistics from this fold)
-    # fold_t_losses.append((sum(train_loss_i[-EPOCHS:]) / EPOCHS))
-    # fold_v_losses.append((sum(val_loss_i[-EPOCHS:]) / EPOCHS))
-
-    # fold_t_accuracies.append((sum(train_accuracy_i[-EPOCHS:]) / EPOCHS))
-    # fold_v_accuracies.append((sum(val_accuracy_i[-EPOCHS:]) / EPOCHS))
-
-    # fold_t_precisions.append((sum(train_precision_i[-EPOCHS:]) / EPOCHS))
-    # fold_v_precisions.append((sum(val_precision_i[-EPOCHS:]) / EPOCHS))
-
-    # fold_t_recalls.append((sum(train_recall_i[-EPOCHS:]) / EPOCHS))
-    # fold_v_recalls.append((sum(val_recall_i[-EPOCHS:]) / EPOCHS))
-
-    # fold_t_f1s.append((sum(train_f1_i[-EPOCHS:]) / EPOCHS))
-    # fold_v_f1s.append((sum(val_f1_i[-EPOCHS:]) / EPOCHS))
 
 # Set model to evaluation mode (For dropout + batch norm layers)
 model.eval()
@@ -252,65 +234,61 @@ print("Loss during training")
 # Plotting train / validation loss
 total_epochs = len(train_loss_i)
 print(total_epochs)
-A = 84
+A = 13 # Replace with a factor of the total number of epochs
 train_loss_i = torch.tensor(train_loss_i).view(-1, A).mean(1)
 val_loss_i = torch.tensor(val_loss_i).view(-1, A).mean(1)
 
 fig, ax = plt.subplots()
-ax.plot([i for i in range(int((total_epochs) / A))], train_loss_i, label = "Train")
-ax.plot([i for i in range(int((total_epochs) / A))], val_loss_i, label = "Validation")
+ax.plot([i for i in range(int(total_epochs / A))], train_loss_i, label = "Train")
+ax.plot([i for i in range(int(total_epochs / A))], val_loss_i, label = "Validation")
 ax.legend()
 plt.show()
 
 print("-----------------------------------------------------------------")
 print("Accuracy during training")
 
-B = 98
-train_accuracy_i = torch.tensor(train_accuracy_i).view(-1, B).mean(1)
-val_accuracy_i = torch.tensor(val_accuracy_i).view(-1, B).mean(1)
+train_accuracy_i = torch.tensor(train_accuracy_i).view(-1, A).mean(1)
+val_accuracy_i = torch.tensor(val_accuracy_i).view(-1, A).mean(1)
 
 fig, ax = plt.subplots()
-ax.plot([i for i in range(int((total_epochs) / B))], train_accuracy_i, label = "Train")
-ax.plot([i for i in range(int((total_epochs) / B))], val_accuracy_i, label = "Validation")
+ax.plot([i for i in range(int(total_epochs / A))], train_accuracy_i, label = "Train")
+ax.plot([i for i in range(int(total_epochs / A))], val_accuracy_i, label = "Validation")
 ax.legend()
 plt.show()
 
 print("-----------------------------------------------------------------")
 print("Precision during training")
 
-C = 98
-train_precision_i = torch.tensor(train_precision_i).view(-1, C).mean(1)
-val_precision_i = torch.tensor(val_precision_i).view(-1, C).mean(1)
+train_precision_i = torch.tensor(train_precision_i).view(-1, A).mean(1)
+val_precision_i = torch.tensor(val_precision_i).view(-1, A).mean(1)
 
 fig, ax = plt.subplots()
-ax.plot([i for i in range(int((total_epochs) / C))], train_precision_i, label = "Train")
-ax.plot([i for i in range(int((total_epochs) / C))], val_precision_i, label = "Validation")
+ax.plot([i for i in range(int(total_epochs / A))], train_precision_i, label = "Train")
+ax.plot([i for i in range(int(total_epochs / A))], val_precision_i, label = "Validation")
 ax.legend()
 plt.show()
 
 print("-----------------------------------------------------------------")
 print("Recall during training")
 
-D = 98
-train_recall_i = torch.tensor(train_recall_i).view(-1, D).mean(1)
-val_recall_i = torch.tensor(val_recall_i).view(-1, D).mean(1)
+train_recall_i = torch.tensor(train_recall_i).view(-1, A).mean(1)
+val_recall_i = torch.tensor(val_recall_i).view(-1, A).mean(1)
 
 fig, ax = plt.subplots()
-ax.plot([i for i in range(int((total_epochs) / D))], train_recall_i, label = "Train")
-ax.plot([i for i in range(int((total_epochs) / D))], val_recall_i, label = "Validation")
+ax.plot([i for i in range(int(total_epochs / A))], train_recall_i, label = "Train")
+ax.plot([i for i in range(int(total_epochs / A))], val_recall_i, label = "Validation")
 ax.legend()
 plt.show()
 
 print("-----------------------------------------------------------------")
 print("F1 score during training")
 
-E = 98
-train_f1_i = torch.tensor(train_f1_i).view(-1, E).mean(1)
-val_f1_i = torch.tensor(val_f1_i).view(-1, E).mean(1)
+train_f1_i = torch.tensor(train_f1_i).view(-1, A).mean(1)
+val_f1_i = torch.tensor(val_f1_i).view(-1, A).mean(1)
 
 fig, ax = plt.subplots()
-ax.plot([i for i in range(int((total_epochs) / E))], train_f1_i, label = "Train")
-ax.plot([i for i in range(int((total_epochs) / E))], val_f1_i, label = "Validation")
+ax.plot([i for i in range(int(total_epochs / A))], train_f1_i, label = "Train")
+ax.plot([i for i in range(int(total_epochs / A))], val_f1_i, label = "Validation")
 ax.legend()
 plt.show()
 
