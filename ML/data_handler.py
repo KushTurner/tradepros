@@ -602,10 +602,10 @@ class TextDataHandler:
         - Remove all duplicates based on the tweet and selected ticker symbol (for entity-based sentiment analysis)
         - Will be used for inference of the model
         - groupby groups the dataframe by the selected columns
-        - .agg(lambda series: series.iloc[0]) selects the first occurrence of each group (ensuring there are no duplicates). Replaced .first() so that quotation marks aren't added to the tweets.
         - as_index = False to ensure that the dataframe uses a regular index instead of multiindex
         """
-        prompt_dataset = all_tweets[["body", "ticker_symbol", "prompt"]].groupby(["body", "ticker_symbol"], as_index = False).first() #agg(lambda series: series.iloc[0])
+        prompt_dataset = all_tweets[["body", "ticker_symbol", "prompt"]].groupby(["body", "ticker_symbol"], as_index = False).first()
+        prompt_dataset.drop(["prompt"], axis = 1, inplace = True) # Drop the prompts (Using the VADER model instead of a LLM now)
 
         print("REMOVED DUPLICATES")
         value_counts = prompt_dataset[["body", "ticker_symbol"]].value_counts()
@@ -613,8 +613,7 @@ class TextDataHandler:
         print(prompt_dataset[["body", "ticker_symbol"]].nunique())
         print("Unique combinations", len(value_counts), "prompt_dataset size", len(prompt_dataset))
         print(prompt_dataset[prompt_dataset["body"] == ""])
-
-        prompt_dataset.drop(["body", "ticker_symbol"], axis = 1, inplace = True) # Use if merging on prompts instead of tweets and ticker symbol, else comment out
+        print(prompt_dataset.columns)
 
         print(all_tweets)
         print(prompt_dataset)
@@ -627,55 +626,47 @@ class TextDataHandler:
         - The returned outputs will be a single integer. [-1 for negative, 0 for neutral, 1 for positive, 2 for unrelated]
         """
         checkpoints_path = "sentiment_data/progress/sentiment_cps"
-        prompts = prompt_dataset["prompt"][:121]
 
         if os_path_exists(checkpoints_path) == False:
             print("Querying model")
             os_mkdir(checkpoints_path)
 
-            # Load the llama 2 model
-            from llama_cpp import Llama
+            # Use VADER model to label dataset
+            # Note: Considered using FinVADER but inference times take significantly longer and it isn't significantly better at assigning sentiments correctly than VADER
             from time import time as get_time
+            from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
             from pickle import dump as pickle_dump
+            from numpy import array_split as np_array_split
 
-            LLM = Llama(model_path="llama2_inference/llama-2-13b-chat.ggmlv3.q5_0.bin", n_gpu_layers = 33, n_ctx = 1024)
-            LLM.verbose = False # Turn off printing benchmarks
-            print("Loaded model")
-            
-            # Split the prompts into parts to save parts of prompts when querying the model (Checkpoints)
-            
+            # Split the tweets into parts and save the scores assigned after each part when querying the model (Checkpoints)
             num_cpoints = 10
-            print(len(prompts))
-            num_prompts_per_cp = math_ceil(len(prompts) / num_cpoints)
+            tweets_to_label = prompt_dataset["body"][150:175].to_list()
+            tweet_parts = np_array_split(tweets_to_label, num_cpoints)
+            del tweets_to_label
 
-            for prompt in prompts:
-                print(prompt)
-                print("----")
-            
-            # Generate responses from Llama 2 Model
+            for part in tweet_parts:
+                print(len(part))
+
+            # Generate responses from VADER
+            vader = SentimentIntensityAnalyzer()
             sentiments = []
-            j = 0
-            num_prompts = len(prompts)
+
             start_time = get_time()
-
-            for i, prompt in enumerate(prompts):
-                #sentiments.append(LLM(prompt)["choices"][0]["text"].lstrip()) # Remove spaces at the front of the answer text
-                sentiments.append(i)
-                # print(sentiments[-1])
-                # print("||||||")
-
-                # Save checkpoint (Reset the list for the next section of prompts)
-                if (i + 1) % num_prompts_per_cp == 0 or i == (num_prompts - 1):
-                    print(i)
-                    with open(os_path_join(checkpoints_path, f"sentiments_cp{j}"), "wb") as f:
-                        print("Length", len(sentiments))
-                        pickle_dump(sentiments, f)
-                    sentiments = []
-                    j += 1
-
+            for i, part in enumerate(tweet_parts):
+                sentiments = []
+                # Label tweets in this part
+                for tweet in part:
+                    print(tweet)
+                    sentiments.append(vader.polarity_scores(tweet)["compound"])
+    
+                # Save checkpoint (Reset the list for the next section of tweets_to_label)
+                with open(os_path_join(checkpoints_path, f"sentiments_cp{i}"), "wb") as f:
+                    print("Length", len(sentiments))
+                    pickle_dump(sentiments, f)
+                
             end_time = get_time()
             print(end_time - start_time)
-
+        
         # Combine all sentiments from each checkpoint into a single list
         from pickle import load as pickle_load
         from os import listdir as os_list_dir
@@ -687,20 +678,7 @@ class TextDataHandler:
                 sentiments = pickle_load(sf)
             all_sentiments.extend(sentiments)
         
-        print(all_sentiments)
-
-        print("End")
-        for i in range(len(all_sentiments)):
-            print(prompts[i])
-            print("-----")
-            print(all_sentiments[i])
-            print()
-            print()
-            print()
-
-        print(all_sentiments)
-        print([answer[:2] if answer[0] == "-" and answer[1] == "1" else answer[0] for answer in all_sentiments])
-        print(len(all_sentiments))
+        print(all_sentiments, len(all_sentiments))
 
         """
         Notes:

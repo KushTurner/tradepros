@@ -18,10 +18,6 @@ torch.cuda.manual_seed_all(M_SEED)
 G = torch.Generator(device = DEVICE)
 G.manual_seed(M_SEED)
 
-# # Initialising text data handler
-# TDH = TextDataHandler(device = DEVICE, generator = G)
-# TDH.retrieve_data()
-
 # Initialising data handler
 DH = DataHandler(device = DEVICE, generator = G)
 # DH.retrieve_data(
@@ -31,6 +27,12 @@ DH = DataHandler(device = DEVICE, generator = G)
 #                 interval = "1d",
 #                 transform_after = True
 #                 )
+
+# Initialising text data handler
+TDH = TextDataHandler(device = DEVICE, generator = G)
+TDH.retrieve_data()
+
+
 
 DH.retrieve_data(
                 tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
