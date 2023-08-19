@@ -399,10 +399,14 @@ class DataHandler:
 class TextDataHandler: 
     """ Will be used to train my own sentiment analysis model after using a pretrained model to label the unlabelled dataset with sentiment values """
 
-    def __init__(self, device, generator):
+    def __init__(self, dates, device, generator):
 
         self.device = device # CUDA or CPU
         self.generator = generator # Reproducibility
+
+        # Dates from all the companies that appear in the historical dataset (Combine into a single list of all the dates)
+        # - timestamp.date() to convert the timestamps into the correct format before removing tweets that don't also appear in the historical dataset
+        self.dates = [timestamp.date() for company_dates in dates for timestamp in company_dates] 
     
     def retrieve_data(self):
         
@@ -423,6 +427,16 @@ class TextDataHandler:
 
             # The IDs to all the tweets and what company they were referring to
             TWEET_COMPANY = pd_read_csv("sentiment_data/Company_Tweet.csv")
+
+            # Remove any tweets if it was posted on dates that do not appear inside the historical dataset
+            """ 
+            - pd_date_time(__, unit = "s") to convert unix timestamps to dates
+            - .dt.date to round the dates from e.g. 2015-01-01 00:01:36 to 2015-01-01 00:00:00
+            """
+            print(DATA)
+            DATA["post_date"] = pd_to_datetime(DATA["post_date"], unit = "s").dt.date # Convert unix timestamps to dates in the data column
+            DATA = DATA[DATA["post_date"].isin(self.dates)]
+            print(DATA)
 
             # Merge the company tickers with each tweet according to tweet id
             MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
@@ -528,8 +542,8 @@ class TextDataHandler:
         # Remove any rows where the tweet is now empty (Prevents prompts with empty texts being used)
         dataset.drop(dataset[dataset["body"] == ""].index, inplace = True)
 
-        # Create a new column containing the desired prompt with the text and ticker symbol inserted for each row
-        dataset["prompt"] = dataset.apply(lambda row: format_text(tweet = row["body"], ticker = row["ticker_symbol"]), axis = 1)
+        # # Create a new column containing the desired prompt with the text and ticker symbol inserted for each row
+        # dataset["prompt"] = dataset.apply(lambda row: format_text(tweet = row["body"], ticker = row["ticker_symbol"]), axis = 1)
 
         # print(dataset[dataset["body"].isna()])
         # print(dataset[dataset["body"] == ""])
@@ -545,16 +559,10 @@ class TextDataHandler:
         #     print("!", tweet, f"Ticker: {ticker}")
 
         """ 
-        Notes: (About size)
-        Total texts = 4336444
+        Notes:
 
         unique_text = "Amazon is great", ticker_symbol = "amzn" should count as a single unique instance, 
         - If the same text appeared again but with a different ticker, that should be a different instance
-
-        Number of combinations of unique texts and ticker symbols = 3,837,993 (Before cleaning)
-        Number of combinations of unique texts and ticker symbols = 3,446,330 (After cleaning) [Removing duplicates from the cleaned dataset will set the dataset to this size]
-
-        To limit requests to inference endpoint (Less usage on endpoint):
         - Get the sentiment scores on all the combinations and store them in a different dataset
         - Merge that dataset with the dataset containing all of the tweets based on the tweet and the ticker symbol
         """
@@ -604,8 +612,7 @@ class TextDataHandler:
         - groupby groups the dataframe by the selected columns
         - as_index = False to ensure that the dataframe uses a regular index instead of multiindex
         """
-        prompt_dataset = all_tweets[["body", "ticker_symbol", "prompt"]].groupby(["body", "ticker_symbol"], as_index = False).first()
-        prompt_dataset.drop(["prompt"], axis = 1, inplace = True) # Drop the prompts (Using the VADER model instead of a LLM now)
+        prompt_dataset = all_tweets[["body", "ticker_symbol"]].groupby(["body", "ticker_symbol"], as_index = False).first()
 
         print("REMOVED DUPLICATES")
         value_counts = prompt_dataset[["body", "ticker_symbol"]].value_counts()
@@ -665,7 +672,7 @@ class TextDataHandler:
                     pickle_dump(sentiments, f)
                 
             end_time = get_time()
-            print(end_time - start_time)
+            print("Time taken:", end_time - start_time)
         
         # Combine all sentiments from each checkpoint into a single list
         from pickle import load as pickle_load

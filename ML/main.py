@@ -20,20 +20,6 @@ G.manual_seed(M_SEED)
 
 # Initialising data handler
 DH = DataHandler(device = DEVICE, generator = G)
-# DH.retrieve_data(
-#                 tickers = ["amzn", "ebay", "baba", "3690.HK"],
-#                 start_date = "7/07/1993",
-#                 end_date = "7/07/2023", 
-#                 interval = "1d",
-#                 transform_after = True
-#                 )
-
-# Initialising text data handler
-TDH = TextDataHandler(device = DEVICE, generator = G)
-TDH.retrieve_data()
-
-
-
 DH.retrieve_data(
                 tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
                 start_date = "1/01/2015",
@@ -41,6 +27,10 @@ DH.retrieve_data(
                 interval = "1d",
                 transform_after = True
                 )
+
+# Initialising text data handler
+TDH = TextDataHandler(dates = DH.dates, device = DEVICE, generator = G)
+TDH.retrieve_data()
 
 for company_data in DH.data_n:
     print("ContainsNaN", company_data.isnan().any().item()) # Check if the tensor contains "nan"
