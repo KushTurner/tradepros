@@ -17,6 +17,7 @@ from torch.cuda import memory_summary as torch_cuda_memory_summary
 from os import mkdir as os_mkdir
 from os.path import join as os_path_join
 from torch import arange as torch_arange
+from time import time as get_time
 
 class DataHandler:
 
@@ -415,9 +416,9 @@ class TextDataHandler:
         # - The reason why MERGED.shape is larger when DATA.shape is smaller than TWEET_COMPANY.shape is because a single tweet (in DATA) can reference multiple different companies
 
         # Labeled data already created
-        if os_path_exists("sentiment_data/labeled_dataset.csv"):
+        if os_path_exists("sentiment_data/progress/labeled_tweets.csv"):
             print("Loading labeled dataset")
-            LABELED_DATA = pd_read_csv("sentiment_data/labeled_dataset.csv")
+            LABELED_DATA = pd_read_csv("sentiment_data/progress/labeled_tweets.csv")
 
         # Not created yet
         else:
@@ -452,9 +453,9 @@ class TextDataHandler:
             # Label the merged dataset with sentiment values
             LABELED_DATA = self.label_dataset(dataset = MERGED)
 
-            print(LABELED_DATA)
+        print(LABELED_DATA)
         
-        #print(pd_read_csv("sentiment_data/labeled_dataset.csv"))
+        #print(pd_read_csv("sentiment_data/labeled_tweets.csv"))
 
     def clean_dataset(self, dataset):
         
@@ -640,14 +641,13 @@ class TextDataHandler:
 
             # Use VADER model to label dataset
             # Note: Considered using FinVADER but inference times take significantly longer and it isn't significantly better at assigning sentiments correctly than VADER
-            from time import time as get_time
             from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
             from pickle import dump as pickle_dump
             from numpy import array_split as np_array_split
 
             # Split the tweets into parts and save the scores assigned after each part when querying the model (Checkpoints)
             num_cpoints = 10
-            tweets_to_label = prompt_dataset["body"][150:175].to_list()
+            tweets_to_label = prompt_dataset["body"].to_list()
             tweet_parts = np_array_split(tweets_to_label, num_cpoints)
             del tweets_to_label
 
@@ -656,23 +656,20 @@ class TextDataHandler:
 
             # Generate responses from VADER
             vader = SentimentIntensityAnalyzer()
-            sentiments = []
-
-            start_time = get_time()
             for i, part in enumerate(tweet_parts):
+                start_time = get_time()
                 sentiments = []
                 # Label tweets in this part
                 for tweet in part:
-                    print(tweet)
                     sentiments.append(vader.polarity_scores(tweet)["compound"])
-    
+                end_time = get_time()
+
                 # Save checkpoint (Reset the list for the next section of tweets_to_label)
                 with open(os_path_join(checkpoints_path, f"sentiments_cp{i}"), "wb") as f:
                     print("Length", len(sentiments))
                     pickle_dump(sentiments, f)
                 
-            end_time = get_time()
-            print("Time taken:", end_time - start_time)
+                print(f"Part {i + 1} / {num_cpoints} | Time taken: {end_time - start_time}")
         
         # Combine all sentiments from each checkpoint into a single list
         from pickle import load as pickle_load
@@ -685,30 +682,30 @@ class TextDataHandler:
                 sentiments = pickle_load(sf)
             all_sentiments.extend(sentiments)
         
-        print(all_sentiments, len(all_sentiments))
+        print(all_sentiments[-50:])
+        print(len(all_sentiments))
 
-        """
-        Notes:
-        - This essentially maps the corresponding sentiment scores based on the prompt (OR the tweet and ticker symbol), without needing to create a dictionary with hashed keys
-        - Remove all overlapping data from the prompts_dataset (labeled_data[post_date_x] should be the same as all_tweets["post_date"])
-        - Rename column "post_date_x" to "post_date"
-        """
+        # Create new column with the assigned sentiments for each tweet
+        prompt_dataset["sentiments"] = all_sentiments
+
         print(prompt_dataset.columns)
         print(all_tweets.columns)
+        print(prompt_dataset)
+        print(all_tweets)
         
+        # Map the tweets with the corresponding sentiment scores
         start_time = get_time()
         # Note: Merging on either doesn't make a difference in execution time
-        labeled_dataset = all_tweets.merge(prompt_dataset, on = "prompt", how = "left") # Merge on prompts
-        # labeled_dataset = all_tweets.merge(prompt_dataset, on = ["body", "ticker_symbol"], how = "left") # Merge on labels and columns
+        labeled_tweets = all_tweets.merge(prompt_dataset, on = ["body", "ticker_symbol"], how = "left")
         end_time = get_time()
 
         print(end_time - start_time)
 
-        print(labeled_dataset.columns, len(labeled_dataset))
-        print(labeled_dataset[-10:])
+        print(labeled_tweets.columns, len(labeled_tweets))
+        print(labeled_tweets)
 
         # Save the labeled dataset as a csv file
-        labeled_dataset.to_csv("sentiment_data/labeled_dataset.csv", index = True)
+        labeled_tweets.to_csv("sentiment_data/progress/labeled_tweets.csv", index = True)
 
-        return labeled_dataset
+        return labeled_tweets
 
