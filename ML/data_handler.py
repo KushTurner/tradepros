@@ -50,7 +50,7 @@ class DataHandler:
             self.dates.append(DATA.index.tolist())
             del DATA
 
-    def retrieve_data(self, tickers, start_date, end_date, interval, transform_after):
+    def retrieve_data(self, tickers, start_date, end_date, interval, transform_after, dated_sentiments):
         # Note: transform_after = True means that all of the companies' data will be standardised / normalised together, instead of separately
         
         self.data_n = [] # Normalised data
@@ -61,7 +61,7 @@ class DataHandler:
         
         # For each company, modify the data 
         for ticker in tickers:
-            
+
             # Retrieve data
             DATA = get_data(
                             ticker = ticker, 
@@ -71,7 +71,7 @@ class DataHandler:
                             interval = interval
                             )
             # Modify the data (e.g. adding more columns, removing columns, etc.)
-            DATA = self.modify_data(D = DATA, interval = interval)
+            DATA = self.modify_data(D = DATA, interval = interval, dated_sentiments = dated_sentiments)
             
             # Separate the labels from the main dataframe (the other columns will be used as inputs)
             labels = DATA["Target"]
@@ -96,6 +96,8 @@ class DataHandler:
             self.dates.append(DATA.index.tolist())
 
             print(f"Ticker: {ticker} | DataShape: {self.data_n[-1].shape} | LabelsShape: {self.labels[-1].shape}")
+        
+        print(f"Total examples: {sum([company_labels.shape[0] for company_labels in self.labels])}")
 
         # Standardising / Normalising companies together
         if transform_after == True:
@@ -116,9 +118,28 @@ class DataHandler:
         self.n_features = self.data_n[-1].shape[1]
         print(f"Number of data features: {self.n_features}")
 
-    def modify_data(self, D, interval):
+    def modify_data(self, D, interval, dated_sentiments = None):
         
-        # Remove "ticker" column
+        # Dated sentiments were provided
+        if type(dated_sentiments) != type(None):
+            # Create new column for dates for merging
+            D["post_date"] = D.index.strftime('%Y-%m-%d')
+            dated_sentiments.rename(columns = {"ticker_symbol": "ticker"}, inplace = True) # Rename from "ticker_symbol" to "ticker" for merging
+            print(dated_sentiments.shape)
+            print("Before", D.shape)
+
+            # Merge the two datasets 
+            """ Removes all the rows in the DATA dataframe where the combination of "post_date" and "ticker" do not exist in dated_sentiments """
+            D = D.merge(dated_sentiments, on = ["post_date", "ticker"])
+
+            print("After", D.shape)
+            # for ticker, post_date, sentiment in zip(DATA["ticker"].to_list(), DATA["post_date"].to_list(), DATA["sentiment"].to_list()):
+            #     print(ticker, post_date, sentiment)
+
+            # Remove post_date column
+            D.drop("post_date", axis = 1, inplace = True)
+
+        # Remove ticker column
         D.drop("ticker", axis = 1, inplace = True)
 
         # Create new column for each day stating tomorrow's closing price for the stock
@@ -489,9 +510,9 @@ class TextDataHandler:
         - "body" column removed as it is no longer necessary, and so that .mean() will return the average sentiment for each date for each company
         """
         LABELED_TWEETS.drop("body", axis = 1, inplace = True)
-        self.dates_sentiments = LABELED_TWEETS.groupby(["post_date", "ticker_symbol"]).mean().reset_index() # Group the dateset by the dates and ticker symbols
-        print(self.dates_sentiments)
-        print(self.dates_sentiments["sentiment"].to_list()[:6])
+        self.dated_sentiments = LABELED_TWEETS.groupby(["post_date", "ticker_symbol"]).mean().reset_index() # Group the dateset by the dates and ticker symbols
+        # print(self.dated_sentiments)
+        # print(self.dated_sentiments["sentiment"].to_list()[:6])
 
 
     def clean_dataset(self, dataset):

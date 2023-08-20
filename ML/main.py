@@ -39,7 +39,8 @@ DH.retrieve_data(
                 start_date = "1/01/2015",
                 end_date = "31/12/2019", 
                 interval = "1d",
-                transform_after = True
+                transform_after = True,
+                dated_sentiments = TDH.dated_sentiments # Dated sentiments for each company
                 )
 
 for company_data in DH.data_n:
