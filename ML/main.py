@@ -20,6 +20,20 @@ G.manual_seed(M_SEED)
 
 # Initialising data handler
 DH = DataHandler(device = DEVICE, generator = G)
+
+# Retrieve dates for the text data handler (To generate sentiments for tweets on dates in the historical dataset)
+DH.retrieve_dates(
+                tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
+                start_date = "1/01/2015",
+                end_date = "31/12/2019", 
+                interval = "1d",
+                )
+
+# Initialising text data handler
+TDH = TextDataHandler(dates = DH.dates, device = DEVICE, generator = G)
+TDH.retrieve_data()
+
+# Retrieve the data for the historical dataset (combined with the sentiments)
 DH.retrieve_data(
                 tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
                 start_date = "1/01/2015",
@@ -27,10 +41,6 @@ DH.retrieve_data(
                 interval = "1d",
                 transform_after = True
                 )
-
-# Initialising text data handler
-TDH = TextDataHandler(dates = DH.dates, device = DEVICE, generator = G)
-TDH.retrieve_data()
 
 for company_data in DH.data_n:
     print("ContainsNaN", company_data.isnan().any().item()) # Check if the tensor contains "nan"

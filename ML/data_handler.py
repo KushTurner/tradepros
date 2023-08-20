@@ -33,6 +33,23 @@ class DataHandler:
         
         # self.n_features - Number of inputs that will be passed into a model (i.e. the number of columns/features in the pandas dataframe)
 
+    def retrieve_dates(self, tickers, start_date, end_date, interval): 
+        self.dates = [] # Dates of all the companies (Used specifically for getting the dates for the TDH to only generate sentiments for dates that are in the historical dataset
+
+        for ticker in tickers:
+            # Retrieve the companies data and add it to the list of dates
+            DATA = get_data(
+                            ticker = ticker, 
+                            start_date = start_date, 
+                            end_date = end_date, 
+                            index_as_date = True, 
+                            interval = interval
+                            )
+            # Modify the data (required otherwise the tweets dataset in the TDH may contain NaN values)
+            DATA = self.modify_data(D = DATA, interval = interval)
+            self.dates.append(DATA.index.tolist())
+            del DATA
+
     def retrieve_data(self, tickers, start_date, end_date, interval, transform_after):
         # Note: transform_after = True means that all of the companies' data will be standardised / normalised together, instead of separately
         
@@ -417,12 +434,12 @@ class TextDataHandler:
 
         # Labeled data already created
         if os_path_exists("sentiment_data/progress/labeled_tweets.csv"):
-            print("Loading labeled dataset")
-            LABELED_DATA = pd_read_csv("sentiment_data/progress/labeled_tweets.csv")
+            print("Loading labeled tweets")
+            LABELED_TWEETS = pd_read_csv("sentiment_data/progress/labeled_tweets.csv")
 
         # Not created yet
         else:
-            print("Creating labeled dataset")
+            print("Labeling tweets")
             # Data containing the tweet id, writer, post date, tweet, number of comments, likes and retweets
             DATA = pd_read_csv("sentiment_data/Tweet.csv")
 
@@ -451,11 +468,31 @@ class TextDataHandler:
             print(MERGED[MERGED["body"].isna()])
 
             # Label the merged dataset with sentiment values
-            LABELED_DATA = self.label_dataset(dataset = MERGED)
+            LABELED_TWEETS = self.label_dataset(dataset = MERGED)
 
-        print(LABELED_DATA)
+        print(LABELED_TWEETS)
         
-        #print(pd_read_csv("sentiment_data/labeled_tweets.csv"))
+        # Find the mean sentiment value for each company on a given date
+        # mean = []
+        # for post_date, ticker_symbol, sentiment in zip(LABELED_TWEETS["post_date"].to_list(), LABELED_TWEETS["ticker_symbol"].to_list(), LABELED_TWEETS["sentiment"].to_list()):
+        #     if post_date != "2016-12-27":
+        #         break
+        #     if ticker_symbol != "TSLA":
+        #         continue
+        #     mean.append(sentiment)
+        #     # print(post_date, ticker_symbol, sentiment)
+        # mean = sum(mean) / len(mean)
+        # print(mean)
+        """ 
+        - .mean() to find the mean sentiment value
+        - .reset_index() to convert back into a dataframe
+        - "body" column removed as it is no longer necessary, and so that .mean() will return the average sentiment for each date for each company
+        """
+        LABELED_TWEETS.drop("body", axis = 1, inplace = True)
+        self.dates_sentiments = LABELED_TWEETS.groupby(["post_date", "ticker_symbol"]).mean().reset_index() # Group the dateset by the dates and ticker symbols
+        print(self.dates_sentiments)
+        print(self.dates_sentiments["sentiment"].to_list()[:6])
+
 
     def clean_dataset(self, dataset):
         
@@ -686,7 +723,7 @@ class TextDataHandler:
         print(len(all_sentiments))
 
         # Create new column with the assigned sentiments for each tweet
-        prompt_dataset["sentiments"] = all_sentiments
+        prompt_dataset["sentiment"] = all_sentiments
 
         print(prompt_dataset.columns)
         print(all_tweets.columns)
@@ -705,7 +742,7 @@ class TextDataHandler:
         print(labeled_tweets)
 
         # Save the labeled dataset as a csv file
-        labeled_tweets.to_csv("sentiment_data/progress/labeled_tweets.csv", index = True)
+        labeled_tweets.to_csv("sentiment_data/progress/labeled_tweets.csv", index = False)
 
         return labeled_tweets
 
