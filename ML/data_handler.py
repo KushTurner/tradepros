@@ -150,7 +150,7 @@ class DataHandler:
         
         # Periods based on the interval (daily, weekly, monthly)
         if interval == "1d":
-            periods = [2, 5, 60, 250, 500] 
+            periods = [2, 5, 10, 15, 20] # 5 days = 1 trading week
         elif interval == "1wk":
             periods = [1, 3, 9, 36, 108] # 1 week, 1 month, 3 months, 1 year
         else:
@@ -593,10 +593,11 @@ class TextDataHandler:
         print("Unique combinations", len(value_counts), "Dataset size", len(dataset))
 
         # for tweet, ticker in zip(dataset["body"], dataset["ticker_symbol"]):
-        #     print("!", tweet, f"Ticker: {ticker}")
-        
+        #     print("!", tweet, f"Ticker: {ticker}"))
+        print(f"Dataset size before: {dataset.shape}")
         # Apply cleaning to all text
         dataset["body"] = dataset["body"].apply(lambda x: cleanse_text(x))
+        print(f"Dataset size after: {dataset.shape}")
 
         # Remove any rows where the tweet is now empty (Prevents prompts with empty texts being used)
         dataset.drop(dataset[dataset["body"] == ""].index, inplace = True)
@@ -765,5 +766,7 @@ class TextDataHandler:
         # Save the labeled dataset as a csv file
         labeled_tweets.to_csv("sentiment_data/progress/labeled_tweets.csv", index = False)
 
-        return labeled_tweets
+        # Re-load the labelled tweets and return it
+        # - Fixes the issue where if the tweets were labelled from scratch and labeled_tweets was returned, the modify_data method in the DataHandler does not work.
+        return pd_read_csv("sentiment_data/progress/labeled_tweets.csv")
 

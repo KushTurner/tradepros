@@ -188,7 +188,7 @@ for k in range(num_sets):
         val_f1_i.append(val_f1)
 
         if i == 0 or (num_trains % i) == 1 or (i + 1) % validation_interval == 0: # First, last, validation interval
-            print(f"K: {k + 1}/{num_sets} | Epoch: {i + 1}/{num_trains} | TLoss: {loss.item()} | VLoss: {v_loss.item()} | TAccuracy: {train_accuracy} | VAccuracy: {val_accuracy} | TPrecision: {train_precision} | VPrecision: {val_precision} | TRecall: {train_recall} | VRecall: {val_recall} | TF1 {train_f1} | VF1: {val_f1}")
+            print(f"K: {k + 1}/{num_sets} | Epoch: T: {i + 1}/{num_trains} V: {val_fold_sidx + 1} / {num_validations} | TLoss: {loss.item()} | VLoss: {v_loss.item()} | TAccuracy: {train_accuracy} | VAccuracy: {val_accuracy} | TPrecision: {train_precision} | VPrecision: {val_precision} | TRecall: {train_recall} | VRecall: {val_recall} | TF1 {train_f1} | VF1: {val_f1}")
 
 
     # Record metrics for this fold:
@@ -237,7 +237,7 @@ print("Loss during training")
 # Plotting train / validation loss
 total_epochs = len(train_loss_i)
 print(total_epochs)
-A = 13 # Replace with a factor of the total number of epochs
+A = 59 # Replace with a factor of the total number of epochs
 train_loss_i = torch.tensor(train_loss_i).view(-1, A).mean(1)
 val_loss_i = torch.tensor(val_loss_i).view(-1, A).mean(1)
 
