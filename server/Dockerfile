@@ -4,9 +4,17 @@ WORKDIR /usr/src/app
 
 RUN go install github.com/cosmtrek/air@latest
 
-COPY . .
+# Copy source code directories
+COPY api .
+COPY cmd .
 
-RUN go mod tidy
+# Copy development files
+COPY .env .
+COPY .air.toml .
+
+# Copy Go module files
+COPY go.mod .
+COPY go.sum .
 
 
 
