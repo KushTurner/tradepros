@@ -40,7 +40,7 @@ DH.retrieve_data(
                 end_date = "31/12/2019", 
                 interval = "1d",
                 transform_after = True,
-                dated_sentiments = TDH.dated_sentiments # Dated sentiments for each company
+                dated_sentiments = None #TDH.dated_sentiments # Dated sentiments for each company
                 )
 
 for company_data in DH.data_n:
@@ -119,28 +119,40 @@ for k in range(num_sets):
     num_validations = VAL_FOLDS[1].shape[0] - BATCH_SIZE + 1
     num_trains = TRAIN_FOLDS[1].shape[0] - BATCH_SIZE + 1
     validation_interval = int(num_trains / num_validations)
-    print(num_trains, num_validations, validation_interval, num_trains / num_validations)
-    print(TRAIN_FOLDS[1].shape, VAL_FOLDS[1].shape)
+    multiplicative_trains = 5 # Number of times each batch will be used to train the model
+
+    print(f"num_trains * multiplicative_trains: {num_trains * multiplicative_trains} | num_trains: {num_trains} | num_validations: {num_validations} | validation_interval: {validation_interval}")
+    print(f"Training examples: {TRAIN_FOLDS[1].shape} | Validation examples: {VAL_FOLDS[1].shape}")
 
     for i in range(num_trains):
+
         # Generate inputs and labels
         Xtr, Ytr = DH.generate_batch(batch_size = BATCH_SIZE, dataset = TRAIN_FOLDS, num_context_days = num_context_days, start_idx = train_fold_sidx)
         train_fold_sidx += 1
 
-        # Forward pass
-        logits = model(Xtr)
+        for j in range(multiplicative_trains): # Train on a single batch j times
 
-        # Find training loss
-        # Note: Did not use F.softmax and F.nll_loss because of floating point accuracy
-        loss = F.cross_entropy(logits, Ytr)
+            # Forward pass
+            logits = model(Xtr)
 
+            # Find training loss
+            # Note: Did not use F.softmax and F.nll_loss because of floating point accuracy
+            loss = F.cross_entropy(logits, Ytr)
+
+            # Backward pass
+            optimiser.zero_grad()
+            loss.backward()
+
+            # Update model parameters
+            optimiser.step()
+        
         # Evaluate the model
         """
         Notes:
         - Trains on all of the training examples in the current training fold, evaluating on the validation set on a set interval, based on the ratio between the sizes of the training folds and validation fold
         - If all of the validation examples have been used up and there are still training examples left, evaluation is not performed and the model will be trained with the remainder of the training examples until the next fold
         """
-        if (i + 1) % validation_interval == 0 and val_fold_sidx < num_validations:
+        if (i == 0 or (num_trains % i) == 1  or (i + 1) % validation_interval == 0) and val_fold_sidx < num_validations:
             with torch.no_grad():
                 # Note: Must set to evaluation mode as BatchNorm layers and Dropout layers behave differently during training and evaluation
                 # BatchNorm layers - stops updating the moving averages in BatchNorm layers and uses running statistics instead of per-batch statistics
@@ -161,34 +173,24 @@ for k in range(num_sets):
                 val_accuracy, val_precision, val_recall, val_f1 = find_P_A_R(predictions = v_preds, targets = Yva)
 
                 model.train()
-
-        # Backward pass
-        optimiser.zero_grad()
-        loss.backward()
-
-        # Update model parameters
-        optimiser.step()
-
+        
         # ----------------------------------------------
         # Tracking stats
-        
+
         train_loss_i.append(loss.item())
-        val_loss_i.append(v_loss.item())
-
         train_accuracy_i.append(train_accuracy)
-        val_accuracy_i.append(val_accuracy)
-
         train_precision_i.append(train_precision)
-        val_precision_i.append(val_precision)
-
         train_recall_i.append(train_recall)
-        val_recall_i.append(val_recall)
-
         train_f1_i.append(train_f1)
+
+        val_loss_i.append(v_loss.item())
+        val_accuracy_i.append(val_accuracy)
+        val_precision_i.append(val_precision)
+        val_recall_i.append(val_recall)
         val_f1_i.append(val_f1)
 
         if i == 0 or (num_trains % i) == 1 or (i + 1) % validation_interval == 0: # First, last, validation interval
-            print(f"K: {k + 1}/{num_sets} | Epoch: T: {i + 1}/{num_trains} V: {val_fold_sidx + 1} / {num_validations} | TLoss: {loss.item()} | VLoss: {v_loss.item()} | TAccuracy: {train_accuracy} | VAccuracy: {val_accuracy} | TPrecision: {train_precision} | VPrecision: {val_precision} | TRecall: {train_recall} | VRecall: {val_recall} | TF1 {train_f1} | VF1: {val_f1}")
+            print(f"K: {k + 1}/{num_sets} | Epoch: T: {(i + 1) * multiplicative_trains}/{num_trains * multiplicative_trains} V: {val_fold_sidx}/{num_validations} | TLoss: {loss.item()} | VLoss: {v_loss.item()} | TAccuracy: {train_accuracy} | VAccuracy: {val_accuracy} | TPrecision: {train_precision} | VPrecision: {val_precision} | TRecall: {train_recall} | VRecall: {val_recall} | TF1 {train_f1} | VF1: {val_f1}")
 
 
     # Record metrics for this fold:
@@ -237,7 +239,7 @@ print("Loss during training")
 # Plotting train / validation loss
 total_epochs = len(train_loss_i)
 print(total_epochs)
-A = 59 # Replace with a factor of the total number of epochs
+A = 47 # Replace with a factor of the total number of epochs
 train_loss_i = torch.tensor(train_loss_i).view(-1, A).mean(1)
 val_loss_i = torch.tensor(val_loss_i).view(-1, A).mean(1)
 

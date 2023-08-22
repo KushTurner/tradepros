@@ -58,7 +58,7 @@ class DataHandler:
         self.labels = []
         self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
         cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"] # Columns to normalise / standardise
-        
+
         # For each company, modify the data 
         for ticker in tickers:
 
@@ -169,7 +169,7 @@ class DataHandler:
 
             # Trend over the past few days
             t_column_name = f"Trend_{p}"
-            D[t_column_name] = D.shift(1).rolling(p).sum()["Target"] # Sums up the targets over the last p days/weeks/months (Not including today's target)
+            D[t_column_name] = D["Target"].shift(1).rolling(window = p).sum() # Sums up the targets over the last p days/weeks/months (Not including today's target)
 
         # Removes rows which contain "NaN" inside of any columns
         D.dropna(inplace = True)
