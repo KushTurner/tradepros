@@ -47,7 +47,7 @@ function NavBar() {
               </Link>
             </div>
           </li>
-          <li className="navbar-item ml-6 md:ml-0 md:hover:underline md:hover:underline-offset-[33px]">
+          <li className="mb-8 md:mb-0 navbar-item ml-6 md:ml-0 md:hover:underline md:hover:underline-offset-[33px]">
             <div className="flex flex-row items-center">
               <BsBriefcase size={16} className="md:hidden mr-2" />
               <Link className="text-white" to="/portfolio">
@@ -56,7 +56,7 @@ function NavBar() {
             </div>
           </li>
         </div>
-        <div className="mt-8 flex justify-evenly mx-2 mr-6">
+        <div className="flex justify-evenly mx-2 mr-6">
           <li className="navbar-item mr-2 w-full md:ml-0 md:mr-3 p-1 md:mb-0 rounded-lg bg-[#E8E9ED] md:bg-[#121318] text-center text-lg font-bold md:px-4">
             <Link
               className="text-[#5266FE] md:font-normal md:font-display"
