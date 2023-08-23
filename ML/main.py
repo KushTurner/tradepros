@@ -44,7 +44,7 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 0 #None
+model_number_load = 0
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load)
 
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
@@ -76,9 +76,10 @@ print(X3.shape, Y3.shape)
 
 
 # Training:
-if len(stats["train_loss_i"]) == 0: # This would only be the case if a pre-existing model was not loaded in (i.e. creating new model)
-
-    for k in range(num_sets):
+# Note: Only entered if creating a new model or continuing training on a model that was interrupted
+if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
+    print(f"Starting training from: Fold {hyperparameters['fold_number'] + 1}/{hyperparameters['num_folds']}") # fold_number is the index
+    for k in range(hyperparameters["fold_number"], num_sets):
 
         # Generate folds for this training iteration    
         # Notes:
@@ -180,6 +181,7 @@ if len(stats["train_loss_i"]) == 0: # This would only be the case if a pre-exist
         # ----------------------------------------------
         # Saving checkpoint
 
+        hyperparameters["fold_number"] = k + 1 # Saves the index of the next fold to continue training from
         checkpoint = {
                     "model":{
                             "architecture": model.__class__.__name__,
@@ -189,6 +191,7 @@ if len(stats["train_loss_i"]) == 0: # This would only be the case if a pre-exist
                     "hyperparameters": hyperparameters,
                     "stats": stats
                     }
+        
         torch.save(obj = checkpoint, f = f"{checkpoint_directory}/fold_{k}.pth")
 
 # Set model to evaluation mode (For dropout + batch norm layers)
