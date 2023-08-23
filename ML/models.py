@@ -76,7 +76,7 @@ class MLP(nn.Module):
 
 class RNN(nn.Module):
 
-    def __init__(self, initial_in, final_out, N_OR_S, device):
+    def __init__(self, initial_in, final_out, N_OR_S):
         super(RNN, self).__init__()
 
         # Cross validation results (Epochs = 5000, num_folds = 10)
@@ -135,8 +135,6 @@ class RNN(nn.Module):
         # Determines whether the model will use normalised or standardised data for training and inference
         self.N_OR_S = N_OR_S
 
-        self.device = device
-
     def __call__(self, inputs):
         
         # inputs.shape = [Number of x consecutive day sequences, x consecutive day sequences, num features in a single day]
@@ -155,7 +153,7 @@ class RNN(nn.Module):
 
         num_context_days = inputs.shape[0]
         batch_size = inputs.shape[1]
-        self.hidden_state = torch_zeros(batch_size, self.hidden_layer.weight.shape[1], device = self.device) # Initialise hidden state at the start of each forward pass as zeroes
+        self.hidden_state = torch_zeros(batch_size, self.hidden_layer.weight.shape[1], device = self.O.weight.device) # Initialise hidden state at the start of each forward pass as zeroes
 
         # Recurrence:
         for i in range(num_context_days):
