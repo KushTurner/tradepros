@@ -1,6 +1,7 @@
 
 from os import listdir as os_listdir
 from os import mkdir as os_mkdir
+from os import rmdir as os_rmdir
 from os.path import exists as os_path_exists
 from torch import load as torch_load
 from torch.optim import Adam as torch_optim_Adam
@@ -18,16 +19,18 @@ class ModelManager:
         self.TDH_REF = TDH_reference
 
     def initiate_model(self, model_number_load = None, manual_hyperparams = None):
-        
+
         model_checkpoints_folder_exists = os_path_exists("model_checkpoints") 
         # Load existing model
         if model_number_load != None and model_checkpoints_folder_exists:
             checkpoint_directory = f"model_checkpoints/{model_number_load}"
-
+            self.clean_empty_directories()
+            
         # Creates a new model
         else:
             if model_checkpoints_folder_exists == False:
                 os_mkdir("model_checkpoints")
+            self.clean_empty_directories()
 
             checkpoint_directory = f"model_checkpoints/{len(os_listdir('model_checkpoints'))}"
             os_mkdir(checkpoint_directory) 
@@ -151,3 +154,13 @@ class ModelManager:
         #                     print(subparam._grad.data.device)
 
         return model, optimiser, hyperparameters, stats, checkpoint_directory
+    
+    def clean_empty_directories(self):
+        # Removes any empty directories in the model_checkpoints directory
+
+        model_checkpoint_path = 'model_checkpoints'
+        models_directory = os_listdir(model_checkpoint_path)
+        for directory_name in models_directory:
+            model_directory_path = f"{model_checkpoint_path}/{directory_name}"
+            if len(os_listdir(model_directory_path)) == 0:
+                os_rmdir(model_directory_path)

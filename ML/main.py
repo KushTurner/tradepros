@@ -44,7 +44,7 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 0
+model_number_load = 0 #None
 manual_hyperparams = {
                     "architecture": "RNN", # Will be deleted after instantiation
                     "num_context_days": 10,
