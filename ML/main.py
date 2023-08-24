@@ -45,7 +45,17 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
 model_number_load = 0
-model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load)
+manual_hyperparams = {
+                    "architecture": "RNN", # Will be deleted after instantiation
+                    "num_context_days": 10,
+                    "batch_size": 32,
+                    "learning_rate": 1e-3,
+                    "num_folds": 5,
+                    "multiplicative_trains": 2,
+                    "uses_dated_sentiments": True
+                    }
+manual_hyperparams = None
+model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
 
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
 BATCH_SIZE = hyperparameters["batch_size"]
@@ -78,7 +88,11 @@ print(X3.shape, Y3.shape)
 # Training:
 # Note: Only entered if creating a new model or continuing training on a model that was interrupted
 if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
+    print("---------------------------------------------------------------------------------------")
     print(f"Starting training from: Fold {hyperparameters['fold_number'] + 1}/{hyperparameters['num_folds']}") # fold_number is the index
+    print(f"Hyperparameters used: {hyperparameters}")
+    print(f"Model architecture: {model.__class__.__name__}")
+    
     for k in range(hyperparameters["fold_number"], num_sets):
 
         # Generate folds for this training iteration    

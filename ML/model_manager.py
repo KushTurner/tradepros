@@ -17,7 +17,7 @@ class ModelManager:
         self.DH_REF = DH_reference
         self.TDH_REF = TDH_reference
 
-    def initiate_model(self, model_number_load = None):
+    def initiate_model(self, model_number_load = None, manual_hyperparams = None):
         
         model_checkpoints_folder_exists = os_path_exists("model_checkpoints") 
         # Load existing model
@@ -43,7 +43,7 @@ class ModelManager:
             checkpoint is a dict consisting of 3 keys: 
             - "model" - Model + Optimiser state dicts and architecture used
             - "hyperparameters" - Hyperparameters used to train the model
-            - "results": Results from training the model
+            - "stats": Model statistics (e.g. loss, accuracy, f1 score, etc..)
             """
 
             hyperparameters = checkpoint["hyperparameters"] # Load hyperparameters of the saved model
@@ -69,10 +69,30 @@ class ModelManager:
                                     transform_after = True,
                                     dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None # Dated sentiments for each company (None if not using)
                                     )
-
         else:
             # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
-            _uses_dated_sentiments = True
+
+            # Manual hyperparameters were not passed in when creating the new model (Use the recommended hyperparams)
+            if manual_hyperparams == None:
+                # Can change the values in this dictionary
+                manual_hyperparams = {
+                                    "architecture": "RNN", 
+                                    "batch_size": 32,
+                                    "num_folds": 5,
+                                    "multiplicative_trains": 2,
+                                    "uses_dated_sentiments": True,
+                                    }
+
+                # Suggested values for the following hyperparameters, based on the model architecture
+                if manual_hyperparams["architecture"] == "RNN":
+                    manual_hyperparams["learning_rate"] = 1e-3
+                    manual_hyperparams["N_OR_S"] = "N"
+                    manual_hyperparams["num_context_days"] = 10
+
+                elif manual_hyperparams["architecture"] == "MLP":
+                    manual_hyperparams["learning_rate"] = 1e-4
+                    manual_hyperparams["N_OR_S"] = "S"
+                    manual_hyperparams["num_context_days"] = 1
 
             # Retrieve DH data
             self.DH_REF.retrieve_data(
@@ -81,26 +101,23 @@ class ModelManager:
                                     end_date = "31/12/2019", 
                                     interval = "1d",
                                     transform_after = True,
-                                    dated_sentiments = self.TDH_REF.dated_sentiments if _uses_dated_sentiments else None # Dated sentiments for each company (None if not using)
+                                    dated_sentiments = self.TDH_REF.dated_sentiments if manual_hyperparams["uses_dated_sentiments"] else None # Dated sentiments for each company (None if not using)
                                     )
             
-            _learning_rate = 1e-3
-            model = RNN(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = "N")
-            optimiser = torch_optim_Adam(params = model.parameters(), lr = _learning_rate)
+            # Initialising the model and optimiser
+            if manual_hyperparams["architecture"] == "RNN":
+                model = RNN(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"])
+                optimiser = torch_optim_Adam(params = model.parameters(), lr = manual_hyperparams["learning_rate"])
 
-            # _learning_rate = 0.0001
-            # model = MLP(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = "S")
-            # optimiser = torch_optim_SGD(params = model.parameters(), lr = _learning_rate)
-            
-            # Hyperparameters
-            _n_features = self.DH_REF.n_features
-            _N_OR_S = model.N_OR_S
-            _batch_size = 32
-            _num_context_days = 10 if isinstance(model, RNN) else 1 # Number of days used as context (Used for RNN)
-            _num_folds = 5 # Number of folds used in cross-validation
-            _fold_number = 0
-            _multiplicative_trains = 1
-            hyperparameters = {key[1:]:val for key, val in locals().items() if key.startswith("_")}
+            elif manual_hyperparams["architecture"] == "MLP":
+                model = MLP(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"])
+                optimiser = torch_optim_SGD(params = model.parameters(), lr = manual_hyperparams["learning_rate"])
+
+            # Modify hyperparams
+            del manual_hyperparams["architecture"] # Not needed in hyperparameters dict
+            hyperparameters = manual_hyperparams
+            hyperparameters["fold_number"] = 0
+            hyperparameters["n_features"] = self.DH_REF.n_features
             print(hyperparameters.keys())
 
             # Stats 
