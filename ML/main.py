@@ -56,7 +56,6 @@ manual_hyperparams = {
                     }
 manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
-
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
 BATCH_SIZE = hyperparameters["batch_size"]
 num_sets = (hyperparameters["num_folds"] - 1) # Number of sets i.e. the number of (TRAIN_FOLDS, VAL_FOLDS) generated, e.g. if num_folds = 5, there will be 4 sets
@@ -72,6 +71,8 @@ DH.create_folds(num_folds = hyperparameters["num_folds"], N_OR_S = model.N_OR_S)
 # Generate folds for this training iteration
 TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2, N_OR_S = model.N_OR_S)
 
+print(f"Hyperparameters used: {hyperparameters}")
+print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")
 # ---------------------------------------------------------------------------------------
 
 # Testing generate_batch
@@ -90,9 +91,7 @@ print(X3.shape, Y3.shape)
 if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
     print("---------------------------------------------------------------------------------------")
     print(f"Starting training from: Fold {hyperparameters['fold_number'] + 1}/{hyperparameters['num_folds']}") # fold_number is the index
-    print(f"Hyperparameters used: {hyperparameters}")
-    print(f"Model architecture: {model.__class__.__name__}")
-    
+
     for k in range(hyperparameters["fold_number"], num_sets):
 
         # Generate folds for this training iteration    
