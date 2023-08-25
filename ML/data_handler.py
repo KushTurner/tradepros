@@ -72,7 +72,7 @@ class DataHandler:
                             )
             # Modify the data (e.g. adding more columns, removing columns, etc.)
             DATA = self.modify_data(D = DATA, interval = interval, dated_sentiments = dated_sentiments)
-            
+
             # Separate the labels from the main dataframe (the other columns will be used as inputs)
             labels = DATA["Target"]
             self.labels.append(self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64))
@@ -132,12 +132,13 @@ class DataHandler:
             """ Removes all the rows in the DATA dataframe where the combination of "post_date" and "ticker" do not exist in dated_sentiments """
             D = D.merge(dated_sentiments, on = ["post_date", "ticker"])
 
-            print("After", D.shape)
+            # Set the index to be the dates of each row (As after merging, they will become indexes)
+            # - Also removes the "post_date" column
+            D.set_index("post_date", inplace = True, drop = True) 
+
+            print("After", D.shape, D.columns)
             # for ticker, post_date, sentiment in zip(DATA["ticker"].to_list(), DATA["post_date"].to_list(), DATA["sentiment"].to_list()):
             #     print(ticker, post_date, sentiment)
-
-            # Remove post_date column
-            D.drop("post_date", axis = 1, inplace = True)
 
         # Remove ticker column
         D.drop("ticker", axis = 1, inplace = True)
@@ -334,15 +335,16 @@ class DataHandler:
             self.data_n = torch_cat(all_data_sequences_n, dim = 0)
             self.data_s = torch_cat(all_data_sequences_s)
             self.labels = torch_cat(all_labels, dim = 0)
+            self.dates = all_dates
 
         # Sorting / Shuffling data sequences
         if shuffle_data_sequences == True:
             self.shuffle_data_sequences() # Random shuffle
         else:
-            self.sort_data_sequences(dates = all_dates) # Chronological order
+            self.sort_data_sequences(dates = self.dates) # Chronological order
         
         # Remove dates (no longer required)
-        del self.dates
+        # del self.dates
     
         print(f"DataShapeN: {self.data_n.shape} | DataShapeS: {self.data_s.shape} | LabelsShape: {self.labels.shape}")
 

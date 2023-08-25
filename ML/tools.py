@@ -3,37 +3,6 @@ from torch import max as torch_max
 from torch import sum as torch_sum
 from torch.nn import functional as F
 from torch import logical_and as torch_logical_and
-
-def evaluate_accuracy(steps, batch_size, generate_batch_f, selected_model, check_interval, split_name, num_context_days):
-    
-    accuracies = []
-    num_correct = 0
-    num_tested = 0
-
-    with torch_no_grad():
-        
-        for i in range(steps):
-            # Generate batch from a split
-            Xa, Ya = generate_batch_f(batch_size, split_name, num_context_days, selected_model.N_OR_S)
-
-            # Forward pass
-            logits = selected_model(Xa)
-
-            # Find probability distribution (the predictions)
-            preds = F.softmax(logits, dim = 1)
-
-            # Track stats
-            num_correct += count_correct_preds(predictions = preds, targets = Ya)
-            num_tested += batch_size
-            accuracies.append((num_correct / num_tested) * 100)
-            
-            if (i + 1) % check_interval == 0:
-                print(f"Correct predictions: {num_correct} / {num_tested} | {split_name}Accuracy(%): {(num_correct / num_tested) * 100}")
-    
-    return accuracies
-
-# def find_accuracy(predictions, targets, batch_size):
-#     return (count_correct_preds(predictions, targets) / batch_size) * 100
     
 def count_correct_preds(predictions, targets):
 
@@ -82,3 +51,11 @@ def find_P_A_R(predictions, targets):
     # print(accuracy, precision, recall, f1_score)
 
     return accuracy, precision, recall, f1_score
+
+def get_predictions(input_data, model):
+    """
+    input_data shape should be: [batch_size, num_context days, num_features]
+    """
+    with torch_no_grad():
+        # Find probability distribution (the predictions)
+        return F.softmax(model(input_data), dim = 1)

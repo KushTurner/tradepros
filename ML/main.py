@@ -44,17 +44,18 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 0 #None
+model_number_load = 1
 manual_hyperparams = {
                     "architecture": "RNN", # Will be deleted after instantiation
+                    "N_OR_S": "N",
                     "num_context_days": 10,
                     "batch_size": 32,
                     "learning_rate": 1e-3,
                     "num_folds": 5,
-                    "multiplicative_trains": 2,
-                    "uses_dated_sentiments": True
+                    "multiplicative_trains": 1,
+                    "uses_dated_sentiments": False,
                     }
-manual_hyperparams = None
+# manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
 BATCH_SIZE = hyperparameters["batch_size"]
@@ -226,17 +227,78 @@ for metric in metrics:
 total_epochs = len(stats["train_loss_i"])
 print(total_epochs)
 
-A = 59 # Replace with a factor of the total number of epochs
+# A = 59 # Replace with a factor of the total number of epochs
 
-for metric in metrics:
-    print("-----------------------------------------------------------------")
-    print(f"{metric.capitalize()} during training")
+# for metric in metrics:
+#     print("-----------------------------------------------------------------")
+#     print(f"{metric.capitalize()} during training")
 
-    train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
-    val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
+#     train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
+#     val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
 
-    fig, ax = plt.subplots()
-    ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
-    ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
-    ax.legend()
-    plt.show()
+#     fig, ax = plt.subplots()
+#     ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
+#     ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
+#     ax.legend()
+#     plt.show()
+
+# INFERENCE (TEMP)
+from tools import get_predictions
+
+print(DH.data_n.shape)
+print(DH.data_s.shape)
+
+selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
+from tools import get_predictions
+
+# DH.retrieve_data(
+#             tickers = selected_tickers,
+#             start_date = "1/01/2023",
+#             end_date = "31/03/2023",
+#             interval = "1d",
+#             transform_after = True,
+#             dated_sentiments = None
+#             )
+
+DH.retrieve_data(
+            tickers = selected_tickers,
+            start_date = "15/06/2023",
+            end_date = "24/08/2023",
+            interval = "1d",
+            transform_after = True,
+            dated_sentiments = None
+            )
+for company in DH.data_n:
+    print("num_days", len(company))
+
+print(len(DH.dates))
+for dates in DH.dates:
+    print("num_dates_for_each_sequence_for_each_company", len(dates))
+
+# Create data sequences
+DH.create_data_sequences(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False)
+print(len(DH.data_n), len(DH.data_s))
+print(DH.labels.shape)
+print(len(DH.dates))
+
+input_data = DH.data_n if hyperparameters["N_OR_S"] == "N" else DH.data_s
+print(len(input_data))
+# Create batches from all the data sequences ()
+batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
+
+# If RNN
+if model.__class__.__name__ == "RNN":
+    # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
+    for i in range(len(batches)):
+        print(batches[i].shape)
+        batches[i] = batches[i].transpose(dim0 = 0, dim1 = 1)
+        print(batches[i].shape)
+        print("---------------")
+
+# Get predictions on each batch
+for batch in batches:
+    print("Batch shape", batch.shape)
+    predictions = get_predictions(input_data = batch.to(device = DEVICE), model = model)
+    print(predictions.shape)
+
+print(predictions[-1])
