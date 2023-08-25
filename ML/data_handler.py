@@ -296,6 +296,7 @@ class DataHandler:
             all_data_sequences_s = []
             all_labels = []
             all_dates = []
+            self.sequence_sizes = [] # Used to find out which sequences belong to which companies (at inference time)
 
             # Data (Normalised and standardised versions)
             for i, (c_labels, c_dates, c_data_n, c_data_s) in enumerate(zip(self.labels, self.dates, self.data_n, self.data_s)):
@@ -328,6 +329,9 @@ class DataHandler:
 
                 # Add the dates for this company to the list
                 all_dates.extend(c_dates) # Extend so that it is a single list
+                
+                # Add the number of sequences for this company
+                self.sequence_sizes.append(c_labels.shape[0])
 
                 print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
 

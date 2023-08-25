@@ -293,11 +293,15 @@ elif model.__class__.__name__ == "MLP":
     # Single day sequences
     batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
-# Get predictions on each batch
-for batch in batches:
-    print("Batch shape", batch.shape)
-    predictions = get_predictions(input_data = batch.to(device = DEVICE), model = model)
-    print(predictions.shape)
+# Get all the predictions for each batch
 all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])
 print(all_predictions.shape)
-print(all_predictions)
+
+# Create a list containing which company ticker each sequence belongs to
+print(DH.sequence_sizes)
+companies_tickers = [selected_tickers[i] for i in range(len(selected_tickers)) for _ in range(DH.sequence_sizes[i])]
+print(len(companies_tickers))
+
+# Create a list of dictionaries containing information about a sequence
+prediction_info_dicts = [{"ticker": ticker, "prediction": prediction} for prediction, ticker in zip(all_predictions, companies_tickers)]
+print(prediction_info_dicts)
