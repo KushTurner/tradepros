@@ -44,7 +44,7 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 1
+model_number_load = 7
 manual_hyperparams = {
                     "architecture": "RNN", # Will be deleted after instantiation
                     "N_OR_S": "N",
@@ -52,9 +52,19 @@ manual_hyperparams = {
                     "batch_size": 32,
                     "learning_rate": 1e-3,
                     "num_folds": 5,
-                    "multiplicative_trains": 1,
+                    "multiplicative_trains": 4,
                     "uses_dated_sentiments": False,
                     }
+# manual_hyperparams = {
+#                     "architecture": "MLP", # Will be deleted after instantiation
+#                     "N_OR_S": "S",
+#                     "num_context_days": 1,
+#                     "batch_size": 32,
+#                     "learning_rate": 1e-4,
+#                     "num_folds": 5,
+#                     "multiplicative_trains": 1,
+#                     "uses_dated_sentiments": False,
+#                     }
 # manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
@@ -227,20 +237,20 @@ for metric in metrics:
 total_epochs = len(stats["train_loss_i"])
 print(total_epochs)
 
-# A = 59 # Replace with a factor of the total number of epochs
+A = 62 # Replace with a factor of the total number of epochs
 
-# for metric in metrics:
-#     print("-----------------------------------------------------------------")
-#     print(f"{metric.capitalize()} during training")
+for metric in metrics:
+    print("-----------------------------------------------------------------")
+    print(f"{metric.capitalize()} during training")
 
-#     train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
-#     val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
+    train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
+    val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
 
-#     fig, ax = plt.subplots()
-#     ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
-#     ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
-#     ax.legend()
-#     plt.show()
+    fig, ax = plt.subplots()
+    ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
+    ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
+    ax.legend()
+    plt.show()
 
 # INFERENCE (TEMP)
 from tools import get_predictions
@@ -248,13 +258,42 @@ from tools import get_predictions
 print(DH.data_n.shape)
 print(DH.data_s.shape)
 
-selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
+# selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
+
+selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
 from tools import get_predictions
 
 # DH.retrieve_data(
 #             tickers = selected_tickers,
 #             start_date = "1/01/2023",
-#             end_date = "31/03/2023",
+#             end_date = "24/08/2023",
+#             interval = "1d",
+#             transform_after = True,
+#             dated_sentiments = None
+#             )
+
+# DH.retrieve_data(
+#             tickers = selected_tickers,
+#             start_date = "1/01/2010",
+#             end_date = "24/08/2014",
+#             interval = "1d",
+#             transform_after = True,
+#             dated_sentiments = None
+#             )
+
+# DH.retrieve_data(
+#             tickers = selected_tickers,
+#             start_date = "1/01/2000",
+#             end_date = "31/6/2013",
+#             interval = "1d",
+#             transform_after = True,
+#             dated_sentiments = None
+#             )
+
+# DH.retrieve_data(
+#             tickers = selected_tickers,
+#             start_date = "1/01/2020",
+#             end_date = "31/12/2022",
 #             interval = "1d",
 #             transform_after = True,
 #             dated_sentiments = None
@@ -262,12 +301,13 @@ from tools import get_predictions
 
 DH.retrieve_data(
             tickers = selected_tickers,
-            start_date = "15/06/2023",
+            start_date = "1/07/2023",
             end_date = "24/08/2023",
             interval = "1d",
             transform_after = True,
             dated_sentiments = None
             )
+
 for company in DH.data_n:
     print("num_days", len(company))
 
@@ -297,11 +337,49 @@ elif model.__class__.__name__ == "MLP":
 all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])
 print(all_predictions.shape)
 
-# Create a list containing which company ticker each sequence belongs to
+# Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates
+print(selected_tickers)
 print(DH.sequence_sizes)
 companies_tickers = [selected_tickers[i] for i in range(len(selected_tickers)) for _ in range(DH.sequence_sizes[i])]
+companies_tickers = [companies_tickers[ind] for ind in DH.sort_indices]
 print(len(companies_tickers))
 
+""" 
+Labels = Sorted by dates
+Data = Sorted by dates
+Company tickers = Not sorted
+
+"""
+
+correct_count = 0
+for prediction, label in zip(all_predictions, DH.labels):
+    pred_i = torch.argmax(prediction, dim = 0)
+    # print(prediction)
+    # print(pred_i)
+    # print(label)
+    # print("----------------")
+    correct_count += 1 if label.item() == pred_i.item() else 0
+
+print(f"Number of uptrends: {DH.labels.count_nonzero().item()} | Number of downtrends {DH.labels.shape[0] - DH.labels.count_nonzero().item()}")
+accuracy, precision, recall, f1_score = find_P_A_R(all_predictions, DH.labels.to(DEVICE))
+print(f"Accuracy: {accuracy} | Precision: {precision} | Recall: {recall} | F1 Score: {f1_score}")
+print(f"Correct: {correct_count}/{all_predictions.shape[0]} | PercentageCorrect: {(correct_count / all_predictions.shape[0]) * 100}")
+
+
 # Create a list of dictionaries containing information about a sequence
-prediction_info_dicts = [{"ticker": ticker, "prediction": prediction} for prediction, ticker in zip(all_predictions, companies_tickers)]
-print(prediction_info_dicts)
+"""
+- Each data sequence is mapped with:
+    - Corresponding ticker
+    - The model prediction in the form of a probability distribution
+    - Target (the actual trend) 
+    - The model prediction where 0 = predicted downward trend, 1 = predicted upward trend
+    - Whether the model's prediction was correct
+    - Corresponding date
+"""
+prediction_info_dicts = [{"ticker": ticker, "prediction": prediction, "Target": label.item(), "ModelAnswer": torch.argmax(prediction, dim = 0).item(), "Correct": torch.argmax(prediction, dim = 0).item() == label.item(), "timestamp": timestamp} for prediction, label, ticker, timestamp in zip(all_predictions, DH.labels, companies_tickers, DH.dates)]
+for d in prediction_info_dicts[:5]:
+    print(d)
+prediction_info_dicts.sort(key = lambda x: x["timestamp"]) # Sort by date
+
+for d in prediction_info_dicts[:5]:
+    print("After", d)

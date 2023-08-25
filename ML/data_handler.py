@@ -58,18 +58,24 @@ class DataHandler:
         self.labels = []
         self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
         cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"] # Columns to normalise / standardise
+        invalid_tickers = []
 
         # For each company, modify the data 
         for ticker in tickers:
+            try:
+                # Retrieve data
+                DATA = get_data(
+                                ticker = ticker, 
+                                start_date = start_date, 
+                                end_date = end_date, 
+                                index_as_date = True, 
+                                interval = interval
+                                )
+            # Data does not exist
+            except:
+                invalid_tickers.append(ticker)
+                continue
 
-            # Retrieve data
-            DATA = get_data(
-                            ticker = ticker, 
-                            start_date = start_date, 
-                            end_date = end_date, 
-                            index_as_date = True, 
-                            interval = interval
-                            )
             # Modify the data (e.g. adding more columns, removing columns, etc.)
             DATA = self.modify_data(D = DATA, interval = interval, dated_sentiments = dated_sentiments)
 
@@ -117,6 +123,10 @@ class DataHandler:
         # Set the number of features that will go into the first layer of a model
         self.n_features = self.data_n[-1].shape[1]
         print(f"Number of data features: {self.n_features}")
+
+        # Remove invalid tickers
+        for invalid_ticker in invalid_tickers:
+            tickers.remove(invalid_ticker)
 
     def modify_data(self, D, interval, dated_sentiments = None):
         
@@ -174,6 +184,8 @@ class DataHandler:
 
         # Removes rows which contain "NaN" inside of any columns
         D.dropna(inplace = True)
+
+        print(D[:25])
 
         # Remove "TomorrowClose" as the model shouldn't "know" what tomorrow's closing price is
         D.drop("TomorrowClose", axis = 1, inplace = True)
@@ -274,6 +286,7 @@ class DataHandler:
             all_data_s = []
             all_labels = []
             all_dates = []
+            self.sequence_sizes = []
 
             for i, (c_labels, c_dates, c_data_n, c_data_s) in enumerate(zip(self.labels, self.dates, self.data_n, self.data_s)):
                 # Add the data. labels and dates for this company to the lists
@@ -281,12 +294,17 @@ class DataHandler:
                 all_data_s.append(c_data_s)
                 all_labels.append(c_labels)
                 all_dates.extend(c_dates)
+
+                # Add the number of sequences for this company
+                self.sequence_sizes.append(c_labels.shape[0])
+
                 print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
 
             # Concatenate all the data and labels from all the companies
             self.data_n = torch_cat(all_data_n, dim = 0)
             self.data_s = torch_cat(all_data_s, dim = 0)
             self.labels = torch_cat(all_labels, dim = 0)
+            self.dates = all_dates
 
         # RNN
         else:
@@ -329,7 +347,7 @@ class DataHandler:
 
                 # Add the dates for this company to the list
                 all_dates.extend(c_dates) # Extend so that it is a single list
-                
+
                 # Add the number of sequences for this company
                 self.sequence_sizes.append(c_labels.shape[0])
 
@@ -389,16 +407,17 @@ class DataHandler:
         # Notes: 
         # - Converted to unix timestamps so that we can perform torch.argsort()
         # - self.data and self.labels at this stage will be the companies data placed one after another, so the dates must be sorted into chronological order
-        # - descending = True because the timestamps are seconds elapsed so larger numbers = further back in time
+        # - descending = False because the timestamps are seconds elapsed so larger numbers are further in the future
         unix_timestamps = torch_tensor([pd_to_datetime(time_stamp).timestamp() for time_stamp in dates])
-        sort_indices = torch_argsort(unix_timestamps, descending = True) # Returns the indices which will sort self.data and self.labels in chronological order 
+        sort_indices = torch_argsort(unix_timestamps, descending = False) # Returns the indices which will sort self.data and self.labels in chronological order 
 
         #print("SORTED: DATALABELSDATES", self.data_n.shape, self.labels.shape, sort_indices.shape)
-        
-        # Sort data and labels
+        self.sort_indices = sort_indices
+        # Sort data, labels and dates
         self.data_n = self.data_n[sort_indices]
         self.data_s = self.data_s[sort_indices]
         self.labels = self.labels[sort_indices]
+        self.dates = [self.dates[i] for i in sort_indices]
 
     def create_sets(self, num_context_days, shuffle_data_sequences):
         # Convert self.data_n, self.data_s, self.labels into data sequences 
