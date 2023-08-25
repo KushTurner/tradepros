@@ -283,22 +283,21 @@ print(len(DH.dates))
 
 input_data = DH.data_n if hyperparameters["N_OR_S"] == "N" else DH.data_s
 print(len(input_data))
-# Create batches from all the data sequences ()
-batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
-# If RNN
+# Create batches from all the data sequences
 if model.__class__.__name__ == "RNN":
     # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
-    for i in range(len(batches)):
-        print(batches[i].shape)
-        batches[i] = batches[i].transpose(dim0 = 0, dim1 = 1)
-        print(batches[i].shape)
-        print("---------------")
+    batches = [input_data[i:i + hyperparameters["batch_size"]].transpose(dim0 = 0, dim1 = 1) for i in range(0, len(input_data), hyperparameters["batch_size"])]
+
+elif model.__class__.__name__ == "MLP":
+    # Single day sequences
+    batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
 # Get predictions on each batch
 for batch in batches:
     print("Batch shape", batch.shape)
     predictions = get_predictions(input_data = batch.to(device = DEVICE), model = model)
     print(predictions.shape)
-
-print(predictions[-1])
+all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])
+print(all_predictions.shape)
+print(all_predictions)
