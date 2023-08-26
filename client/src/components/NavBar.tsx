@@ -12,7 +12,7 @@ function NavBar() {
     <nav>
       <header className="bg-[#121318] py-6 rounded-b-xl md:hidden">
         <h1 className="font-display text-lg font-bold text-white ml-6 hover:cursor-pointer">
-          TradePros
+          <Link to="/">TradePros</Link>
         </h1>
       </header>
       <button
@@ -36,41 +36,56 @@ function NavBar() {
           <div className="flex flex-col md:flex-row">
             <li className="navbar-item ml-6 mb-6 md:mb-0 md:hover:underline md:hover:underline-offset-[36px]">
               <div className="flex flex-row items-center">
-                <AiOutlineStock size={20} className="md:hidden mr-2" />
-                <Link className="text-white" to="/market">
+                <Link className="text-white navbar-item flex" to="/market">
+                  <AiOutlineStock
+                    size={20}
+                    className="md:hidden mr-2 self-center"
+                  />
                   Market
                 </Link>
               </div>
             </li>
             <li className="navbar-item ml-6 mb-6 md:mb-0 md:mx-6 lg:mx-14 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
-                <BsBookmark size={16} className="md:hidden mr-2" />
-                <Link className="text-white" to="/watchlist">
+                <Link className="text-white navbar-item flex" to="/watchlist">
+                  <BsBookmark
+                    size={16}
+                    className="md:hidden mr-2 self-center"
+                  />
                   Watchlist
                 </Link>
               </div>
             </li>
             <li className="mb-6 md:mb-0 navbar-item ml-6 md:ml-0 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
-                <BsBriefcase size={16} className="md:hidden mr-2" />
-                <Link className="text-white" to="/portfolio">
+                <Link className="text-white navbar-item flex" to="/portfolio">
+                  <BsBriefcase
+                    size={16}
+                    className="md:hidden mr-2 self-center"
+                  />
                   Portfolio
                 </Link>
               </div>
             </li>
             <li className="navbar-item ml-6 mb-6 md:mb-0 md:mx-6 lg:mx-14 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
-                <BsBookmark size={16} className="md:hidden mr-2" />
-                <Link className="text-white" to="/watchlist">
+                <Link className="text-white navbar-item flex" to="/watchlist">
+                  <BsBookmark
+                    size={16}
+                    className="md:hidden mr-2 self-center"
+                  />
                   Trade History
                 </Link>
               </div>
             </li>
             <li className="mb-8 md:mb-0 navbar-item ml-6 md:ml-0 md:hover:underline md:hover:underline-offset-[33px]">
-              <div className="flex flex-row items-center">
-                <BsBriefcase size={16} className="md:hidden mr-2" />
-                <Link className="text-white" to="/portfolio">
-                  Leaderboard
+              <div className="flex items-center">
+                <Link className="text-white navbar-item flex" to="/portfolio">
+                  <BsBriefcase
+                    size={16}
+                    className="md:hidden mr-2 self-center"
+                  />
+                  <span>Leaderboard</span>
                 </Link>
               </div>
             </li>
