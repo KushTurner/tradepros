@@ -44,27 +44,27 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 9
-manual_hyperparams = {
-                    "architecture": "RNN", # Will be deleted after instantiation
-                    "N_OR_S": "N",
-                    "num_context_days": 10,
-                    "batch_size": 32,
-                    "learning_rate": 1e-3,
-                    "num_folds": 5,
-                    "multiplicative_trains": 4,
-                    "uses_dated_sentiments": True,
-                    }
+model_number_load = 11
 # manual_hyperparams = {
-#                     "architecture": "MLP", # Will be deleted after instantiation
-#                     "N_OR_S": "S",
-#                     "num_context_days": 1,
+#                     "architecture": "RNN", # Will be deleted after instantiation
+#                     "N_OR_S": "N",
+#                     "num_context_days": 10,
 #                     "batch_size": 32,
-#                     "learning_rate": 1e-4,
+#                     "learning_rate": 1e-3,
 #                     "num_folds": 5,
 #                     "multiplicative_trains": 1,
 #                     "uses_dated_sentiments": False,
 #                     }
+manual_hyperparams = {
+                    "architecture": "MLP", # Will be deleted after instantiation
+                    "N_OR_S": "S",
+                    "num_context_days": 1,
+                    "batch_size": 32,
+                    "learning_rate": 1e-4,
+                    "num_folds": 5,
+                    "multiplicative_trains": 1,
+                    "uses_dated_sentiments": False,
+                    }
 # manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
@@ -237,7 +237,7 @@ for metric in metrics:
 total_epochs = len(stats["train_loss_i"])
 print(total_epochs)
 
-A = 59 # Replace with a factor of the total number of epochs
+A = 14 #62 # Replace with a factor of the total number of epochs
 
 for metric in metrics:
     print("-----------------------------------------------------------------")

@@ -57,7 +57,8 @@ class DataHandler:
         self.data_s = [] # Standardised data
         self.labels = []
         self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
-        cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"] # Columns to normalise / standardise
+        # cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"] # Columns to normalise / standardise
+        cols_to_alter = ["open", "close", "high", "low", "volume"] # Columns to normalise / standardise
         invalid_tickers = []
 
         # For each company, modify the data 
@@ -151,7 +152,12 @@ class DataHandler:
             #     print(ticker, post_date, sentiment)
 
         # Remove ticker column
-        D.drop("ticker", axis = 1, inplace = True)
+        if "ticker" in D.columns:
+            D.drop("ticker", axis = 1, inplace = True)
+        
+        # Remove adjclose column (TEMPORARY)
+        if "adjclose" in D.columns:
+            D.drop("adjclose", axis = 1, inplace = True)
 
         # Create new column for each day stating tomorrow's closing price for the stock
         D["TomorrowClose"] = D["close"].shift(-1)
@@ -337,7 +343,7 @@ class DataHandler:
                 Dates = [Jan1, Jan2, Jan3, Jan4, Jan5, Jan6, Jan7, Jan8, Jan9, Jan10, Jan11....]
                 start_trim_idx = 9
                 Dates = dates[start_trim_idx:] --> [Jan11 ....] (CORRECT)
-                
+
                            0     1     2     3     4     5      6    7     8     9      10
                 labels = [Jan1, Jan2, Jan3, Jan4, Jan5, Jan6, Jan7, Jan8, Jan9, Jan10, Jan11....]
 
