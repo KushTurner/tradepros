@@ -328,13 +328,30 @@ class DataHandler:
             for i, (c_labels, c_dates, c_data_n, c_data_s) in enumerate(zip(self.labels, self.dates, self.data_n, self.data_s)):
 
                 # The number of sequences of length "num_context_days" in this company's data
-                num_sequences = c_labels.shape[0] - (num_context_days - 1) # E.g. if num_context_days = 10, 4530 --> (4530 - 10 - 1) = 
+                original_num_days = c_labels.shape[0] # Original number of days
+                num_sequences = original_num_days - (num_context_days - 1) # E.g. if num_context_days = 10, 4530 --> (4530 - (10 - 1)) = 4519
+                start_trim_idx = original_num_days - num_sequences
 
                 # Trim labels (The same is done for self.data when converting to sequences)
-                c_labels = c_labels[:num_sequences] # labels.shape = (Correct predictions for all sequences in self.data)
+                """
+                Dates = [Jan1, Jan2, Jan3, Jan4, Jan5, Jan6, Jan7, Jan8, Jan9, Jan10, Jan11....]
+                start_trim_idx = 9
+                Dates = dates[start_trim_idx:] --> [Jan11 ....] (CORRECT)
+                
+                           0     1     2     3     4     5      6    7     8     9      10
+                labels = [Jan1, Jan2, Jan3, Jan4, Jan5, Jan6, Jan7, Jan8, Jan9, Jan10, Jan11....]
 
-                # Trim dates
-                c_dates = c_dates[:num_sequences]
+                First sequence = Jan1, Jan2, Jan3, Jan4, Jan5, Jan6, Jan7, Jan8, Jan9, Jan10
+                Correct label for January 10 predicting January 11 is labels[9]
+
+                Second sequence = Jan2, Jan3, Jan4, Jan5, Jan6, Jan7, Jan8, Jan9, Jan10, Jan11
+                Correct label for January 11 predicting January 12 is labels[10]
+                """
+                c_labels = c_labels[start_trim_idx:] # labels.shape = (Correct predictions for all sequences in self.data)
+
+                # Trim dates 
+                # - Each c_data_n[i] should correspond to the correct date in c_dates[i], where c_dates[i] is the date before the date to predict
+                c_dates = c_dates[start_trim_idx:]
 
                 # Let num_context_days = 10, batch_size = 32
                 # Single batch should be [10 x [32 * num_features] ]
