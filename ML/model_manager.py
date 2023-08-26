@@ -71,6 +71,7 @@ class ModelManager:
                                     interval = "1d",
                                     transform_after = True,
                                     dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
+                                    N_OR_S = hyperparameters["N_OR_S"],
                                     features_to_remove = hyperparameters["features_to_remove"],
                                     cols_to_alter = hyperparameters["cols_to_alter"],
                                     params_from_training = hyperparameters["train_data_params"]
@@ -123,6 +124,7 @@ class ModelManager:
                                     interval = "1d",
                                     transform_after = manual_hyperparams["transform_after"],
                                     dated_sentiments = self.TDH_REF.dated_sentiments if manual_hyperparams["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
+                                    N_OR_S = manual_hyperparams["N_OR_S"],
                                     features_to_remove = manual_hyperparams["features_to_remove"],
                                     cols_to_alter = manual_hyperparams["cols_to_alter"],
                                     params_from_training = None

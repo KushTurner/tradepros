@@ -30,7 +30,7 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 12
+model_number_load = 1
 model, optimiser, hyperparameters, _, _= model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = None)
 print(hyperparameters)
 print(f"Hyperparameters used: {hyperparameters}")
@@ -42,6 +42,7 @@ print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {
 api_key = os_get_env("alphavantage_apikey")
 tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw", "aapl", "tsla", "amzn", "goog", "msft", "googl"]
 tickers = ["jpm", "meta", "wmt", "ma", "aapl", "tsla", "amzn", "goog", "msft", "googl"]
+actual_column_names = ["open", "high", "low", "close", "volume"]
 info_list = []
 
 if os_path_exists("historical_data") == False:
@@ -88,7 +89,6 @@ for ticker in tickers:
     DATAFRAME.sort_index(ascending = True, inplace = True)
 
     # Rename columns
-    actual_column_names = ["open", "high", "low", "close", "volume"]
     rename_columns = {prev_name: new_name for prev_name, new_name in zip(DATAFRAME.columns, actual_column_names)}
     DATAFRAME.rename(columns = rename_columns, inplace = True)
     # print("Renamed", DATAFRAME)
@@ -100,45 +100,38 @@ for ticker in tickers:
 
     # Remove labels
     DATAFRAME.drop("Target", axis = 1, inplace = True)
-    
-    # Standardise / Normalise
-    S_DATAFRAME = DATAFRAME.copy()
-    cols_to_alter =  ["open", "close", "high", "low", "volume"] 
 
+    # Standardise / Normalise
+    if hyperparameters["transform_after"] == True: # Transformation based on "N_OR_S" and "transform_data"
+        transformation = DH.standardise_data if hyperparameters["N_OR_S"] == "S" else DH.normalise_data
+    else:
+        transformation = DH.standardise_columns if hyperparameters["N_OR_S"] == "S" else DH.normalise_columns
+    
     if hyperparameters["transform_after"] == False:
         # Alter the columns first
-        S_DATAFRAME[cols_to_alter] = DH.standardise_columns(dataframe = S_DATAFRAME, cols_to_standard = cols_to_alter)
-        DATAFRAME[cols_to_alter] = DH.normalise_columns(dataframe = DATAFRAME, cols_to_norm = cols_to_alter)
+        DATAFRAME[hyperparameters["cols_to_alter"]] = DH.normalise_columns(dataframe = DATAFRAME, cols_to_norm = hyperparameters["cols_to_alter"])
 
         # Convert to dataframe afterwards
-        DH.data_n = DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float_32)
-        DH.data_s = DH.dataframe_to_ptt(pandas_dataframe = S_DATAFRAME, desired_dtype = torch_float_32)
+        DH.data = DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float_32)
 
     else:
         """Note
         - Convert to tensors first, then transform the desired columns inside each tensor
-        - Transformation is usually over multiple companies so DH.data_n is usually a Python list, containing the dataframes for each company
+        - Transformation is usually over multiple companies so DH.data is usually a Python list, containing the dataframes for each company
         """
-        DH.data_n = [DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float_32)]
-        DH.data_s = [DH.dataframe_to_ptt(pandas_dataframe = S_DATAFRAME, desired_dtype = torch_float_32)]
+        DH.data = [DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float_32)]
 
         # Transform the data in the desired columns
         col_indexes = [DATAFRAME.columns.get_loc(column_name) for column_name in hyperparameters["cols_to_alter"]] # Find indexes of all the columns we want to alter
-        DH.standardise_data(combined_data = DH.data_n, col_indexes = col_indexes, params_from_training = hyperparameters["train_data_params"]) # Applied to self.data_s
-        DH.normalise_data(combined_data = DH.data_s, col_indexes = col_indexes, params_from_training = hyperparameters["train_data_params"]) # Applied to self.data_n
+        transformation(combined_data = DH.data, col_indexes = col_indexes, params_from_training = hyperparameters["train_data_params"])
 
-        print(hyperparameters["train_data_params"])
-
-        # Only select the data for this company
-        DH.data_n = DH.data_n[0]
-        DH.data_s = DH.data_s[0]
+        # Only select the data for this company (DH.data[0])
+        data_sequence = DH.data[0] 
 
     # Create single data sequence
-    data_sequence = DH.data_n if hyperparameters["N_OR_S"] == "N" else DH.data_s
     if model.__class__.__name__ == "MLP": 
         # Convert from [batch_size, num_features] --> [num_features] (2D tensor to 1D tensor)
         data_sequence = data_sequence.view(data_sequence.shape[1])
-        print(data_sequence.shape)
     elif model.__class__.__name__ == "RNN": 
         # Convert from [num_context_days, num_features] --> [batch_size, num_context_days, num_features] --> [num_context_days, batch_size, num_features]
         data_sequence = data_sequence.view(1, data_sequence.shape[0], -1).transpose(dim0 = 0, dim1 = 1)
@@ -185,9 +178,9 @@ elif model.__class__.__name__ == "MLP":
             # print("R", right_padding.shape)
             # print("Padded", batches[-1].shape)
 
-print(len(batches))
-for batch in batches:
-    print("B", batch.shape)
+# print(len(batches))
+# for batch in batches:
+#     print("B", batch.shape)
 
 # Generate predictions
 # - Concatenate all of the predictions together, ignoring any predictions for padding sequences

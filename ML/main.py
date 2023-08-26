@@ -44,7 +44,7 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = None
+model_number_load = 15
 # manual_hyperparams = {
 #                     "architecture": "RNN", # Will be deleted after instantiation
 #                     "N_OR_S": "N",
@@ -79,16 +79,16 @@ metrics = ["loss", "accuracy", "precision", "recall", "f1"]
 BATCH_SIZE = hyperparameters["batch_size"]
 num_sets = (hyperparameters["num_folds"] - 1) # Number of sets i.e. the number of (TRAIN_FOLDS, VAL_FOLDS) generated, e.g. if num_folds = 5, there will be 4 sets
 
-for company_data in DH.data_n:
+for company_data in DH.data:
     print("ContainsNaN", company_data.isnan().any().item()) # Check if the tensor contains "nan"
 
 # Create training and test sets and data sequences for this model (must be repeated for each model as num_context_days can vary depending on the model used)
 DH.create_sets(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False, train_split_decimal = hyperparameters["train_split_decimal"])
 # Create k folds
-DH.create_folds(num_folds = hyperparameters["num_folds"], N_OR_S = model.N_OR_S)
+DH.create_folds(num_folds = hyperparameters["num_folds"])
 
 # Generate folds for this training iteration
-TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2, N_OR_S = model.N_OR_S)
+TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2)
 
 print(f"Hyperparameters used: {hyperparameters}")
 print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")
@@ -117,7 +117,7 @@ if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
         # Notes:
         # - Window size starts at 2: Window sizes = (2 + 0), (2 + 1) (2 + 2) (2 + 3)
         # - Number of total sets = (num_folds - 1)
-        TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2 + k, N_OR_S = model.N_OR_S)
+        TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2 + k)
         
 
         # Rolling window variables: (Starting indexes, number of batches in each of the training / validation folds, interval for evaluating on the validation fold)
@@ -245,7 +245,8 @@ for metric in metrics:
 total_epochs = len(stats["train_loss_i"])
 print(total_epochs)
 
-A = 14 #  62 Replace with a factor of the total number of epochs
+A = 14 # Replace with a factor of the total number of epochs
+# A = 62 
 
 for metric in metrics:
     print("-----------------------------------------------------------------")
@@ -265,8 +266,7 @@ for metric in metrics:
 
 from tools import get_predictions
 
-print(DH.data_n.shape)
-print(DH.data_s.shape)
+print(DH.data.shape)
 
 # selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
 selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
@@ -291,13 +291,14 @@ DH.retrieve_data(
             interval = "1d",
             transform_after = hyperparameters["transform_after"],
             dated_sentiments = None, # Not needed at inference time 
+            N_OR_S = hyperparameters["N_OR_S"],
             include_date_before_prediction_date = True,
             features_to_remove = hyperparameters["features_to_remove"],
             cols_to_alter = hyperparameters["cols_to_alter"],
             params_from_training = hyperparameters["train_data_params"]
             )
 
-for company in DH.data_n:
+for company in DH.data:
     print("num_days", len(company))
 
 print(len(DH.dates))
@@ -306,11 +307,10 @@ for dates in DH.dates:
 
 # Create data sequences
 DH.create_data_sequences(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False)
-print(len(DH.data_n), len(DH.data_s))
+print(len(DH.data))
 print(DH.labels.shape)
 print(len(DH.dates))
-
-input_data = DH.data_n if hyperparameters["N_OR_S"] == "N" else DH.data_s
+input_data = DH.data
 print(len(input_data))
 
 # Create batches from all the data sequences

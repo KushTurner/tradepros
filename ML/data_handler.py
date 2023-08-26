@@ -57,18 +57,23 @@ class DataHandler:
                       interval, 
                       transform_after, 
                       dated_sentiments, 
+                      N_OR_S,
                       include_date_before_prediction_date = False, 
                       features_to_remove = [], 
                       cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"],
-                      params_from_training = None
+                      params_from_training = None,
                       ):
         # Note: transform_after = True means that all of the companies' data will be standardised / normalised together, instead of separately
-        
-        self.data_n = [] # Normalised data
-        self.data_s = [] # Standardised data
+        self.data = []
         self.labels = []
         self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
         invalid_tickers = []
+
+        # Transformation based on "N_OR_S" and "transform_data"
+        if transform_after == True:
+            transformation = self.standardise_data if N_OR_S == "S" else self.normalise_data
+        else:
+            transformation = self.standardise_columns if N_OR_S == "S" else self.normalise_columns
 
         # For each company, modify the data 
         for ticker in tickers:
@@ -101,23 +106,20 @@ class DataHandler:
             DATA.drop("Target", axis = 1, inplace = True)
 
             # Create normalised and standardised versions of the data
-            S_DATA = DATA.copy()
             if transform_after == False: # Standardising / Normalising companies separately
                 # Notes:
                 # - Created 2 because some models may perform better on standardised data than normalised data and vice versa
                 # - Min-max normalisation preserves relative relationships between data points but eliminates differences in magnitude
                 # - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
-                S_DATA[cols_to_alter] = self.standardise_columns(dataframe = S_DATA, cols_to_standard = cols_to_alter)
-                DATA[cols_to_alter] = self.normalise_columns(dataframe = DATA, cols_to_norm = cols_to_alter)
-
+                DATA[cols_to_alter] = transformation(dataframe = DATA, cols_to_alter = cols_to_alter)
+            
             # Add this companies data to the list
-            self.data_n.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
-            self.data_s.append(self.dataframe_to_ptt(pandas_dataframe = S_DATA, desired_dtype = torch_float_32))
+            self.data.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
 
             # Add the dates to the list
             self.dates.append(DATA.index.tolist())
 
-            print(f"Ticker: {ticker} | DataShape: {self.data_n[-1].shape} | LabelsShape: {self.labels[-1].shape}")
+            print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape}")
         
         print(f"Total examples: {sum([company_labels.shape[0] for company_labels in self.labels])}")
 
@@ -128,16 +130,13 @@ class DataHandler:
             col_indexes = [DATA.columns.get_loc(column_name) for column_name in cols_to_alter]
 
             # Combine all of the companies data, and select the only the column features that we want to alter
-            combined_data = torch_cat(self.data_n, dim = 0)[:, col_indexes]
+            combined_data = torch_cat(self.data, dim = 0)[:, col_indexes]
 
-            # Create standardised + normalised versions of the data
-            # print("B", self.data_n[-1][0])
-            self.standardise_data(combined_data = combined_data, col_indexes = col_indexes, params_from_training = params_from_training) # Applied to self.data_s
-            self.normalise_data(combined_data = combined_data, col_indexes = col_indexes, params_from_training = params_from_training) # Applied to self.data_n
-            # print("A", self.data_n[-1][0])
+            # Create standardised or normalised versions of the data 
+            transformation(combined_data = combined_data, col_indexes = col_indexes, params_from_training = params_from_training)
 
         # Set the number of features that will go into the first layer of a model
-        self.n_features = self.data_n[-1].shape[1]
+        self.n_features = self.data[-1].shape[1]
         print(f"Number of data features: {self.n_features}")
 
         # Remove invalid tickers
@@ -224,13 +223,13 @@ class DataHandler:
         # Set all columns in the D to the float datatype (All values must be homogenous when passed as a tensor into a model) and return the dataframe
         return D.astype(float)
 
-    def normalise_columns(self, dataframe, cols_to_norm):
-        # Return normalised columns
-        return (dataframe[cols_to_norm] - dataframe[cols_to_norm].min()) / (dataframe[cols_to_norm].max() - dataframe[cols_to_norm].min())
+    def normalise_columns(self, dataframe, cols_to_alter):
+        # Return alteralised columns
+        return (dataframe[cols_to_alter] - dataframe[cols_to_alter].min()) / (dataframe[cols_to_alter].max() - dataframe[cols_to_alter].min())
     
-    def standardise_columns(self, dataframe, cols_to_standard):
-        # Return standardised columns
-        return (dataframe[cols_to_standard] - dataframe[cols_to_standard].mean()) / dataframe[cols_to_standard].std()
+    def standardise_columns(self, dataframe, cols_to_alter):
+        # Return alterised columns
+        return (dataframe[cols_to_alter] - dataframe[cols_to_alter].mean()) / dataframe[cols_to_alter].std()
     
     def standardise_data(self, combined_data, col_indexes, params_from_training = None):
 
@@ -253,9 +252,9 @@ class DataHandler:
         params_used = params_from_training if params_from_training != None else self.train_data_params
 
         # Standardise all the companies together
-        for i in range(len(self.data_s)): 
-            self.data_s[i][:,col_indexes] -= params_used["S"]["mean"]
-            self.data_s[i][:,col_indexes] /= params_used["S"]["std"]
+        for i in range(len(self.data)): 
+            self.data[i][:,col_indexes] -= params_used["S"]["mean"]
+            self.data[i][:,col_indexes] /= params_used["S"]["std"]
     
     def normalise_data(self, combined_data, col_indexes, params_from_training = None):
         
@@ -280,10 +279,9 @@ class DataHandler:
         params_used = params_from_training if params_from_training != None else self.train_data_params
 
         # Normalise all the companies together
-        for i in range(len(self.data_n)):
-            self.data_n[i][:, col_indexes] -= params_used["N"]["minimums"]
-            self.data_n[i][:, col_indexes] /= params_used["N"]["differences"]
-
+        for i in range(len(self.data)):
+            self.data[i][:, col_indexes] -= params_used["N"]["minimums"]
+            self.data[i][:, col_indexes] /= params_used["N"]["differences"]
 
     def dataframe_to_ptt(self, pandas_dataframe, desired_dtype = torch_float_32):
         
@@ -329,7 +327,7 @@ class DataHandler:
             return b_inputs.to(device = self.device), labels[example_idxs].to(device = self.device)
 
     def create_data_sequences(self, num_context_days, shuffle_data_sequences):
-        # Converts self.data_n, self.data_s, self.labels into data sequences
+        # Converts self.data, self.labels into data sequences
 
         # MLP 
         if num_context_days == 1:
@@ -338,27 +336,24 @@ class DataHandler:
             # data.shape = [number of single day examples, number of features for each day]
             # labels.shape = [number of single day examples, correct prediction for stock trend for the following day]
             
-            all_data_n = []
-            all_data_s = []
+            all_data = []
             all_labels = []
             all_dates = []
             self.sequence_sizes = []
 
-            for i, (c_labels, c_dates, c_data_n, c_data_s) in enumerate(zip(self.labels, self.dates, self.data_n, self.data_s)):
+            for i, (c_labels, c_dates, c_data) in enumerate(zip(self.labels, self.dates, self.data)):
                 # Add the data. labels and dates for this company to the lists
-                all_data_n.append(c_data_n)
-                all_data_s.append(c_data_s)
+                all_data.append(c_data)
                 all_labels.append(c_labels)
                 all_dates.extend(c_dates)
 
                 # Add the number of sequences for this company
                 self.sequence_sizes.append(c_labels.shape[0])
 
-                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
+                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
 
             # Concatenate all the data and labels from all the companies
-            self.data_n = torch_cat(all_data_n, dim = 0)
-            self.data_s = torch_cat(all_data_s, dim = 0)
+            self.data = torch_cat(all_data, dim = 0)
             self.labels = torch_cat(all_labels, dim = 0)
             self.dates = all_dates
 
@@ -366,14 +361,13 @@ class DataHandler:
         else:
             
             # Create all the data sequences from each company
-            all_data_sequences_n = []
-            all_data_sequences_s = []
+            all_data_sequences = []
             all_labels = []
             all_dates = []
             self.sequence_sizes = [] # Used to find out which sequences belong to which companies (at inference time)
 
             # Data (Normalised and standardised versions)
-            for i, (c_labels, c_dates, c_data_n, c_data_s) in enumerate(zip(self.labels, self.dates, self.data_n, self.data_s)):
+            for i, (c_labels, c_dates, c_data) in enumerate(zip(self.labels, self.dates, self.data)):
 
                 # The number of sequences of length "num_context_days" in this company's data
                 original_num_days = c_labels.shape[0] # Original number of days
@@ -398,7 +392,7 @@ class DataHandler:
                 c_labels = c_labels[start_trim_idx:] # labels.shape = (Correct predictions for all sequences in self.data)
 
                 # Trim dates 
-                # - Each c_data_n[i] should correspond to the correct date in c_dates[i], where c_dates[i] is the date before the date to predict
+                # - Each c_data[i] should correspond to the correct date in c_dates[i], where c_dates[i] is the date before the date to predict
                 c_dates = c_dates[start_trim_idx:]
 
                 # Let num_context_days = 10, batch_size = 32
@@ -408,12 +402,10 @@ class DataHandler:
                 # 32 x [ClosingP, OpeningP, Volume, etc..] 9 days ago
                 # Repeats until all 10 days have been passed in (for a single batch)
                 # c_data.shape = (number of 10 consecutive days sequences, 10 consecutive days of examples, number of features in each day)
-                c_data_n = torch_stack([c_data_n[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
-                c_data_s = torch_stack([c_data_s[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
+                c_data = torch_stack([c_data[i:i + num_context_days] for i in range(0, num_sequences)], dim = 0)
 
                 # Add the data sequences and labels for this company to the lists
-                all_data_sequences_n.append(c_data_n)
-                all_data_sequences_s.append(c_data_s)
+                all_data_sequences.append(c_data)
 
                 # Add the labels for this company to the lists
                 all_labels.append(c_labels)
@@ -424,11 +416,10 @@ class DataHandler:
                 # Add the number of sequences for this company
                 self.sequence_sizes.append(c_labels.shape[0])
 
-                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShapeN {c_data_n.shape} | DataShapeS {c_data_s.shape}")
+                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
 
             # Concatenate all the data sequences and labels from all the companies
-            self.data_n = torch_cat(all_data_sequences_n, dim = 0)
-            self.data_s = torch_cat(all_data_sequences_s)
+            self.data = torch_cat(all_data_sequences, dim = 0)
             self.labels = torch_cat(all_labels, dim = 0)
             self.dates = all_dates
 
@@ -441,7 +432,7 @@ class DataHandler:
         # Remove dates (no longer required)
         # del self.dates
     
-        print(f"DataShapeN: {self.data_n.shape} | DataShapeS: {self.data_s.shape} | LabelsShape: {self.labels.shape}")
+        print(f"DataShape: {self.data.shape} | LabelsShape: {self.labels.shape}")
 
     def separate_data_sequences(self, train_split_decimal):
         # Separates data sequences into training and test sets 
@@ -449,14 +440,11 @@ class DataHandler:
         # - The test set will be used as a final evaluation of then model after cross-validation
 
         train_end_idx = int(self.labels.shape[0] * train_split_decimal)
+        self.TRAIN_SET = (self.data[0:train_end_idx], self.labels[0:train_end_idx])
+        self.TEST_SET = (self.data[train_end_idx:], self.labels[train_end_idx:])
         
-        self.TRAIN_SN = (self.data_n[0:train_end_idx], self.labels[0:train_end_idx])
-        self.TRAIN_SS = (self.data_s[0:train_end_idx], self.labels[0:train_end_idx])
-        self.TEST_SN = (self.data_n[train_end_idx:], self.labels[train_end_idx:])
-        self.TEST_SS = (self.data_s[train_end_idx:], self.labels[train_end_idx:])
-        
-        print(f"TRAIN SET | Inputs: {self.TRAIN_SS[0].shape} | Labels: {self.TRAIN_SS[1].shape}")
-        print(f"TEST SET | Inputs: {self.TEST_SS[0].shape} | Labels: {self.TEST_SS[1].shape}")
+        print(f"TRAIN SET | Inputs: {self.TRAIN_SET[0].shape} | Labels: {self.TRAIN_SET[1].shape}")
+        print(f"TEST SET | Inputs: {self.TEST_SET[0].shape} | Labels: {self.TEST_SET[1].shape}")
     
     def shuffle_data_sequences(self):
         # Shuffling the data sequences
@@ -464,15 +452,9 @@ class DataHandler:
         permutation_indices = torch_randperm(self.labels.shape[0], device = self.device, generator = self.generator) # Generate random permutation of indices
         permutation_indices = permutation_indices.to(device = "cpu") # Move to CPU as self.data is on the CPU
 
-        # prev_data = self.data.clone()
-        # prev_labels = self.labels.clone()
         # Assign indices to data and labels
-        self.data_n = self.data_n[permutation_indices]
-        self.data_s = self.data_s[permutation_indices]
+        self.data = self.data[permutation_indices]
         self.labels = self.labels[permutation_indices]
-        
-        # print(torch_equal(self.data, prev_data[permutation_indices]))
-        # print(torch_equal(self.labels, prev_labels[permutation_indices])) 
     
     def sort_data_sequences(self, dates):
         
@@ -484,41 +466,40 @@ class DataHandler:
         unix_timestamps = torch_tensor([pd_to_datetime(time_stamp).timestamp() for time_stamp in dates])
         sort_indices = torch_argsort(unix_timestamps, descending = False) # Returns the indices which will sort self.data and self.labels in chronological order 
 
-        #print("SORTED: DATALABELSDATES", self.data_n.shape, self.labels.shape, sort_indices.shape)
+        #print("SORTED: DATALABELSDATES", self.data.shape, self.labels.shape, sort_indices.shape)
         self.sort_indices = sort_indices
         # Sort data, labels and dates
-        self.data_n = self.data_n[sort_indices]
-        self.data_s = self.data_s[sort_indices]
+        self.data = self.data[sort_indices]
         self.labels = self.labels[sort_indices]
         self.dates = [self.dates[i] for i in sort_indices]
 
     def create_sets(self, num_context_days, shuffle_data_sequences, train_split_decimal):
-        # Convert self.data_n, self.data_s, self.labels into data sequences 
+        # Convert self.data, self.labels into data sequences 
         self.create_data_sequences(num_context_days = num_context_days, shuffle_data_sequences = shuffle_data_sequences)
 
         # Separate the data sequences into to two sets (Training and test)
         self.separate_data_sequences(train_split_decimal = train_split_decimal)
 
-    def create_folds(self, num_folds, N_OR_S = "N"):
+    def create_folds(self, num_folds):
         # Creates folds out of the training set
-        
-        # TRAIN_SN or TRAIN_SS
-        training_set = getattr(self, f"TRAIN_S{N_OR_S}")
 
         # Divide the data and labels into k folds
-        # Note: self.d_folds_(n/s) and self.l_folds(n/s) will be a tuple of k folds, with each fold being a tensor
-        setattr(self, f"d_folds_{N_OR_S.lower()}", torch_chunk(input = training_set[0], chunks = num_folds, dim = 0)) # self.d_folds_(n/s)
-        setattr(self, f"l_folds_{N_OR_S.lower()}", torch_chunk(input = training_set[1], chunks = num_folds, dim = 0)) # self.l_folds_(n/s)
+        # Note: self.d_folds and self.l_folds will be a tuple of k folds, with each fold being a tensor
+        # setattr(self, f"d_folds", torch_chunk(input = self.TRAIN_SET[0], chunks = num_folds, dim = 0))
+        # setattr(self, f"l_folds", torch_chunk(input = self.TRAIN_SET[1], chunks = num_folds, dim = 0))
+
+        self.D_FOLDS = torch_chunk(input = self.TRAIN_SET[0], chunks = num_folds, dim = 0)
+        self.L_FOLDS = torch_chunk(input = self.TRAIN_SET[1], chunks = num_folds, dim = 0)
  
-    def retrieve_k_folds(self, window_size, N_OR_S = "N"):
+    def retrieve_k_folds(self, window_size):
         
         # Implementation of walk-forward / expanding window cross validation:
         # = Selects the fold at the end of the window as the validation set and the remaining folds for training (k will be zero indexed)
         # - Models will always be trained on past data with the validation set being new unseen data.
 
         # Retrieve only the first "window_size" folds
-        D_FOLDS = getattr(self, f"d_folds_{N_OR_S.lower()}")[:window_size]
-        L_FOLDS = getattr(self, f"l_folds_{N_OR_S.lower()}")[:window_size]
+        D_FOLDS = self.D_FOLDS[:window_size]
+        L_FOLDS = self.L_FOLDS[:window_size]
         
         # Example:
         # Train: [Fold1], Validation: Fold2
@@ -611,7 +592,6 @@ class TextDataHandler:
         self.dated_sentiments = LABELED_TWEETS.groupby(["post_date", "ticker_symbol"]).mean().reset_index() # Group the dateset by the dates and ticker symbols
         # print(self.dated_sentiments)
         # print(self.dated_sentiments["sentiment"].to_list()[:6])
-
 
     def clean_dataset(self, dataset):
         
