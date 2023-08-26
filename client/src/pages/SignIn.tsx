@@ -1,6 +1,9 @@
-import { Link } from 'react-router-dom';
+import { Link, redirect } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 function SignIn() {
+  const { login } = useAuth();
+
   return (
     <>
       <ul className="text-white font-display">
@@ -35,6 +38,11 @@ function SignIn() {
             <button
               type="submit"
               className="bg-[#5266FE] rounded-md px-10 py-2 mx-5 mb-5 lg:mt-7"
+              onClick={(e) => {
+                e.preventDefault();
+                login('test');
+                redirect('/');
+              }}
             >
               Sign In
             </button>

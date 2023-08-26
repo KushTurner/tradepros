@@ -20,7 +20,7 @@ func SetupDB() *sql.DB {
 	password := os.Getenv("DB_PASSWORD")
 	dbname := os.Getenv("DB_NAME")
 
-	connStr := fmt.Sprintf("host=host.docker.internal user=%s password=%s dbname=%s sslmode=disable", user, password, dbname)
+	connStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", user, password, dbname) // host=host.docker.internals
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)

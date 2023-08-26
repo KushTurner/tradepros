@@ -7,6 +7,7 @@ import Portfolio from './pages/Portfolio';
 import Watchlist from './pages/Watchlist';
 import SignIn from './pages/SignIn';
 import Register from './pages/Register';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
   const location = useLocation();
@@ -14,7 +15,7 @@ function App() {
 
   const shouldHideRoutes = hideRoutes.includes(location.pathname);
   return (
-    <>
+    <AuthProvider>
       {!shouldHideRoutes && <NavBar />}
       <Routes>
         <Route path="/" element={<Home />} />
@@ -25,7 +26,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </>
+    </AuthProvider>
   );
 }
 
