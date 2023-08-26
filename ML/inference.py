@@ -10,40 +10,50 @@ import pandas as pd
 from os import getenv as os_get_env
 from time import sleep as time_sleep
 
-start_time = get_time()
-
-# DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DEVICE = "cpu" # Faster inference times on CPU
-print(f"DEVICE | {DEVICE}")
+# print(f"DEVICE | {DEVICE}")
 M_SEED = 2004
 torch.manual_seed(M_SEED)
 torch.cuda.manual_seed_all(M_SEED)
 G = torch.Generator(device = DEVICE)
 G.manual_seed(M_SEED)
 
+model_load_time_1 = get_time()
 DH = DataHandler(device = DEVICE, generator = G)
 model_manager = ModelManager(device = DEVICE, DH_reference = DH, TDH_reference = None)
 
 """
 model_number_load = Number of the model to load, leave empty to create a new model
 .initiate_model = Returns model, optimiser and hyperparamaters used to train the model
-- Will use DH.retrieve_data before instantiating the model if creating a new model
-- Will use DH.retrieve_data after instantiating the model if loading an existing model
+
+If using for training / testing on the testing set:
+    - Will use DH.retrieve_data before instantiating the model if creating a new model
+    - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 1
-model, optimiser, hyperparameters, _, _= model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = None)
-print(hyperparameters)
-print(f"Hyperparameters used: {hyperparameters}")
-print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")
+model_number_load = 14
+
+model, optimiser, hyperparameters, _, _= model_manager.initiate_model(
+                                                                    model_number_load = model_number_load, 
+                                                                    manual_hyperparams = None, 
+                                                                    inference = True
+                                                                    )
+# print(hyperparameters)
+# print(f"Hyperparameters used: {hyperparameters}")
+# print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")
+model_load_time_2 = get_time()
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------
 # GET DATA
 
 api_key = os_get_env("alphavantage_apikey")
-tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw", "aapl", "tsla", "amzn", "goog", "msft", "googl"]
+# tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw", "aapl", "tsla", "amzn", "goog", "msft", "googl"]
 tickers = ["jpm", "meta", "wmt", "ma", "aapl", "tsla", "amzn", "goog", "msft", "googl"]
+# tickers = ["meta"]
 actual_column_names = ["open", "high", "low", "close", "volume"]
 info_list = []
+
+data_load_time_1 = get_time()
 
 if os_path_exists("historical_data") == False:
     os_mkdir("historical_data")
@@ -51,7 +61,7 @@ if os_path_exists("historical_data") == False:
 for ticker in tickers:
     path_to_data = f"historical_data/{ticker}.csv"
     if os_path_exists(path_to_data):
-        print(f"Loading {ticker} data from disk")
+        # print(f"Loading {ticker} data from disk")
         # Read the dataframe from the path
         # - parse_dates to parse the values in the first column (i.e. the dates) as datetime objects
         # - index_col to specify which column should be used as the index of the dataframe
@@ -142,7 +152,8 @@ for ticker in tickers:
 
 # hyperparameters["batch_size"] = 32
 num_tickers = len(info_list) # Can be different to len(tickers) if the data was not retrieved successfully
-print(num_tickers)
+# print(num_tickers)
+data_load_time_2 = get_time()
 
 # for i in range(num_tickers):
 #     print(info_list[i])
@@ -153,6 +164,8 @@ batches.shape = [Number of batches, num_context_days, batch_size, num_features]
 batch.shape = [num_context_days, batch_size, num_features]
 """
 hyperparameters["batch_size"] = 3
+batch_create_time_1 = get_time()
+
 all_data_sequences = [company_dict["data_sequence"] for company_dict in info_list]
 
 if model.__class__.__name__ == "RNN":
@@ -178,15 +191,20 @@ elif model.__class__.__name__ == "MLP":
             # print("R", right_padding.shape)
             # print("Padded", batches[-1].shape)
 
+batch_create_time_2 = get_time()
+
 # print(len(batches))
 # for batch in batches:
 #     print("B", batch.shape)
 
+prediction_time_1 = get_time()
 # Generate predictions
 # - Concatenate all of the predictions together, ignoring any predictions for padding sequences
 predictions = torch.concat([model(inputs = batch.to(device = DEVICE)) for batch in batches], dim = 0)[:num_tickers]
+prediction_time_2 = get_time()
 print(predictions.shape)
 
+extra_info_time_1 = get_time()
 # Add additional info into the company dicts
 for i in range(len(info_list)):
     info_list[i]["prediction"] = predictions[i]
@@ -195,6 +213,22 @@ for i in range(len(info_list)):
     # print({key: info_list[i][key] for key in info_list[i].keys() if key != "data_sequence"})
     # print(info_list[i]["data_sequence"])
 
-end_time = get_time()
+extra_info_time_2 = get_time()
 
-print(end_time - start_time)
+
+print("ModelLoadTime", model_load_time_2 - model_load_time_1)
+print("DataLoadTime", data_load_time_2 - data_load_time_1)
+print("BatchTime", batch_create_time_2 - batch_create_time_1)
+print("PredictionTime", prediction_time_2 - prediction_time_1)
+print("ExtraInfoTime", extra_info_time_2 - extra_info_time_1)
+
+total_time = sum(
+                [
+                model_load_time_2 - model_load_time_1,
+                data_load_time_2 - data_load_time_1,
+                batch_create_time_2 - batch_create_time_1,
+                prediction_time_2 - prediction_time_1,
+                extra_info_time_2 - extra_info_time_1
+                ]
+                )               
+print("Total time: ", total_time)

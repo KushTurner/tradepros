@@ -18,7 +18,7 @@ class ModelManager:
         self.DH_REF = DH_reference
         self.TDH_REF = TDH_reference
 
-    def initiate_model(self, model_number_load = None, manual_hyperparams = None):
+    def initiate_model(self, model_number_load = None, manual_hyperparams = None, inference = False):
 
         model_checkpoints_folder_exists = os_path_exists("model_checkpoints") 
         # Load existing model
@@ -36,11 +36,11 @@ class ModelManager:
             os_mkdir(checkpoint_directory) 
 
         if model_number_load != None and model_checkpoints_folder_exists:
-            print("Loading existing model")
+            # print("Loading existing model")
             existing_checkpoint_path = f"{checkpoint_directory}/fold_{len(os_listdir(f'{checkpoint_directory}')) - 1}.pth"
             checkpoint = torch_load(existing_checkpoint_path) # Load the last checkpoint (Which would be the complete model)
-            print(existing_checkpoint_path)
-            print(checkpoint.keys())
+            # print(existing_checkpoint_path)
+            # print(checkpoint.keys())
 
             """ 
             checkpoint is a dict consisting of 3 keys: 
@@ -63,20 +63,21 @@ class ModelManager:
             optimiser.load_state_dict(checkpoint["model"]["optimiser_state_dict"]) 
             stats = checkpoint["stats"]
 
-            # Retrieve DH data
-            self.DH_REF.retrieve_data(
-                                    tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
-                                    start_date = "1/01/2015",
-                                    end_date = "31/12/2019", 
-                                    interval = "1d",
-                                    transform_after = True,
-                                    dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
-                                    N_OR_S = hyperparameters["N_OR_S"],
-                                    features_to_remove = hyperparameters["features_to_remove"],
-                                    cols_to_alter = hyperparameters["cols_to_alter"],
-                                    params_from_training = hyperparameters["train_data_params"]
-
-                                    )
+            # Only retrieve data if testing on the test set
+            if inference == False:
+                # Retrieve DH data
+                self.DH_REF.retrieve_data(
+                                        tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
+                                        start_date = "1/01/2015",
+                                        end_date = "31/12/2019", 
+                                        interval = "1d",
+                                        transform_after = True,
+                                        dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
+                                        N_OR_S = hyperparameters["N_OR_S"],
+                                        features_to_remove = hyperparameters["features_to_remove"],
+                                        cols_to_alter = hyperparameters["cols_to_alter"],
+                                        params_from_training = hyperparameters["train_data_params"]
+                                        )
         else:
             # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
 
@@ -152,20 +153,21 @@ class ModelManager:
             stats_start = ["train_", "val_", "fold_t_", "fold_v_"] # train_loss_i, val_loss_i, fold_t_loss, fold_v_loss etc..
             stats = {f"{result_start}{metric}" + (("_i") if i == 0 or i == 1 else ""): [] for i, result_start in enumerate(stats_start) for metric in metrics_used}
             print(stats)
-    
-        # Move the model and optimiser to CPU / GPU
-        model.to(device = self.device)
-        for param in optimiser.state.values():
-            if isinstance(param, torch_Tensor):
-                param.data = param.data.to(self.device)
-                if param._grad is not None:
-                    param._grad.data = param._grad.data.to(self.device)
-            elif isinstance(param, dict):
-                for subparam in param.values():
-                    if isinstance(subparam, torch_Tensor):
-                        subparam.data = subparam.data.to(self.device)
-                        if subparam._grad is not None:
-                            subparam._grad.data = subparam._grad.data.to(self.device)
+
+        # Move model and optimiser to GPU if possible
+        if self.device != "cpu":
+            model.to(device = self.device)
+            for param in optimiser.state.values():
+                if isinstance(param, torch_Tensor):
+                    param.data = param.data.to(self.device)
+                    if param._grad is not None:
+                        param._grad.data = param._grad.data.to(self.device)
+                elif isinstance(param, dict):
+                    for subparam in param.values():
+                        if isinstance(subparam, torch_Tensor):
+                            subparam.data = subparam.data.to(self.device)
+                            if subparam._grad is not None:
+                                subparam._grad.data = subparam._grad.data.to(self.device)
                             
         # for param in optimiser.state.values():
         #     if isinstance(param, torch_Tensor):

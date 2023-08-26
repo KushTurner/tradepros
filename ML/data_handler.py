@@ -99,7 +99,7 @@ class DataHandler:
                                     include_date_before_prediction_date = include_date_before_prediction_date, 
                                     features_to_remove = features_to_remove
                                     )
-            print(DATA)
+            # print(DATA)
             # Separate the labels from the main dataframe (the other columns will be used as inputs)
             labels = DATA["Target"]
             self.labels.append(self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64))
@@ -551,10 +551,10 @@ class TextDataHandler:
             - pd_date_time(__, unit = "s") to convert unix timestamps to dates
             - .dt.date to round the dates from e.g. 2015-01-01 00:01:36 to 2015-01-01 00:00:00
             """
-            print(DATA)
+            # print(DATA)
             DATA["post_date"] = pd_to_datetime(DATA["post_date"], unit = "s").dt.date # Convert unix timestamps to dates in the data column
             DATA = DATA[DATA["post_date"].isin(self.dates)]
-            print(DATA)
+            # print(DATA)
 
             # Merge the company tickers with each tweet according to tweet id
             MERGED = DATA.merge(TWEET_COMPANY, on = "tweet_id", how = "left")
