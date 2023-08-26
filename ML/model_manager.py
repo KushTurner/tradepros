@@ -70,7 +70,11 @@ class ModelManager:
                                     end_date = "31/12/2019", 
                                     interval = "1d",
                                     transform_after = True,
-                                    dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None # Dated sentiments for each company (None if not using)
+                                    dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
+                                    features_to_remove = hyperparameters["features_to_remove"],
+                                    cols_to_alter = hyperparameters["cols_to_alter"],
+                                    params_from_training = hyperparameters["train_data_params"]
+
                                     )
         else:
             # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
@@ -84,6 +88,10 @@ class ModelManager:
                                     "num_folds": 5,
                                     "multiplicative_trains": 2,
                                     "uses_dated_sentiments": True,
+                                    "features_to_remove": [],
+                                    "cols_to_alter": ["open", "close", "high", "low", "volume"],
+                                    "transform_after": True, # True to transform the comapnies data together or False for separately
+                                    "train_split_decimal": 0.8, # Size of the train split as a decimal (0.8 = 80%)
                                     }
 
                 # Suggested values for the following hyperparameters, based on the model architecture
@@ -97,14 +105,27 @@ class ModelManager:
                     manual_hyperparams["N_OR_S"] = "S"
                     manual_hyperparams["num_context_days"] = 1
 
+                
+            # Removing any features to remove from the manual parameters
+            """
+            - Occurs if any feature is in both manual_hyperparams["features_to_remove"] and manual_hyperparameters["cols_to_alter"]
+            - Only happens if the user feeds e.g. 
+            "features_to_remove": ["adjclose"] 
+            "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"]
+            """
+            manual_hyperparams["cols_to_alter"] = [col for col in manual_hyperparams["cols_to_alter"] if col not in set(manual_hyperparams["features_to_remove"])]
+
             # Retrieve DH data
             self.DH_REF.retrieve_data(
                                     tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
                                     start_date = "1/01/2015",
                                     end_date = "31/12/2019", 
                                     interval = "1d",
-                                    transform_after = True,
-                                    dated_sentiments = self.TDH_REF.dated_sentiments if manual_hyperparams["uses_dated_sentiments"] else None # Dated sentiments for each company (None if not using)
+                                    transform_after = manual_hyperparams["transform_after"],
+                                    dated_sentiments = self.TDH_REF.dated_sentiments if manual_hyperparams["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
+                                    features_to_remove = manual_hyperparams["features_to_remove"],
+                                    cols_to_alter = manual_hyperparams["cols_to_alter"],
+                                    params_from_training = None
                                     )
             
             # Initialising the model and optimiser
@@ -121,6 +142,7 @@ class ModelManager:
             hyperparameters = manual_hyperparams
             hyperparameters["fold_number"] = 0
             hyperparameters["n_features"] = self.DH_REF.n_features
+            hyperparameters["train_data_params"] = self.DH_REF.train_data_params if hyperparameters["transform_after"] == True else None # The mean, std, maximums, minimums, depending on whether the training data for all the companies were transformed together, or separately
             print(hyperparameters.keys())
 
             # Stats 

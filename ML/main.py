@@ -44,7 +44,7 @@ model_number_load = Number of the model to load, leave empty to create a new mod
 - Will use DH.retrieve_data before instantiating the model if creating a new model
 - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 11
+model_number_load = None
 # manual_hyperparams = {
 #                     "architecture": "RNN", # Will be deleted after instantiation
 #                     "N_OR_S": "N",
@@ -54,6 +54,10 @@ model_number_load = 11
 #                     "num_folds": 5,
 #                     "multiplicative_trains": 1,
 #                     "uses_dated_sentiments": False,
+#                     "features_to_remove": ["adjclose"],
+#                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
+#                     "transform_after": True,
+#                     "train_split_decimal": 0.8,
 #                     }
 manual_hyperparams = {
                     "architecture": "MLP", # Will be deleted after instantiation
@@ -64,6 +68,10 @@ manual_hyperparams = {
                     "num_folds": 5,
                     "multiplicative_trains": 1,
                     "uses_dated_sentiments": False,
+                    "features_to_remove": ["adjclose"],
+                    "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
+                    "transform_after": True,
+                    "train_split_decimal": 0.8
                     }
 # manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
@@ -75,7 +83,7 @@ for company_data in DH.data_n:
     print("ContainsNaN", company_data.isnan().any().item()) # Check if the tensor contains "nan"
 
 # Create training and test sets and data sequences for this model (must be repeated for each model as num_context_days can vary depending on the model used)
-DH.create_sets(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False)
+DH.create_sets(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False, train_split_decimal = hyperparameters["train_split_decimal"])
 # Create k folds
 DH.create_folds(num_folds = hyperparameters["num_folds"], N_OR_S = model.N_OR_S)
 
@@ -237,7 +245,7 @@ for metric in metrics:
 total_epochs = len(stats["train_loss_i"])
 print(total_epochs)
 
-A = 14 #62 # Replace with a factor of the total number of epochs
+A = 14 #  62 Replace with a factor of the total number of epochs
 
 for metric in metrics:
     print("-----------------------------------------------------------------")
@@ -252,61 +260,41 @@ for metric in metrics:
     ax.legend()
     plt.show()
 
-# INFERENCE (TEMP)
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Testing on existing data:
+
 from tools import get_predictions
 
 print(DH.data_n.shape)
 print(DH.data_s.shape)
 
 # selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
-
 selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
-from tools import get_predictions
 
-# DH.retrieve_data(
-#             tickers = selected_tickers,
 #             start_date = "1/01/2023",
 #             end_date = "24/08/2023",
-#             interval = "1d",
-#             transform_after = True,
-#             dated_sentiments = None
-#             )
 
-# DH.retrieve_data(
-#             tickers = selected_tickers,
 #             start_date = "1/01/2010",
 #             end_date = "24/08/2014",
-#             interval = "1d",
-#             transform_after = True,
-#             dated_sentiments = None
-#             )
 
-# DH.retrieve_data(
-#             tickers = selected_tickers,
 #             start_date = "1/01/2000",
 #             end_date = "31/6/2013",
-#             interval = "1d",
-#             transform_after = True,
-#             dated_sentiments = None
-#             )
 
-# DH.retrieve_data(
-#             tickers = selected_tickers,
 #             start_date = "1/01/2020",
 #             end_date = "31/12/2022",
-#             interval = "1d",
-#             transform_after = True,
-#             dated_sentiments = None
-#             )
+
 
 DH.retrieve_data(
             tickers = selected_tickers,
             start_date = "1/07/2023",
             end_date = "24/08/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
             interval = "1d",
-            transform_after = True,
-            dated_sentiments = None,
-            include_date_before_prediction_date = True, 
+            transform_after = hyperparameters["transform_after"],
+            dated_sentiments = None, # Not needed at inference time 
+            include_date_before_prediction_date = True,
+            features_to_remove = hyperparameters["features_to_remove"],
+            cols_to_alter = hyperparameters["cols_to_alter"],
+            params_from_training = hyperparameters["train_data_params"]
             )
 
 for company in DH.data_n:

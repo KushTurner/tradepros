@@ -50,15 +50,24 @@ class DataHandler:
             self.dates.append(DATA.index.tolist())
             del DATA
 
-    def retrieve_data(self, tickers, start_date, end_date, interval, transform_after, dated_sentiments, include_date_before_prediction_date = False):
+    def retrieve_data(self, 
+                      tickers, 
+                      start_date, 
+                      end_date, 
+                      interval, 
+                      transform_after, 
+                      dated_sentiments, 
+                      include_date_before_prediction_date = False, 
+                      features_to_remove = [], 
+                      cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"],
+                      params_from_training = None
+                      ):
         # Note: transform_after = True means that all of the companies' data will be standardised / normalised together, instead of separately
         
         self.data_n = [] # Normalised data
         self.data_s = [] # Standardised data
         self.labels = []
         self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
-        # cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"] # Columns to normalise / standardise
-        cols_to_alter = ["open", "close", "high", "low", "volume"] # Columns to normalise / standardise
         invalid_tickers = []
 
         # For each company, modify the data 
@@ -78,7 +87,13 @@ class DataHandler:
                 continue
 
             # Modify the data (e.g. adding more columns, removing columns, etc.)
-            DATA = self.modify_data(D = DATA, interval = interval, dated_sentiments = dated_sentiments, include_date_before_prediction_date = include_date_before_prediction_date)
+            DATA = self.modify_data(
+                                    D = DATA, 
+                                    interval = interval, 
+                                    dated_sentiments = dated_sentiments, 
+                                    include_date_before_prediction_date = include_date_before_prediction_date, 
+                                    features_to_remove = features_to_remove
+                                    )
             print(DATA)
             # Separate the labels from the main dataframe (the other columns will be used as inputs)
             labels = DATA["Target"]
@@ -117,8 +132,8 @@ class DataHandler:
 
             # Create standardised + normalised versions of the data
             # print("B", self.data_n[-1][0])
-            self.standardise_data(combined_data = combined_data, col_indexes = col_indexes) # Applied to self.data_s
-            self.normalise_data(combined_data = combined_data, col_indexes = col_indexes) # Applied to self.data_n
+            self.standardise_data(combined_data = combined_data, col_indexes = col_indexes, params_from_training = params_from_training) # Applied to self.data_s
+            self.normalise_data(combined_data = combined_data, col_indexes = col_indexes, params_from_training = params_from_training) # Applied to self.data_n
             # print("A", self.data_n[-1][0])
 
         # Set the number of features that will go into the first layer of a model
@@ -129,7 +144,7 @@ class DataHandler:
         for invalid_ticker in invalid_tickers:
             tickers.remove(invalid_ticker)
 
-    def modify_data(self, D, interval, dated_sentiments = None, include_date_before_prediction_date = False):
+    def modify_data(self, D, interval, dated_sentiments = None, include_date_before_prediction_date = False, features_to_remove = []):
         
         # Dated sentiments were provided
         if type(dated_sentiments) != type(None):
@@ -151,13 +166,15 @@ class DataHandler:
             # for ticker, post_date, sentiment in zip(DATA["ticker"].to_list(), DATA["post_date"].to_list(), DATA["sentiment"].to_list()):
             #     print(ticker, post_date, sentiment)
 
-        # Remove ticker column
+        # Remove ticker column (always done)
         if "ticker" in D.columns:
             D.drop("ticker", axis = 1, inplace = True)
         
-        # Remove adjclose column (TEMPORARY)
-        if "adjclose" in D.columns:
-            D.drop("adjclose", axis = 1, inplace = True)
+        # Remove additional un-needed features
+        d_columns = D.columns
+        for r_feature in features_to_remove:
+            if r_feature in d_columns:
+                D.drop(r_feature, axis = 1, inplace = True)
 
         # Create new column for each day stating tomorrow's closing price for the stock
         D["TomorrowClose"] = D["close"].shift(-1)
@@ -212,36 +229,61 @@ class DataHandler:
         return (dataframe[cols_to_norm] - dataframe[cols_to_norm].min()) / (dataframe[cols_to_norm].max() - dataframe[cols_to_norm].min())
     
     def standardise_columns(self, dataframe, cols_to_standard):
-        # Mean of all columns
-        mean = dataframe[cols_to_standard].mean()
-        # Std of all columns
-        std = dataframe[cols_to_standard].std()
-        
         # Return standardised columns
-        return (dataframe[cols_to_standard] - mean) / std
+        return (dataframe[cols_to_standard] - dataframe[cols_to_standard].mean()) / dataframe[cols_to_standard].std()
     
-    def standardise_data(self, combined_data, col_indexes):
+    def standardise_data(self, combined_data, col_indexes, params_from_training = None):
 
         # Find the mean and std of all the companies across all of the columns to alter 
-        mean = combined_data.mean(dim = 0)
-        std = combined_data.std(dim = 0)
+        if params_from_training == None:
+            if hasattr(self, "train_data_params") == False:
+                self.train_data_params = {
+                                        "S": {
+                                            "mean": combined_data.mean(dim = 0),
+                                            "std": combined_data.std(dim = 0)
+                                             }
+                                        }
+            else:
+                self.train_data_params["S"] = {}
+                self.train_data_params["S"]["mean"] = combined_data.mean(dim = 0)
+                self.train_data_params["S"]["std"] = combined_data.std(dim = 0)
+            
+        # At inference time, will use the training parameters saved (self.train_data_params won't exist in the DataHandler in inference)
+        # If training, will use the training parameters just created
+        params_used = params_from_training if params_from_training != None else self.train_data_params
 
-        # Standardise for each company
+        # Standardise all the companies together
         for i in range(len(self.data_s)): 
-            self.data_s[i][:,col_indexes] -= mean
-            self.data_s[i][:,col_indexes] /= std
+            self.data_s[i][:,col_indexes] -= params_used["S"]["mean"]
+            self.data_s[i][:,col_indexes] /= params_used["S"]["std"]
     
-    def normalise_data(self, combined_data, col_indexes):
-
+    def normalise_data(self, combined_data, col_indexes, params_from_training = None):
+        
         # Find the minimums and maximums of all of the companies, for each column (and the difference between them) 
-        minimums, _ = combined_data.min(dim = 0)
-        maximums, _ = combined_data.max(dim = 0)
-        differences = maximums - minimums
+        if params_from_training == None:
+            if hasattr(self, "train_data_params") == False:
+                self.train_data_params = {
+                                        "N":{
+                                            "minimums": combined_data.min(dim = 0)[0],
+                                            "maximums": combined_data.max(dim = 0)[0],
+                                            }
+                                        }
+            else:
+                self.train_data_params["N"] = {}
+                self.train_data_params["N"]["minimums"] = combined_data.min(dim = 0)[0]
+                self.train_data_params["N"]["maximums"] = combined_data.max(dim = 0)[0]
 
-        # Normalise for each company
+            self.train_data_params["N"]["differences"] = self.train_data_params["N"]["maximums"] - self.train_data_params["N"]["minimums"]
+        
+        # At inference time, will use the training parameters saved (self.train_data_params won't exist in the DataHandler in inference)
+        # If training, will use the training parameters just created
+        params_used = params_from_training if params_from_training != None else self.train_data_params
+
+        # Normalise all the companies together
         for i in range(len(self.data_n)):
-            self.data_n[i][:, col_indexes] -= minimums
-            self.data_n[i][:, col_indexes] /= differences
+            self.data_n[i][:, col_indexes] -= params_used["N"]["minimums"]
+            self.data_n[i][:, col_indexes] /= params_used["N"]["differences"]
+
 
     def dataframe_to_ptt(self, pandas_dataframe, desired_dtype = torch_float_32):
         
@@ -401,12 +443,12 @@ class DataHandler:
     
         print(f"DataShapeN: {self.data_n.shape} | DataShapeS: {self.data_s.shape} | LabelsShape: {self.labels.shape}")
 
-    def separate_data_sequences(self):
+    def separate_data_sequences(self, train_split_decimal):
         # Separates data sequences into training and test sets 
         # - The training set will be used for folds during training
         # - The test set will be used as a final evaluation of then model after cross-validation
 
-        train_end_idx = int(self.labels.shape[0] * 0.8)
+        train_end_idx = int(self.labels.shape[0] * train_split_decimal)
         
         self.TRAIN_SN = (self.data_n[0:train_end_idx], self.labels[0:train_end_idx])
         self.TRAIN_SS = (self.data_s[0:train_end_idx], self.labels[0:train_end_idx])
@@ -450,12 +492,12 @@ class DataHandler:
         self.labels = self.labels[sort_indices]
         self.dates = [self.dates[i] for i in sort_indices]
 
-    def create_sets(self, num_context_days, shuffle_data_sequences):
+    def create_sets(self, num_context_days, shuffle_data_sequences, train_split_decimal):
         # Convert self.data_n, self.data_s, self.labels into data sequences 
         self.create_data_sequences(num_context_days = num_context_days, shuffle_data_sequences = shuffle_data_sequences)
 
         # Separate the data sequences into to two sets (Training and test)
-        self.separate_data_sequences()
+        self.separate_data_sequences(train_split_decimal = train_split_decimal)
 
     def create_folds(self, num_folds, N_OR_S = "N"):
         # Creates folds out of the training set
