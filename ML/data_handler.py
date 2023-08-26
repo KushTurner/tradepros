@@ -50,7 +50,7 @@ class DataHandler:
             self.dates.append(DATA.index.tolist())
             del DATA
 
-    def retrieve_data(self, tickers, start_date, end_date, interval, transform_after, dated_sentiments):
+    def retrieve_data(self, tickers, start_date, end_date, interval, transform_after, dated_sentiments, include_date_before_prediction_date = False):
         # Note: transform_after = True means that all of the companies' data will be standardised / normalised together, instead of separately
         
         self.data_n = [] # Normalised data
@@ -77,8 +77,8 @@ class DataHandler:
                 continue
 
             # Modify the data (e.g. adding more columns, removing columns, etc.)
-            DATA = self.modify_data(D = DATA, interval = interval, dated_sentiments = dated_sentiments)
-
+            DATA = self.modify_data(D = DATA, interval = interval, dated_sentiments = dated_sentiments, include_date_before_prediction_date = include_date_before_prediction_date)
+            print(DATA)
             # Separate the labels from the main dataframe (the other columns will be used as inputs)
             labels = DATA["Target"]
             self.labels.append(self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64))
@@ -128,7 +128,7 @@ class DataHandler:
         for invalid_ticker in invalid_tickers:
             tickers.remove(invalid_ticker)
 
-    def modify_data(self, D, interval, dated_sentiments = None):
+    def modify_data(self, D, interval, dated_sentiments = None, include_date_before_prediction_date = False):
         
         # Dated sentiments were provided
         if type(dated_sentiments) != type(None):
@@ -182,10 +182,18 @@ class DataHandler:
             t_column_name = f"Trend_{p}"
             D[t_column_name] = D["Target"].shift(1).rolling(window = p).sum() # Sums up the targets over the last p days/weeks/months (Not including today's target)
 
+        """ Note: 
+        - Includes the date used before the date to predict, this is specifically for inference where we want to predict the next day using the previous day (without this, today would be removed from the dataframe)
+        """
+        if include_date_before_prediction_date:
+            # Set as a placeholder value (currently the closing price of today)
+            dates = D.index
+            D.loc[dates[-1], "TomorrowClose"] = D.loc[dates[-1], "close"] 
+
         # Removes rows which contain "NaN" inside of any columns
         D.dropna(inplace = True)
 
-        print(D[:25])
+        # print(D[:25])
 
         # Remove "TomorrowClose" as the model shouldn't "know" what tomorrow's closing price is
         D.drop("TomorrowClose", axis = 1, inplace = True)

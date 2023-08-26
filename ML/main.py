@@ -302,10 +302,11 @@ from tools import get_predictions
 DH.retrieve_data(
             tickers = selected_tickers,
             start_date = "1/07/2023",
-            end_date = "24/08/2023",
+            end_date = "24/08/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
             interval = "1d",
             transform_after = True,
-            dated_sentiments = None
+            dated_sentiments = None,
+            include_date_before_prediction_date = True, 
             )
 
 for company in DH.data_n:
