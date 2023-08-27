@@ -1,23 +1,26 @@
 # INITIATE MODEL
 
-import torch
-from data_handler import *
-from tools import find_P_A_R
-from model_manager import ModelManager
 from time import time as get_time
+
+setup_time_1 = get_time()
+import torch
+from data_handler import DataHandler
+from model_manager import ModelManager
 import requests
 import pandas as pd
 from os import getenv as os_get_env
 from time import sleep as time_sleep
+from os.path import exists as os_path_exists
+from os import mkdir as os_mkdir
+from torch import float32 as torch_float32
 
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 DEVICE = "cpu" # Faster inference times on CPU
-# print(f"DEVICE | {DEVICE}")
 M_SEED = 2004
 torch.manual_seed(M_SEED)
 torch.cuda.manual_seed_all(M_SEED)
 G = torch.Generator(device = DEVICE)
 G.manual_seed(M_SEED)
+setup_time_2 = get_time()
 
 model_load_time_1 = get_time()
 DH = DataHandler(device = DEVICE, generator = G)
@@ -32,7 +35,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
 model_number_load = 20
-model, optimiser, hyperparameters, _, _= model_manager.initiate_model(
+model, _, hyperparameters, _, _= model_manager.initiate_model(
                                                                     model_number_load = model_number_load, 
                                                                     manual_hyperparams = None, 
                                                                     inference = True
@@ -124,14 +127,14 @@ for ticker in tickers:
         DATAFRAME[hyperparameters["cols_to_alter"]] = DH.normalise_columns(dataframe = DATAFRAME, cols_to_norm = hyperparameters["cols_to_alter"])
 
         # Convert to dataframe afterwards
-        DH.data = DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float_32)
+        DH.data = DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float32)
 
     else:
         """Note
         - Convert to tensors first, then transform the desired columns inside each tensor
         - Transformation is usually over multiple companies so DH.data is usually a Python list, containing the dataframes for each company
         """
-        DH.data = [DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float_32)]
+        DH.data = [DH.dataframe_to_ptt(pandas_dataframe = DATAFRAME, desired_dtype = torch_float32)]
 
         # Transform the data in the desired columns
         col_indexes = [DATAFRAME.columns.get_loc(column_name) for column_name in hyperparameters["cols_to_alter"]] # Find indexes of all the columns we want to alter
@@ -166,12 +169,12 @@ batches.shape = [Number of batches, num_context_days, batch_size, num_features]
 batch.shape = [num_context_days, batch_size, num_features]
 """
 hyperparameters["batch_size"] = 3
-batch_create_time_1 = get_time()
 
+batch_create_time_1 = get_time()
 all_data_sequences = [company_dict["data_sequence"] for company_dict in info_list]
 
 if model.__class__.__name__ == "RNN":
-    batches = [torch.cat(all_data_sequences[i:i + hyperparameters["batch_size"]], dim = 1) for i in range(0, num_tickers, hyperparameters["batch_size"])]
+    batches = [torch.concat(all_data_sequences[i:i + hyperparameters["batch_size"]], dim = 1) for i in range(0, num_tickers, hyperparameters["batch_size"])]
 
     # Padding final batch for batch prompting
     # - Pads to the right of batches that aren't the same size as the batch size used to train the model with
@@ -183,7 +186,7 @@ if model.__class__.__name__ == "RNN":
         # print("Padded", batches[-1].shape)
 
 elif model.__class__.__name__ == "MLP":
-        batches = [torch_stack(all_data_sequences[i:i + hyperparameters["batch_size"]], dim = 0) for i in range(0, num_tickers, hyperparameters["batch_size"])]
+        batches = [torch.stack(all_data_sequences[i:i + hyperparameters["batch_size"]], dim = 0) for i in range(0, num_tickers, hyperparameters["batch_size"])]
 
         # Padding final batch for batch prompting
         if batches[-1].shape[0] != hyperparameters["batch_size"]:
@@ -217,7 +220,7 @@ for i in range(len(info_list)):
 
 extra_info_time_2 = get_time()
 
-
+print("SetUpTime", setup_time_2 - setup_time_1)
 print("ModelLoadTime", model_load_time_2 - model_load_time_1)
 print("DataLoadTime", data_load_time_2 - data_load_time_1)
 print("BatchTime", batch_create_time_2 - batch_create_time_1)
@@ -226,6 +229,7 @@ print("ExtraInfoTime", extra_info_time_2 - extra_info_time_1)
 
 total_time = sum(
                 [
+                setup_time_2 - setup_time_1,
                 model_load_time_2 - model_load_time_1,
                 data_load_time_2 - data_load_time_1,
                 batch_create_time_2 - batch_create_time_1,
