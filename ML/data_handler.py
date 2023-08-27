@@ -55,14 +55,11 @@ class DataHandler:
                       start_date, 
                       end_date, 
                       interval, 
-                      transform_after, 
-                      dated_sentiments, 
-                      N_OR_S,
+                      dated_sentiments,
+                      hyperparameters, 
                       include_date_before_prediction_date = False, 
-                      features_to_remove = [], 
-                      cols_to_alter = ["open", "close", "adjclose", "high", "low", "volume"],
-                      params_from_training = None,
                       ):
+        
         # Note: transform_after = True means that all of the companies' data will be standardised / normalised together, instead of separately
         self.data = []
         self.labels = []
@@ -70,10 +67,10 @@ class DataHandler:
         invalid_tickers = []
 
         # Transformation based on "N_OR_S" and "transform_data"
-        if transform_after == True:
-            transformation = self.standardise_data if N_OR_S == "S" else self.normalise_data
+        if hyperparameters["transform_after"] == True:
+            transformation = self.standardise_data if hyperparameters["N_OR_S"] == "S" else self.normalise_data
         else:
-            transformation = self.standardise_columns if N_OR_S == "S" else self.normalise_columns
+            transformation = self.standardise_columns if hyperparameters["N_OR_S"] == "S" else self.normalise_columns
 
         # For each company, modify the data 
         for ticker in tickers:
@@ -97,7 +94,7 @@ class DataHandler:
                                     interval = interval, 
                                     dated_sentiments = dated_sentiments, 
                                     include_date_before_prediction_date = include_date_before_prediction_date, 
-                                    features_to_remove = features_to_remove
+                                    features_to_remove = hyperparameters["features_to_remove"]
                                     )
             # print(DATA)
             # Separate the labels from the main dataframe (the other columns will be used as inputs)
@@ -106,12 +103,12 @@ class DataHandler:
             DATA.drop("Target", axis = 1, inplace = True)
 
             # Create normalised and standardised versions of the data
-            if transform_after == False: # Standardising / Normalising companies separately
+            if hyperparameters["transform_after"] == False: # Standardising / Normalising companies separately
                 # Notes:
                 # - Created 2 because some models may perform better on standardised data than normalised data and vice versa
                 # - Min-max normalisation preserves relative relationships between data points but eliminates differences in magnitude
                 # - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
-                DATA[cols_to_alter] = transformation(dataframe = DATA, cols_to_alter = cols_to_alter)
+                DATA[hyperparameters["cols_to_alter"]] = transformation(dataframe = DATA, cols_to_alter = hyperparameters["cols_to_alter"])
             
             # Add this companies data to the list
             self.data.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
@@ -124,16 +121,16 @@ class DataHandler:
         print(f"Total examples: {sum([company_labels.shape[0] for company_labels in self.labels])}")
 
         # Standardising / Normalising companies together
-        if transform_after == True:
+        if hyperparameters["transform_after"] == True:
 
             # Find indexes of all the columns we want to alter
-            col_indexes = [DATA.columns.get_loc(column_name) for column_name in cols_to_alter]
+            col_indexes = [DATA.columns.get_loc(column_name) for column_name in hyperparameters["cols_to_alter"]]
 
             # Combine all of the companies data, and select the only the column features that we want to alter
             combined_data = torch_cat(self.data, dim = 0)[:, col_indexes]
 
             # Create standardised or normalised versions of the data 
-            transformation(combined_data = combined_data, col_indexes = col_indexes, params_from_training = params_from_training)
+            transformation(combined_data = combined_data, col_indexes = col_indexes, params_from_training = hyperparameters["train_data_params"])
 
         # Set the number of features that will go into the first layer of a model
         self.n_features = self.data[-1].shape[1]

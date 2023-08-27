@@ -46,7 +46,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 16
+model_number_load = 17
 manual_hyperparams = {
                     "architecture": "RNN", # Will be deleted after instantiation
                     "N_OR_S": "N",
@@ -54,12 +54,13 @@ manual_hyperparams = {
                     "batch_size": 32,
                     "learning_rate": 1e-3,
                     "num_folds": 5,
-                    "multiplicative_trains": 4,
+                    "multiplicative_trains": 1,
                     "uses_dated_sentiments": False,
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "transform_after": True,
                     "train_split_decimal": 0.8,
+                    "train_data_params": None
                     }
 # manual_hyperparams = {
 #                     "architecture": "MLP", # Will be deleted after instantiation
@@ -74,6 +75,7 @@ manual_hyperparams = {
 #                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
 #                     "transform_after": True,
 #                     "train_split_decimal": 0.8
+#                     "train_data_params": None
 #                     }
 # manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
@@ -291,13 +293,9 @@ DH.retrieve_data(
             start_date = "1/07/2023",
             end_date = "24/08/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
             interval = "1d",
-            transform_after = hyperparameters["transform_after"],
             dated_sentiments = None, # Not needed at inference time 
-            N_OR_S = hyperparameters["N_OR_S"],
             include_date_before_prediction_date = True,
-            features_to_remove = hyperparameters["features_to_remove"],
-            cols_to_alter = hyperparameters["cols_to_alter"],
-            params_from_training = hyperparameters["train_data_params"]
+            hyperparameters = hyperparameters,
             )
 
 for company in DH.data:

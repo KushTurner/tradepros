@@ -83,103 +83,103 @@ class RNN(nn.Module):
                                     # nn.BatchNorm1d(num_features = initial_in // 4),
                                     # nn.ReLU(),
 
-                                    # # 2
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in , initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in // 2, initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in  // 2, initial_in // 4),
-                                    # nn.BatchNorm1d(num_features = initial_in // 4),
-                                    # nn.ReLU(),
-
-                                    # 3 (Test config)
+                                    # 2
+                                    nn.Linear(initial_in, initial_in),
+                                    nn.BatchNorm1d(num_features = initial_in),
+                                    nn.ReLU(),
 
                                     nn.Linear(initial_in, initial_in),
                                     nn.BatchNorm1d(num_features = initial_in),
                                     nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-                                    
-                                    nn.Linear(initial_in, initial_in),
-                                    nn.BatchNorm1d(num_features = initial_in),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in, initial_in * 2),
-                                    nn.BatchNorm1d(num_features = initial_in * 2),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in * 2, initial_in * 2),
-                                    nn.BatchNorm1d(num_features = initial_in * 2),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in * 2, initial_in * 2),
-                                    nn.BatchNorm1d(num_features = initial_in * 2),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in * 2, initial_in),
-                                    nn.BatchNorm1d(num_features = initial_in),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in, initial_in),
-                                    nn.BatchNorm1d(num_features = initial_in),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
 
                                     nn.Linear(initial_in , initial_in // 2),
                                     nn.BatchNorm1d(num_features = initial_in // 2),
                                     nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
 
                                     nn.Linear(initial_in // 2, initial_in // 2),
                                     nn.BatchNorm1d(num_features = initial_in // 2),
                                     nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in // 2, initial_in // 2),
-                                    nn.BatchNorm1d(num_features = initial_in // 2),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in // 2, initial_in // 2),
-                                    nn.BatchNorm1d(num_features = initial_in // 2),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-
-                                    nn.Linear(initial_in // 2, initial_in // 2),
-                                    nn.BatchNorm1d(num_features = initial_in // 2),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
-                                    
-                                    nn.Linear(initial_in // 2, initial_in // 2),
-                                    nn.BatchNorm1d(num_features = initial_in // 2),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
 
                                     nn.Linear(initial_in  // 2, initial_in // 4),
                                     nn.BatchNorm1d(num_features = initial_in // 4),
                                     nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
 
-                                    nn.Linear(initial_in  // 4, initial_in // 4),
-                                    nn.BatchNorm1d(num_features = initial_in // 4),
-                                    nn.ReLU(),
-                                    nn.Dropout(p = 0.2),
+                                    # # 3 (Test config)
+
+                                    # nn.Linear(initial_in, initial_in),
+                                    # nn.BatchNorm1d(num_features = initial_in),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+                                    
+                                    # nn.Linear(initial_in, initial_in),
+                                    # nn.BatchNorm1d(num_features = initial_in),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in, initial_in * 2),
+                                    # nn.BatchNorm1d(num_features = initial_in * 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in * 2, initial_in * 2),
+                                    # nn.BatchNorm1d(num_features = initial_in * 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in * 2, initial_in * 2),
+                                    # nn.BatchNorm1d(num_features = initial_in * 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in * 2, initial_in),
+                                    # nn.BatchNorm1d(num_features = initial_in),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in, initial_in),
+                                    # nn.BatchNorm1d(num_features = initial_in),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in , initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in // 2, initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in // 2, initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in // 2, initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in // 2, initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+                                    
+                                    # nn.Linear(initial_in // 2, initial_in // 2),
+                                    # nn.BatchNorm1d(num_features = initial_in // 2),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in  // 2, initial_in // 4),
+                                    # nn.BatchNorm1d(num_features = initial_in // 4),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
+
+                                    # nn.Linear(initial_in  // 4, initial_in // 4),
+                                    # nn.BatchNorm1d(num_features = initial_in // 4),
+                                    # nn.ReLU(),
+                                    # nn.Dropout(p = 0.2),
                                     )
         # Hidden state layer
         self.hidden_layer = nn.Linear(initial_in // 4, out_features = initial_in // 4, bias = True)

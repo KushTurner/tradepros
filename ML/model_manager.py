@@ -71,12 +71,8 @@ class ModelManager:
                                         start_date = "1/01/2015",
                                         end_date = "31/12/2019", 
                                         interval = "1d",
-                                        transform_after = True,
                                         dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
-                                        N_OR_S = hyperparameters["N_OR_S"],
-                                        features_to_remove = hyperparameters["features_to_remove"],
-                                        cols_to_alter = hyperparameters["cols_to_alter"],
-                                        params_from_training = hyperparameters["train_data_params"]
+                                        hyperparameters = hyperparameters
                                         )
         else:
             # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
@@ -94,6 +90,7 @@ class ModelManager:
                                     "cols_to_alter": ["open", "close", "high", "low", "volume"],
                                     "transform_after": True, # True to transform the comapnies data together or False for separately
                                     "train_split_decimal": 0.8, # Size of the train split as a decimal (0.8 = 80%)
+                                    "train_data_params": None # Training data parameters (mean, std, etc)
                                     }
 
                 # Suggested values for the following hyperparameters, based on the model architecture
@@ -123,12 +120,8 @@ class ModelManager:
                                     start_date = "1/01/2015",
                                     end_date = "31/12/2019", 
                                     interval = "1d",
-                                    transform_after = manual_hyperparams["transform_after"],
                                     dated_sentiments = self.TDH_REF.dated_sentiments if manual_hyperparams["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
-                                    N_OR_S = manual_hyperparams["N_OR_S"],
-                                    features_to_remove = manual_hyperparams["features_to_remove"],
-                                    cols_to_alter = manual_hyperparams["cols_to_alter"],
-                                    params_from_training = None
+                                    hyperparameters = manual_hyperparams
                                     )
             
             # Initialising the model and optimiser
