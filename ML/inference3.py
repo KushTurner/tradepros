@@ -3,7 +3,7 @@ from tools import get_model_prediction_2
 
 times = []
 
-for i in range(100):
+for i in range(1):
     start_time = get_time()
     prediction = get_model_prediction_2(model_number_load = 20, tickers = ["meta"])
     end_time = get_time()

@@ -35,11 +35,11 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
 model_number_load = 20
-model, _, hyperparameters, _, _= model_manager.initiate_model(
-                                                                    model_number_load = model_number_load, 
-                                                                    manual_hyperparams = None, 
-                                                                    inference = True
-                                                                    )
+model, _, hyperparameters, _, _ = model_manager.initiate_model(
+                                                                model_number_load = model_number_load, 
+                                                                manual_hyperparams = None, 
+                                                                inference = True
+                                                                )
 
 # print(f"Hyperparameters used: {hyperparameters}")
 # print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")

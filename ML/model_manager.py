@@ -43,29 +43,30 @@ class ModelManager:
             # print(checkpoint.keys())
 
             """ 
-            checkpoint is a dict consisting of 3 keys: 
-            - "model" - Model + Optimiser state dicts and architecture used
-            - "hyperparameters" - Hyperparameters used to train the model
-            - "stats": Model statistics (e.g. loss, accuracy, f1 score, etc..)
+            - checkpoint is a dict consisting of 3 keys: 
+                - "model" - Model + Optimiser state dicts and architecture used
+                - "hyperparameters" - Hyperparameters used to train the model
+                - "stats": Model statistics (e.g. loss, accuracy, f1 score, etc..)
+            - Optimiser is not loaded if called for model inference (not on the test set)
             """
 
             hyperparameters = checkpoint["hyperparameters"] # Load hyperparameters of the saved model
 
             if checkpoint["model"]["architecture"] == "RNN":
                 model = RNN(initial_in = hyperparameters["n_features"], final_out = 2, N_OR_S = hyperparameters["N_OR_S"])
-                optimiser = torch_optim_Adam(params = model.parameters(), lr = hyperparameters["learning_rate"])
+                if inference == False:
+                    optimiser = torch_optim_Adam(params = model.parameters(), lr = hyperparameters["learning_rate"])
             
             elif checkpoint["model"]["architecture"] == "MLP":
                 model = MLP(initial_in = hyperparameters["n_features"], final_out = 2, N_OR_S = hyperparameters["N_OR_S"])
-                optimiser = torch_optim_SGD(params = model.parameters(), lr = hyperparameters["learning_rate"])
-            
-            model.load_state_dict(checkpoint["model"]["model_state_dict"])
-            optimiser.load_state_dict(checkpoint["model"]["optimiser_state_dict"]) 
+                if inference == False:
+                    optimiser = torch_optim_SGD(params = model.parameters(), lr = hyperparameters["learning_rate"])
+                
             stats = checkpoint["stats"]
-
-            # Only retrieve data if testing on the test set
+            model.load_state_dict(checkpoint["model"]["model_state_dict"])
             if inference == False:
-                # Retrieve DH data
+                optimiser.load_state_dict(checkpoint["model"]["optimiser_state_dict"]) 
+                # Only retrieve data if continuing training or testing on the test set
                 self.DH_REF.retrieve_data(
                                         tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
                                         start_date = "1/01/2015",
@@ -74,6 +75,13 @@ class ModelManager:
                                         dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
                                         hyperparameters = hyperparameters
                                         )
+            else:
+                # Optimiser not declared yet so would run into error when returning
+                optimiser = None
+                # Set to evaluation mode at model inference
+                model.eval()
+
+
         else:
             # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
 
@@ -152,17 +160,19 @@ class ModelManager:
         # Move model and optimiser to GPU if possible
         if self.device != "cpu":
             model.to(device = self.device)
-            for param in optimiser.state.values():
-                if isinstance(param, torch_Tensor):
-                    param.data = param.data.to(self.device)
-                    if param._grad is not None:
-                        param._grad.data = param._grad.data.to(self.device)
-                elif isinstance(param, dict):
-                    for subparam in param.values():
-                        if isinstance(subparam, torch_Tensor):
-                            subparam.data = subparam.data.to(self.device)
-                            if subparam._grad is not None:
-                                subparam._grad.data = subparam._grad.data.to(self.device)
+
+            if optimiser: # Optimiser was created
+                for param in optimiser.state.values():
+                    if isinstance(param, torch_Tensor):
+                        param.data = param.data.to(self.device)
+                        if param._grad is not None:
+                            param._grad.data = param._grad.data.to(self.device)
+                    elif isinstance(param, dict):
+                        for subparam in param.values():
+                            if isinstance(subparam, torch_Tensor):
+                                subparam.data = subparam.data.to(self.device)
+                                if subparam._grad is not None:
+                                    subparam._grad.data = subparam._grad.data.to(self.device)
                             
         # for param in optimiser.state.values():
         #     if isinstance(param, torch_Tensor):
