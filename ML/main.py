@@ -46,35 +46,35 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 15
+model_number_load = 16
+manual_hyperparams = {
+                    "architecture": "RNN", # Will be deleted after instantiation
+                    "N_OR_S": "N",
+                    "num_context_days": 10,
+                    "batch_size": 32,
+                    "learning_rate": 1e-3,
+                    "num_folds": 5,
+                    "multiplicative_trains": 4,
+                    "uses_dated_sentiments": False,
+                    "features_to_remove": ["adjclose"],
+                    "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
+                    "transform_after": True,
+                    "train_split_decimal": 0.8,
+                    }
 # manual_hyperparams = {
-#                     "architecture": "RNN", # Will be deleted after instantiation
-#                     "N_OR_S": "N",
-#                     "num_context_days": 10,
+#                     "architecture": "MLP", # Will be deleted after instantiation
+#                     "N_OR_S": "S",
+#                     "num_context_days": 1,
 #                     "batch_size": 32,
-#                     "learning_rate": 1e-3,
+#                     "learning_rate": 1e-4,
 #                     "num_folds": 5,
 #                     "multiplicative_trains": 1,
 #                     "uses_dated_sentiments": False,
 #                     "features_to_remove": ["adjclose"],
 #                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
 #                     "transform_after": True,
-#                     "train_split_decimal": 0.8,
+#                     "train_split_decimal": 0.8
 #                     }
-manual_hyperparams = {
-                    "architecture": "MLP", # Will be deleted after instantiation
-                    "N_OR_S": "S",
-                    "num_context_days": 1,
-                    "batch_size": 32,
-                    "learning_rate": 1e-4,
-                    "num_folds": 5,
-                    "multiplicative_trains": 1,
-                    "uses_dated_sentiments": False,
-                    "features_to_remove": ["adjclose"],
-                    "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
-                    "transform_after": True,
-                    "train_split_decimal": 0.8
-                    }
 # manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
@@ -248,7 +248,7 @@ total_epochs = len(stats["train_loss_i"])
 print(total_epochs)
 
 A = 14 # Replace with a factor of the total number of epochs
-# A = 62 
+A = 62 
 
 for metric in metrics:
     print("-----------------------------------------------------------------")
@@ -320,12 +320,24 @@ if model.__class__.__name__ == "RNN":
     # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
     batches = [input_data[i:i + hyperparameters["batch_size"]].transpose(dim0 = 0, dim1 = 1) for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
+    # Padding final batch for batch prompting
+    if batches[-1].shape[1] != hyperparameters["batch_size"]:
+        right_padding = torch.zeros(hyperparameters["num_context_days"], hyperparameters["batch_size"] - batches[-1].shape[1], batches[-1].shape[2])
+        batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 1) # Concatenate on the batch dimension
+
 elif model.__class__.__name__ == "MLP":
     # Single day sequences
     batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
+    # Padding final batch for batch prompting
+    if batches[-1].shape[0] != hyperparameters["batch_size"]:
+        right_padding = torch.zeros(hyperparameters["batch_size"] - batches[-1].shape[0], batches[-1].shape[1])
+        batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 0) # Concatenate on the batch dimension
+
+
 # Get all the predictions for each batch
-all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])
+# Note: [:len(input_data)] to get rid of any padding examples
+all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])[:len(input_data)]
 print(all_predictions.shape)
 
 # Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates
@@ -339,7 +351,6 @@ print(len(companies_tickers))
 Labels = Sorted by dates
 Data = Sorted by dates
 Company tickers = Not sorted
-
 """
 
 correct_count = 0
@@ -358,7 +369,7 @@ print(f"Correct: {correct_count}/{all_predictions.shape[0]} | PercentageCorrect:
 
 
 # Create a list of dictionaries containing information about a sequence
-"""
+""" Notes:
 - Each data sequence is mapped with:
     - Corresponding ticker
     - The model prediction in the form of a probability distribution
@@ -366,6 +377,24 @@ print(f"Correct: {correct_count}/{all_predictions.shape[0]} | PercentageCorrect:
     - The model prediction where 0 = predicted downward trend, 1 = predicted upward trend
     - Whether the model's prediction was correct
     - Corresponding date
+
+- If it appears that there are repeated predictions for completely different sequences, its just how the tensor is displayed (rounded)
+
+# To double-check the number of occurrences of each prediction
+from collections import Counter
+import numpy as np
+all_predictions = [sequence_dict["prediction"].to("cpu") for sequence_dict in prediction_info_dicts]
+
+# Convert the tensors to strings and use Counter to count occurrences
+tensor_tuple_list = [tuple(tensor) for tensor in all_predictions]
+tensor_counts = Counter(tensor_tuple_list)
+
+# Print the counts of unique tensors
+for tensor_tuple, count in tensor_counts.items():
+    tensor = np.array(tensor_tuple)
+    if count > 1:
+        print(f"{tensor}: {count}")
+
 """
 prediction_info_dicts = [{"ticker": ticker, "prediction": prediction, "Target": label.item(), "ModelAnswer": torch.argmax(prediction, dim = 0).item(), "Correct": torch.argmax(prediction, dim = 0).item() == label.item(), "timestamp": timestamp} for prediction, label, ticker, timestamp in zip(all_predictions, DH.labels, companies_tickers, DH.dates)]
 for d in prediction_info_dicts[:5]:

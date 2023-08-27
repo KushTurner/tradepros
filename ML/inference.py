@@ -31,29 +31,32 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 14
+model_number_load = 16
 
 model, optimiser, hyperparameters, _, _= model_manager.initiate_model(
                                                                     model_number_load = model_number_load, 
                                                                     manual_hyperparams = None, 
                                                                     inference = True
                                                                     )
-# print(hyperparameters)
+
 # print(f"Hyperparameters used: {hyperparameters}")
 # print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")
 model_load_time_2 = get_time()
+print(f"Hyperparameters used: {hyperparameters}")
+print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------
 # GET DATA
 
+
+data_load_time_1 = get_time()
+
 api_key = os_get_env("alphavantage_apikey")
 # tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw", "aapl", "tsla", "amzn", "goog", "msft", "googl"]
 tickers = ["jpm", "meta", "wmt", "ma", "aapl", "tsla", "amzn", "goog", "msft", "googl"]
-# tickers = ["meta"]
+tickers = ["meta"]
 actual_column_names = ["open", "high", "low", "close", "volume"]
 info_list = []
-
-data_load_time_1 = get_time()
 
 if os_path_exists("historical_data") == False:
     os_mkdir("historical_data")
@@ -61,7 +64,7 @@ if os_path_exists("historical_data") == False:
 for ticker in tickers:
     path_to_data = f"historical_data/{ticker}.csv"
     if os_path_exists(path_to_data):
-        # print(f"Loading {ticker} data from disk")
+        print(f"Loading {ticker} data from disk")
         # Read the dataframe from the path
         # - parse_dates to parse the values in the first column (i.e. the dates) as datetime objects
         # - index_col to specify which column should be used as the index of the dataframe
@@ -210,7 +213,7 @@ for i in range(len(info_list)):
     info_list[i]["prediction"] = predictions[i]
     info_list[i]["ModelAnswer"] = torch.argmax(predictions[i], dim = 0).item()
     
-    # print({key: info_list[i][key] for key in info_list[i].keys() if key != "data_sequence"})
+    print({key: info_list[i][key] for key in info_list[i].keys() if key != "data_sequence"})
     # print(info_list[i]["data_sequence"])
 
 extra_info_time_2 = get_time()
