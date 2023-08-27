@@ -31,8 +31,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 16
-
+model_number_load = 18
 model, optimiser, hyperparameters, _, _= model_manager.initiate_model(
                                                                     model_number_load = model_number_load, 
                                                                     manual_hyperparams = None, 
@@ -108,7 +107,7 @@ for ticker in tickers:
 
     # Modify data
     # Note: Only take the last hyperparameters["num_context_days"] days to create a single data sequence to predict the closing price today
-    DATAFRAME = DH.modify_data(DATAFRAME, interval = "1d", dated_sentiments = None, include_date_before_prediction_date = True)[-hyperparameters["num_context_days"]:]
+    DATAFRAME = DH.modify_data(DATAFRAME, dated_sentiments = None, include_date_before_prediction_date = True, hyperparameters = hyperparameters)[-hyperparameters["num_context_days"]:]
     # print("Modified", DATAFRAME)
 
     # Remove labels

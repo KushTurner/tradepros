@@ -46,7 +46,7 @@ class DataHandler:
                             interval = interval
                             )
             # Modify the data (required otherwise the tweets dataset in the TDH may contain NaN values)
-            DATA = self.modify_data(D = DATA, interval = interval)
+            DATA = self.modify_data(D = DATA)
             self.dates.append(DATA.index.tolist())
             del DATA
 
@@ -91,10 +91,9 @@ class DataHandler:
             # Modify the data (e.g. adding more columns, removing columns, etc.)
             DATA = self.modify_data(
                                     D = DATA, 
-                                    interval = interval, 
                                     dated_sentiments = dated_sentiments, 
                                     include_date_before_prediction_date = include_date_before_prediction_date, 
-                                    features_to_remove = hyperparameters["features_to_remove"]
+                                    hyperparameters = hyperparameters
                                     )
             # print(DATA)
             # Separate the labels from the main dataframe (the other columns will be used as inputs)
@@ -140,7 +139,7 @@ class DataHandler:
         for invalid_ticker in invalid_tickers:
             tickers.remove(invalid_ticker)
 
-    def modify_data(self, D, interval, dated_sentiments = None, include_date_before_prediction_date = False, features_to_remove = []):
+    def modify_data(self, D, dated_sentiments = None, include_date_before_prediction_date = False, hyperparameters = None):
         
         # Dated sentiments were provided
         if type(dated_sentiments) != type(None):
@@ -165,41 +164,39 @@ class DataHandler:
         # Remove ticker column (always done)
         if "ticker" in D.columns:
             D.drop("ticker", axis = 1, inplace = True)
-        
-        # Remove additional un-needed features
-        d_columns = D.columns
-        for r_feature in features_to_remove:
-            if r_feature in d_columns:
-                D.drop(r_feature, axis = 1, inplace = True)
+
+        # Remove additional un-needed features (done at training or inference)
+        if hyperparameters != None:
+            d_columns = D.columns
+            for r_feature in hyperparameters["features_to_remove"]:
+                if r_feature in d_columns:
+                    D.drop(r_feature, axis = 1, inplace = True)
 
         # Create new column for each day stating tomorrow's closing price for the stock
         D["TomorrowClose"] = D["close"].shift(-1)
 
         # Set the target as 1 if the price of the stock increases tomorrow, otherwise set it to 0 (1 = Price went up, 0 = Price stayed the same / went down)
         D["Target"] = (D["TomorrowClose"] > D["close"]).astype(int)
-        
-        # Periods based on the interval (daily, weekly, monthly)
-        if interval == "1d":
-            periods = [2, 5, 10, 15, 20] # 5 days = 1 trading week
-        elif interval == "1wk":
-            periods = [1, 3, 9, 36, 108] # 1 week, 1 month, 3 months, 1 year
-        else:
-            periods = [1, 3, 9, 12, 24]
-        
-        for p in periods:
 
-            # Closing price ratios:
-            
-            # Find the average closing price of the last p days/weeks/months
-            rolling_averages =  D["close"].rolling(window = p).mean()  
+        # Adding more features
+        if hyperparameters != None:
+            # 5 days = 1 trading week
+            rolling_features = set(hyperparameters["rolling_features"])
+            for p in hyperparameters["rolling_periods"]:
+                
+                # Closing price ratios:
+                if "close_ratio" in rolling_features:
+                    # Find the average closing price of the last p days/weeks/months
+                    rolling_averages =  D["close"].rolling(window = p).mean()  
 
-            cr_column_name = f"CloseRatio_{p}"
-            # Find the ratio closing price and the average closing price over the last p days/weeks/months (Inclusive of the current day)
-            D[cr_column_name] = D["close"] / rolling_averages
+                    cr_column_name = f"CloseRatio_{p}"
+                    # Find the ratio closing price and the average closing price over the last p days/weeks/months (Inclusive of the current day)
+                    D[cr_column_name] = D["close"] / rolling_averages
 
-            # Trend over the past few days
-            t_column_name = f"Trend_{p}"
-            D[t_column_name] = D["Target"].shift(1).rolling(window = p).sum() # Sums up the targets over the last p days/weeks/months (Not including today's target)
+                # Trend over the past few days
+                if "trend" in rolling_features:
+                    t_column_name = f"Trend_{p}"
+                    D[t_column_name] = D["Target"].shift(1).rolling(window = p).sum() # Sums up the targets over the last p days/weeks/months (Not including today's target)
 
         """ Note: 
         - Includes the date used before the date to predict, this is specifically for inference where we want to predict the next day using the previous day (without this, today would be removed from the dataframe)

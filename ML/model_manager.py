@@ -88,6 +88,8 @@ class ModelManager:
                                     "uses_dated_sentiments": True,
                                     "features_to_remove": [],
                                     "cols_to_alter": ["open", "close", "high", "low", "volume"],
+                                    "rolling_periods": [2, 5, 10, 15, 20],
+                                    "rolling_features": ["trend", "close_ratio"],
                                     "transform_after": True, # True to transform the comapnies data together or False for separately
                                     "train_split_decimal": 0.8, # Size of the train split as a decimal (0.8 = 80%)
                                     "train_data_params": None # Training data parameters (mean, std, etc)
