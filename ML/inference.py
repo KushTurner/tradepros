@@ -31,7 +31,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 18
+model_number_load = 20
 model, optimiser, hyperparameters, _, _= model_manager.initiate_model(
                                                                     model_number_load = model_number_load, 
                                                                     manual_hyperparams = None, 

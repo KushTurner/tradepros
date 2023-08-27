@@ -180,23 +180,49 @@ class DataHandler:
 
         # Adding more features
         if hyperparameters != None:
-            # 5 days = 1 trading week
+            """
+            - 5 days = 1 trading week 
+            - Rolling features = _ over the last p days/weeks/months
+            - if shift(1) is used, it is not including the current day, otherwise it is
+            """
             rolling_features = set(hyperparameters["rolling_features"])
             for p in hyperparameters["rolling_periods"]:
+
+                # Average opening price 
+                rolling_open_averages =  D["open"].rolling(window = p).mean()  
+                if "avg_open" in rolling_features:
+                    D[f"AvgOpen_{p}"] = rolling_open_averages
                 
-                # Closing price ratios:
+                # Opening price ratio
+                if "open_ratio" in rolling_features:
+                    D[f"OpenRatio_{p}"] = D["open"] / rolling_open_averages
+
+                # Average closing price 
+                rolling_close_averages =  D["close"].rolling(window = p).mean()  
+                if "avg_close" in rolling_features:
+                    D[f"AvgClose_{p}"] = rolling_close_averages
+                
+                # Closing price ratio
                 if "close_ratio" in rolling_features:
-                    # Find the average closing price of the last p days/weeks/months
-                    rolling_averages =  D["close"].rolling(window = p).mean()  
+                    D[f"CloseRatio_{p}"] = D["close"] / rolling_close_averages
 
-                    cr_column_name = f"CloseRatio_{p}"
-                    # Find the ratio closing price and the average closing price over the last p days/weeks/months (Inclusive of the current day)
-                    D[cr_column_name] = D["close"] / rolling_averages
+                # Average volume
+                rolling_volume_averages =  D["volume"].rolling(window = p).mean()  
+                if "avg_volume" in rolling_features:
+                    D[f"AvgVolume_{p}"] = rolling_volume_averages
 
-                # Trend over the past few days
-                if "trend" in rolling_features:
-                    t_column_name = f"Trend_{p}"
-                    D[t_column_name] = D["Target"].shift(1).rolling(window = p).sum() # Sums up the targets over the last p days/weeks/months (Not including today's target)
+                # Volume ratio
+                if "volume_ratio" in rolling_features:
+                    D[f"VolumeRatio_{p}"] = D["volume"] / rolling_volume_averages
+
+                # Trend sum
+                rolling_trends = D["Target"].shift(1).rolling(window = p)
+                if "trend_sum" in rolling_features:
+                    D[f"TrendSum_{p}"] = rolling_trends.sum()
+                
+                # Trend mean
+                if "trend_mean" in rolling_features:
+                    D[f"TrendMean_{p}"] = rolling_trends.mean()
 
         """ Note: 
         - Includes the date used before the date to predict, this is specifically for inference where we want to predict the next day using the previous day (without this, today would be removed from the dataframe)

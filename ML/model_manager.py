@@ -87,9 +87,9 @@ class ModelManager:
                                     "multiplicative_trains": 2,
                                     "uses_dated_sentiments": True,
                                     "features_to_remove": [],
-                                    "cols_to_alter": ["open", "close", "high", "low", "volume"],
+                                    "cols_to_alter": ["open", "close", "high", "low", "volume", "adjclose"],
                                     "rolling_periods": [2, 5, 10, 15, 20],
-                                    "rolling_features": ["trend", "close_ratio"],
+                                    "rolling_features": ["avg_open", "open_ratio", "avg_close", "close_ratio", "avg_volume", "volume_ratio", "trend_sum", "trend_mean"],
                                     "transform_after": True, # True to transform the comapnies data together or False for separately
                                     "train_split_decimal": 0.8, # Size of the train split as a decimal (0.8 = 80%)
                                     "train_data_params": None # Training data parameters (mean, std, etc)
