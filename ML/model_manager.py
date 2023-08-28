@@ -1,4 +1,3 @@
-
 from os import listdir as os_listdir
 from os import mkdir as os_mkdir
 from os import rmdir as os_rmdir
@@ -69,8 +68,8 @@ class ModelManager:
                 # Only retrieve data if continuing training or testing on the test set
                 self.DH_REF.retrieve_data(
                                         tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
-                                        start_date = "1/01/2015",
-                                        end_date = "31/12/2019", 
+                                        start_date = "01/01/2015", # Date in MM/DD/YYYY format
+                                        end_date = "12/31/2019",
                                         interval = "1d",
                                         dated_sentiments = self.TDH_REF.dated_sentiments if hyperparameters["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
                                         hyperparameters = hyperparameters
@@ -127,8 +126,8 @@ class ModelManager:
             # Retrieve DH data
             self.DH_REF.retrieve_data(
                                     tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
-                                    start_date = "1/01/2015",
-                                    end_date = "31/12/2019", 
+                                    start_date = "01/01/2015", # Date in MM/DD/YYYY format
+                                    end_date = "12/31/2019", 
                                     interval = "1d",
                                     dated_sentiments = self.TDH_REF.dated_sentiments if manual_hyperparams["uses_dated_sentiments"] else None, # Dated sentiments for each company (None if not using)
                                     hyperparameters = manual_hyperparams

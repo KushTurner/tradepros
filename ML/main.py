@@ -23,8 +23,8 @@ DH = DataHandler(device = DEVICE, generator = G)
 # Retrieve dates for the text data handler (To generate sentiments for tweets on dates in the historical dataset)
 DH.retrieve_dates(
                 tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
-                start_date = "1/01/2015",
-                end_date = "31/12/2019", 
+                start_date = "01/01/2015", # Date in MM/DD/YYYY format
+                end_date = "12/31/2019", 
                 interval = "1d",
                 )
 
@@ -46,7 +46,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = None
+model_number_load = 23
 manual_hyperparams = {
                     "architecture": "RNN", # Will be deleted after instantiation
                     "N_OR_S": "N",
@@ -253,6 +253,7 @@ print(total_epochs)
 
 A = 14 # Replace with a factor of the total number of epochs
 A = 62 
+# A = 42
 
 for metric in metrics:
     print("-----------------------------------------------------------------")
@@ -277,23 +278,10 @@ print(DH.data.shape)
 # selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
 selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
 
-#             start_date = "1/01/2023",
-#             end_date = "24/08/2023",
-
-#             start_date = "1/01/2010",
-#             end_date = "24/08/2014",
-
-#             start_date = "1/01/2000",
-#             end_date = "31/6/2013",
-
-#             start_date = "1/01/2020",
-#             end_date = "31/12/2022",
-
-
 DH.retrieve_data(
             tickers = selected_tickers,
-            start_date = "1/07/2023",
-            end_date = "24/08/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
+            start_date = "01/01/2023", # MM/DD/YYYY
+            end_date = "08/28/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
             interval = "1d",
             dated_sentiments = None, # Not needed at inference time 
             include_date_before_prediction_date = True,
