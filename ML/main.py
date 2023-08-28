@@ -46,13 +46,30 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 23
+model_number_load = 24
+# manual_hyperparams = {
+#                     "architecture": "RNN", # Will be deleted after instantiation
+#                     "N_OR_S": "N",
+#                     "num_context_days": 10,
+#                     "batch_size": 32,
+#                     "learning_rate": 1e-3,
+#                     "num_folds": 5,
+#                     "multiplicative_trains": 1,
+#                     "uses_dated_sentiments": False,
+#                     "features_to_remove": ["adjclose"],
+#                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
+#                     "rolling_periods": [2, 5, 10, 15, 20],
+#                     "rolling_features": ["avg_open", "open_ratio", "avg_close", "close_ratio", "avg_volume", "volume_ratio", "trend_sum", "trend_mean"],
+#                     "transform_after": True,
+#                     "train_split_decimal": 0.8,
+#                     "train_data_params": None
+#                     }
 manual_hyperparams = {
-                    "architecture": "RNN", # Will be deleted after instantiation
-                    "N_OR_S": "N",
-                    "num_context_days": 10,
+                    "architecture": "MLP", # Will be deleted after instantiation
+                    "N_OR_S": "S",
+                    "num_context_days": 1,
                     "batch_size": 32,
-                    "learning_rate": 1e-3,
+                    "learning_rate": 1e-4,
                     "num_folds": 5,
                     "multiplicative_trains": 1,
                     "uses_dated_sentiments": False,
@@ -64,21 +81,6 @@ manual_hyperparams = {
                     "train_split_decimal": 0.8,
                     "train_data_params": None
                     }
-# manual_hyperparams = {
-#                     "architecture": "MLP", # Will be deleted after instantiation
-#                     "N_OR_S": "S",
-#                     "num_context_days": 1,
-#                     "batch_size": 32,
-#                     "learning_rate": 1e-4,
-#                     "num_folds": 5,
-#                     "multiplicative_trains": 1,
-#                     "uses_dated_sentiments": False,
-#                     "features_to_remove": ["adjclose"],
-#                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
-#                     "transform_after": True,
-#                     "train_split_decimal": 0.8
-#                     "train_data_params": None
-#                     }
 # manual_hyperparams = None
 model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(model_number_load = model_number_load, manual_hyperparams = manual_hyperparams)
 metrics = ["loss", "accuracy", "precision", "recall", "f1"]
@@ -255,18 +257,18 @@ A = 14 # Replace with a factor of the total number of epochs
 A = 62 
 # A = 42
 
-for metric in metrics:
-    print("-----------------------------------------------------------------")
-    print(f"{metric.capitalize()} during training")
+# for metric in metrics:
+#     print("-----------------------------------------------------------------")
+#     print(f"{metric.capitalize()} during training")
 
-    train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
-    val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
+#     train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
+#     val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
 
-    fig, ax = plt.subplots()
-    ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
-    ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
-    ax.legend()
-    plt.show()
+#     fig, ax = plt.subplots()
+#     ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
+#     ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
+#     ax.legend()
+#     plt.show()
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Testing on existing data:
