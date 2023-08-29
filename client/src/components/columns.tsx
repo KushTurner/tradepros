@@ -16,6 +16,14 @@ export type PortfolioData = {
   gain_loss: string;
 };
 
+export type HistoryData = {
+  company_name: string;
+  action: string;
+  amount: string;
+  quantity: string;
+  date: string;
+};
+
 export const companyColumns: ColumnDef<CompanyData>[] = [
   {
     header: 'Company Name',
@@ -59,5 +67,36 @@ export const portfolioColumns: ColumnDef<PortfolioData>[] = [
   {
     header: 'Gain / Loss',
     accessorKey: 'gain_loss',
+  },
+];
+
+export const historyColumns: ColumnDef<HistoryData>[] = [
+  {
+    header: 'Company Name',
+    accessorKey: 'company_name',
+  },
+  {
+    header: 'Action',
+    accessorKey: 'action',
+    cell: (s) => {
+      const value = s.getValue() as string;
+      return (
+        <span className={value === 'Buy' ? 'text-[#05A56E]' : 'text-[#DC2625]'}>
+          {value}
+        </span>
+      );
+    },
+  },
+  {
+    header: 'Amount',
+    accessorKey: 'amount',
+  },
+  {
+    header: 'Quantity',
+    accessorKey: 'quantity',
+  },
+  {
+    header: 'Date',
+    accessorKey: 'date',
   },
 ];
