@@ -108,6 +108,7 @@ class DataHandler:
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             if hyperparameters["uses_single_sentiments"]:
                 self.single_sentiments.append(self.dataframe_to_ptt(pandas_dataframe = DATA["sentiment_tomorrow"], desired_dtype = torch_float_32))
+                DATA.drop("sentiment_tomorrow", axis = 1, inplace = True) # Remove this column as it should not be an input feature.
 
             # Create normalised and standardised versions of the data
             if hyperparameters["transform_after"] == False: # Standardising / Normalising companies separately
@@ -233,7 +234,8 @@ class DataHandler:
                     D[f"TrendMean_{p}"] = rolling_trends.mean()
 
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
-            if hyperparameters["uses_single_sentiments"] == True:
+            # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference
+            if hyperparameters["uses_single_sentiments"] == True and include_date_before_prediction_date == False:
                 D["sentiment_tomorrow"] = D["sentiment"].shift(-1)
                 D.drop("sentiment", axis = 1, inplace = True) # Remove sentiments as a input feature in each row (Replaced with a single sentiment value from the day to predict)
         

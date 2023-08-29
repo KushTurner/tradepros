@@ -21,7 +21,7 @@ def get_model_prediction(ticker, date_to_predict):
     model_load_time_1 = get_time()
     DH = DataHandler(device = DEVICE, generator = G)
     model_manager = ModelManager(device = DEVICE, DH_reference = DH, TDH_reference = None)
-    model_number_load = 23
+    model_number_load = 28
     model, _, hyperparameters, _, _ = model_manager.initiate_model(
                                                                     model_number_load = model_number_load, 
                                                                     manual_hyperparams = None, 
@@ -35,8 +35,34 @@ def get_model_prediction(ticker, date_to_predict):
     # ----------------------------------------------------------------------------------------------------------------------------------------------------------
     # Creating data sequence
 
-    data_load_time_1 = get_time()
+    sentiment_time_1 = get_time()
+    if hyperparameters["uses_single_sentiments"]:
+        # Retrieve news articles information through Polygon API
+        from requests import get as requests_get
+        from os import getenv as os_getenv
+        api_key = os_getenv("polygon_apikey")
+        limit = 1000
+        url = f"https://api.polygon.io/v2/reference/news?limit={limit}&sort=published_utc&apiKey={api_key}"
+        r = requests_get(url)
+        api_data = r.json()
+
+        # Find the average sentiment for the ticker using VADER model
+        from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+        vader = SentimentIntensityAnalyzer()
+        fields = ["title", "description", "keywords"]
+        sentiment = sum([vader.polarity_scores(info_dict[field])["compound"] if info_dict.get(field) else 0 for info_dict in api_data["results"] for field in fields]) / limit
+
+        # Add padding before passing to the model
+        padded_sentiment = torch.zeros((hyperparameters["batch_size"], 1)) # Converted to torch.float32 automatically (Sentiment is in float64 accuracy)
+        padded_sentiment[0, 0] = sentiment
+        # print(padded_sentiment, padded_sentiment.shape)
+        # print(sentiment)
+        # print(padded_sentiment[0, 0].item())
     
+    sentiment_time_2 = get_time()
+
+    data_load_time_1 = get_time()
+
     # Find starting date
     num_days_prev = (hyperparameters["num_context_days"] + hyperparameters["rolling_periods"][-1]) * 2
     end_date_as_dt = datetime.strptime(date_to_predict, "%d/%m/%Y")
@@ -45,16 +71,13 @@ def get_model_prediction(ticker, date_to_predict):
     # Convert to MM/DD/YYYY
     start_date = start_date_as_dt.strftime("%m/%d/%Y")
     end_date = end_date_as_dt.strftime("%m/%d/%Y") 
-
+    
     # print(hyperparameters["rolling_periods"][-1])
     # print(hyperparameters["num_context_days"])
     # print(num_days_prev)
     # print(start_date, end_date)
-    
-    # ----------------------------------------------------------------------------------------------------------------------------------------------------------
-    # Creating the data sequence
+    # Retrieve historical data
 
-    # Retrieve data on the ticker
     DATA = get_data(
                     ticker = ticker, 
                     start_date = start_date, 
@@ -113,27 +136,24 @@ def get_model_prediction(ticker, date_to_predict):
         # Sequence shape should be [num_context_days, 1, num_features]
         right_padding = torch.zeros(hyperparameters["num_context_days"], hyperparameters["batch_size"] - 1, hyperparameters["n_features"])
         batch = torch.concat([DATA_SEQUENCE.view(hyperparameters["num_context_days"], 1, hyperparameters["n_features"]), right_padding], dim = 1)
-        print(right_padding.shape)
-        print(batch.shape)
 
     elif model.__class__.__name__ == "MLP":
         # Sequence shape should be [1, num_features]
         right_padding = torch.zeros(hyperparameters["batch_size"] - 1, hyperparameters["n_features"])
         batch = torch.concat([DATA_SEQUENCE.view(1, hyperparameters["n_features"]), right_padding], dim = 0)
-        print(right_padding.shape)
-        print(batch.shape)
     
     batch_create_time_2 = get_time()
 
     prediction_time_1 = get_time()
     # Generate prediction
-    prediction = torch.nn.functional.softmax(model(inputs = batch.to(device = DEVICE)), dim = 1)[0]
+    prediction = torch.nn.functional.softmax(model(inputs = batch.to(device = DEVICE), single_sentiment_values = padded_sentiment), dim = 1)[0]
     prediction_time_2 = get_time()
 
     print(prediction.shape)
 
     print("SetUpTime", setup_time_2 - setup_time_1)
     print("ModelLoadTime", model_load_time_2 - model_load_time_1)
+    print("SentimentTime", sentiment_time_2 - sentiment_time_1)
     print("DataLoadTime", data_load_time_2 - data_load_time_1)
     print("BatchTime", batch_create_time_2 - batch_create_time_1)
     print("PredictionTime", prediction_time_2 - prediction_time_1)
@@ -142,6 +162,7 @@ def get_model_prediction(ticker, date_to_predict):
                     [
                     setup_time_2 - setup_time_1,
                     model_load_time_2 - model_load_time_1,
+                    sentiment_time_2 - sentiment_time_1,
                     data_load_time_2 - data_load_time_1,
                     batch_create_time_2 - batch_create_time_1,
                     prediction_time_2 - prediction_time_1,
