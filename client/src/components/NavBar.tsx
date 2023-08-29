@@ -74,7 +74,7 @@ function NavBar() {
             </li>
             <li className="navbar-item ml-6 mb-6 md:mb-0 md:mx-6 lg:mx-14 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
-                <Link className="text-white navbar-item flex" to="/watchlist">
+                <Link className="text-white navbar-item flex" to="/history">
                   <AiOutlineHistory
                     size={16}
                     className="md:hidden mr-2 self-center"
