@@ -10,6 +10,7 @@ import {
 import { useState } from 'react';
 import { AiFillCaretDown, AiFillCaretUp } from 'react-icons/ai';
 import { useMediaQuery } from 'react-responsive';
+import { useNavigate } from 'react-router-dom';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -37,6 +38,7 @@ function CompanyTable<TData, TValue>({
     },
     onSortingChange: setSorting,
   });
+  const navigate = useNavigate();
 
   return (
     <>
@@ -73,7 +75,11 @@ function CompanyTable<TData, TValue>({
         </thead>
         <tbody className="text-sm lg:text-lg">
           {table.getRowModel().rows.map((row) => (
-            <tr key={row.id}>
+            <tr
+              key={row.id}
+              className="hover:bg-black hover:bg-opacity-30 hover:cursor-pointer overflow-hidden"
+              onClick={() => navigate('/stock/appl')}
+            >
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="py-3 lg:pl-16 md:pl-10">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
