@@ -66,6 +66,10 @@ class DataHandler:
         self.dates = [] # Dates of all the companies (Used to sort the data sequences into chronological order)
         invalid_tickers = []
 
+        # Single sentiment values from dates the model are predicting the stock trend on
+        if hyperparameters["uses_single_sentiments"] == True:
+            self.single_sentiments = []
+
         # Transformation based on "N_OR_S" and "transform_data"
         if hyperparameters["transform_after"] == True:
             transformation = self.standardise_data if hyperparameters["N_OR_S"] == "S" else self.normalise_data
@@ -101,6 +105,10 @@ class DataHandler:
             self.labels.append(self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64))
             DATA.drop("Target", axis = 1, inplace = True)
 
+            # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
+            if hyperparameters["uses_single_sentiments"]:
+                self.single_sentiments.append(self.dataframe_to_ptt(pandas_dataframe = DATA["sentiment_tomorrow"], desired_dtype = torch_float_32))
+
             # Create normalised and standardised versions of the data
             if hyperparameters["transform_after"] == False: # Standardising / Normalising companies separately
                 # Notes:
@@ -115,7 +123,7 @@ class DataHandler:
             # Add the dates to the list
             self.dates.append(DATA.index.tolist())
 
-            print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape}")
+            print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape} | SentimentsShape: {self.single_sentiments[-1].shape}")
         
         print(f"Total examples: {sum([company_labels.shape[0] for company_labels in self.labels])}")
 
@@ -224,6 +232,11 @@ class DataHandler:
                 if "trend_mean" in rolling_features:
                     D[f"TrendMean_{p}"] = rolling_trends.mean()
 
+            # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
+            if hyperparameters["uses_single_sentiments"] == True:
+                D["sentiment_tomorrow"] = D["sentiment"].shift(-1)
+                D.drop("sentiment", axis = 1, inplace = True) # Remove sentiments as a input feature in each row (Replaced with a single sentiment value from the day to predict)
+        
         """ Note: 
         - Includes the date used before the date to predict, this is specifically for inference where we want to predict the next day using the previous day (without this, today would be removed from the dataframe)
         """
@@ -311,18 +324,22 @@ class DataHandler:
 
         return torch_tensor(pandas_dataframe.values, dtype = desired_dtype)
 
-    def generate_batch(self, batch_size, dataset, num_context_days, start_idx):
+    def generate_batch(self, batch_size, dataset, num_context_days, start_idx, uses_single_sentiments):
         
-        # Find the inputs and labels in the dataset and find the number of examples in this set
-        inputs, labels = dataset
+        # Find the inputs and labels (and sentiments) in the dataset and find the number of examples in this set
+
+        if uses_single_sentiments:
+            inputs, labels, sentiments = dataset
+        else:
+            inputs, labels = dataset
 
         # Generate batch indexes starting from the start index, which correspond to each example in the labels and inputs of this dataset (perform using CUDA if possible)
         example_idxs = [start_idx + idx for idx in range(batch_size)]
 
         if num_context_days == 1:
-            # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day)
+            # Return the examples and the corresponding targets (for predicting whether the price goes up or down for the next day) (+ sentiments)
             # Note: If self.device == "cuda", then the batch will be moved back onto the GPU
-            return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device) 
+            return inputs[example_idxs].to(device = self.device), labels[example_idxs].to(device = self.device), sentiments[example_idxs].to(device = self.device) if uses_single_sentiments else None
 
         else:
             # Notes:
@@ -343,8 +360,8 @@ class DataHandler:
             # Each day in "num_context_days" should have "batch_size" sequences (Performs the same code as above)
             b_inputs = torch_stack(tensors = [torch_stack([inputs[example_idxs[j]][i] for j in range(batch_size)], dim = 0) for i in range(num_context_days)], dim = 0)
             
-            # Return the batch inputs and labels
-            return b_inputs.to(device = self.device), labels[example_idxs].to(device = self.device)
+            # Return the batch inputs, labels and sentiments
+            return b_inputs.to(device = self.device), labels[example_idxs].to(device = self.device), sentiments[example_idxs].to(device = self.device) if uses_single_sentiments else None
 
     def create_data_sequences(self, num_context_days, shuffle_data_sequences):
         # Converts self.data, self.labels into data sequences
@@ -361,7 +378,7 @@ class DataHandler:
             all_dates = []
             self.sequence_sizes = []
 
-            for i, (c_labels, c_dates, c_data) in enumerate(zip(self.labels, self.dates, self.data)):
+            for x, (c_labels, c_dates, c_data) in enumerate(zip(self.labels, self.dates, self.data)):
                 # Add the data. labels and dates for this company to the lists
                 all_data.append(c_data)
                 all_labels.append(c_labels)
@@ -370,7 +387,7 @@ class DataHandler:
                 # Add the number of sequences for this company
                 self.sequence_sizes.append(c_labels.shape[0])
 
-                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
+                print(f"Company {x} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
 
             # Concatenate all the data and labels from all the companies
             self.data = torch_cat(all_data, dim = 0)
@@ -387,7 +404,7 @@ class DataHandler:
             self.sequence_sizes = [] # Used to find out which sequences belong to which companies (at inference time)
 
             # Data (Normalised and standardised versions)
-            for i, (c_labels, c_dates, c_data) in enumerate(zip(self.labels, self.dates, self.data)):
+            for x, (c_labels, c_dates, c_data) in enumerate(zip(self.labels, self.dates, self.data)):
 
                 # The number of sequences of length "num_context_days" in this company's data
                 original_num_days = c_labels.shape[0] # Original number of days
@@ -409,7 +426,7 @@ class DataHandler:
                 Second sequence = Jan2, Jan3, Jan4, Jan5, Jan6, Jan7, Jan8, Jan9, Jan10, Jan11
                 Correct label for January 11 predicting January 12 is labels[10]
                 """
-                c_labels = c_labels[start_trim_idx:] # labels.shape = (Correct predictions for all sequences in self.data)
+                c_labels = c_labels[start_trim_idx:] # labels = (Correct predictions for all data sequences in self.data)
 
                 # Trim dates 
                 # - Each c_data[i] should correspond to the correct date in c_dates[i], where c_dates[i] is the date before the date to predict
@@ -436,12 +453,28 @@ class DataHandler:
                 # Add the number of sequences for this company
                 self.sequence_sizes.append(c_labels.shape[0])
 
-                print(f"Company {i} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
+                print(f"Company {x} | LabelsShape {c_labels.shape} | DataShape {c_data.shape}")
 
             # Concatenate all the data sequences and labels from all the companies
             self.data = torch_cat(all_data_sequences, dim = 0)
             self.labels = torch_cat(all_labels, dim = 0)
             self.dates = all_dates
+
+        # Using single sentiment values for model (instead of each data sequence having a sentiment)
+        if hasattr(self, "single_sentiments"):
+
+            if num_context_days == 1:
+                all_sentiments = [c_sentiments for c_sentiments in self.single_sentiments]
+            else:
+                # Trim the sentiments
+                # - sentiments = (The sentiment values on the day to predict)
+                all_sentiments = [c_sentiments[start_trim_idx:] for c_sentiments in self.single_sentiments] 
+            
+            # Concatenate all companies sentiments
+            self.single_sentiments = torch_cat(all_sentiments, dim = 0)
+
+            # Convert to a 2D tensor, as it will need to be concatenated with the final state of the inputs of the models before entering the output layer
+            self.single_sentiments = self.single_sentiments.view(self.single_sentiments.shape[0], 1)
 
         # Sorting / Shuffling data sequences
         if shuffle_data_sequences == True:
@@ -452,19 +485,30 @@ class DataHandler:
         # Remove dates (no longer required)
         # del self.dates
     
-        print(f"DataShape: {self.data.shape} | LabelsShape: {self.labels.shape}")
+        print(f"DataShape: {self.data.shape} | LabelsShape: {self.labels.shape} " + f"| SingleSentiments: {self.single_sentiments.shape}" if hasattr(self, "single_sentiments") else "")
 
     def separate_data_sequences(self, train_split_decimal):
         # Separates data sequences into training and test sets 
         # - The training set will be used for folds during training
         # - The test set will be used as a final evaluation of then model after cross-validation
 
-        train_end_idx = int(self.labels.shape[0] * train_split_decimal)
-        self.TRAIN_SET = (self.data[0:train_end_idx], self.labels[0:train_end_idx])
-        self.TEST_SET = (self.data[train_end_idx:], self.labels[train_end_idx:])
-        
-        print(f"TRAIN SET | Inputs: {self.TRAIN_SET[0].shape} | Labels: {self.TRAIN_SET[1].shape}")
-        print(f"TEST SET | Inputs: {self.TEST_SET[0].shape} | Labels: {self.TEST_SET[1].shape}")
+        # Predicting with single sentiments
+        if hasattr(self, "single_sentiments"):
+            train_end_idx = int(self.labels.shape[0] * train_split_decimal)
+            self.TRAIN_SET = (self.data[0:train_end_idx], self.labels[0:train_end_idx], self.single_sentiments[0:train_end_idx])
+            self.TEST_SET = (self.data[train_end_idx:], self.labels[train_end_idx:], self.single_sentiments[train_end_idx:])
+
+            print(f"TRAIN SET | Inputs: {self.TRAIN_SET[0].shape} | Labels: {self.TRAIN_SET[1].shape} | SingleSentiments: {self.TRAIN_SET[2].shape}")
+            print(f"TEST SET | Inputs: {self.TEST_SET[0].shape} | Labels: {self.TEST_SET[1].shape} | SingleSentiments: {self.TEST_SET[2].shape}")
+
+        # Without single sentiments
+        else:
+            train_end_idx = int(self.labels.shape[0] * train_split_decimal)
+            self.TRAIN_SET = (self.data[0:train_end_idx], self.labels[0:train_end_idx])
+            self.TEST_SET = (self.data[train_end_idx:], self.labels[train_end_idx:])
+            
+            print(f"TRAIN SET | Inputs: {self.TRAIN_SET[0].shape} | Labels: {self.TRAIN_SET[1].shape}")
+            print(f"TEST SET | Inputs: {self.TEST_SET[0].shape} | Labels: {self.TEST_SET[1].shape}")
     
     def shuffle_data_sequences(self):
         # Shuffling the data sequences
@@ -472,9 +516,11 @@ class DataHandler:
         permutation_indices = torch_randperm(self.labels.shape[0], device = self.device, generator = self.generator) # Generate random permutation of indices
         permutation_indices = permutation_indices.to(device = "cpu") # Move to CPU as self.data is on the CPU
 
-        # Assign indices to data and labels
+        # Assign indices to data, labels (and sentiments)
         self.data = self.data[permutation_indices]
         self.labels = self.labels[permutation_indices]
+        if hasattr(self, "single_sentiments"):
+            self.single_sentiments = self.single_sentiments[permutation_indices]
     
     def sort_data_sequences(self, dates):
         
@@ -488,10 +534,12 @@ class DataHandler:
 
         #print("SORTED: DATALABELSDATES", self.data.shape, self.labels.shape, sort_indices.shape)
         self.sort_indices = sort_indices
-        # Sort data, labels and dates
+        # Sort data, labels, dates (and sentiments)
         self.data = self.data[sort_indices]
-        self.labels = self.labels[sort_indices]
+        self.labels = self.labels[sort_indices] 
         self.dates = [self.dates[i] for i in sort_indices]
+        if hasattr(self, "single_sentiments"):
+            self.single_sentiments = self.single_sentiments[sort_indices]
 
     def create_sets(self, num_context_days, shuffle_data_sequences, train_split_decimal):
         # Convert self.data, self.labels into data sequences 
@@ -510,30 +558,59 @@ class DataHandler:
 
         self.D_FOLDS = torch_chunk(input = self.TRAIN_SET[0], chunks = num_folds, dim = 0)
         self.L_FOLDS = torch_chunk(input = self.TRAIN_SET[1], chunks = num_folds, dim = 0)
- 
-    def retrieve_k_folds(self, window_size):
+        if hasattr(self, "single_sentiments"):
+            self.S_FOLDS = torch_chunk(input = self.TRAIN_SET[2], chunks = num_folds, dim = 0)
+
+    def retrieve_k_folds(self, window_size, use_single_sentiments):
         
         # Implementation of walk-forward / expanding window cross validation:
         # = Selects the fold at the end of the window as the validation set and the remaining folds for training (k will be zero indexed)
         # - Models will always be trained on past data with the validation set being new unseen data.
 
-        # Retrieve only the first "window_size" folds
-        D_FOLDS = self.D_FOLDS[:window_size]
-        L_FOLDS = self.L_FOLDS[:window_size]
+        if use_single_sentiments:
+            # Retrieve only the first "window_size" folds
+            D_FOLDS = self.D_FOLDS[:window_size]
+            L_FOLDS = self.L_FOLDS[:window_size]
+            S_FOLDS = self.S_FOLDS[:window_size]
+            
+            # Example:
+            # Train: [Fold1], Validation: Fold2
+            # Train: [Fold1, Fold2], Validation: Fold3
+            # Train: [Fold1, Fold2, Fold3], Validation: Fold4
+            # Train: [Fold1, Fold2, Fold3, Fold4], Validation: Fold5
+
+            print(f"TRAIN FOLDS | Inputs: {torch_cat([D_FOLDS[i] for i in range(window_size - 1)]).shape} | Labels: {torch_cat([L_FOLDS[i] for i in range(window_size - 1)]).shape} | SingleSentiments: {torch_cat([S_FOLDS[i] for i in range(window_size - 1)]).shape}")
+            print(f"VAL FOLD | Inputs: {D_FOLDS[-1].shape} | Labels: {L_FOLDS[-1].shape} | SingleSentiments: {S_FOLDS[-1].shape}")
+
+
+            # Training folds and validation fold
+            # Note: Each tuple = (data folds, corresponding label folds)
+            # Return the training folds and validation folds
+            return (
+                    torch_cat([D_FOLDS[i] for i in range(window_size - 1)]), 
+                    torch_cat([L_FOLDS[i] for i in range(window_size - 1)]),
+                    torch_cat([S_FOLDS[i] for i in range(window_size - 1)])
+                    ), (D_FOLDS[-1], L_FOLDS[-1], S_FOLDS[-1])
+
+        else:
+
+            # Retrieve only the first "window_size" folds
+            D_FOLDS = self.D_FOLDS[:window_size]
+            L_FOLDS = self.L_FOLDS[:window_size]
+            
+            # Example:
+            # Train: [Fold1], Validation: Fold2
+            # Train: [Fold1, Fold2], Validation: Fold3
+            # Train: [Fold1, Fold2, Fold3], Validation: Fold4
+            # Train: [Fold1, Fold2, Fold3, Fold4], Validation: Fold5
+            print(f"TRAIN FOLDS | Inputs: {torch_cat([D_FOLDS[i] for i in range(window_size - 1)]).shape} | Labels: {torch_cat([L_FOLDS[i] for i in range(window_size - 1)]).shape}")
+            print(f"VAL FOLD | Inputs: {D_FOLDS[-1].shape} | Labels: {L_FOLDS[-1].shape}")
+
+            # Training folds and validation fold
+            # Note: Each tuple = (data folds, corresponding label folds)
+            # Return the training folds  and validation folds
+            return (torch_cat([D_FOLDS[i] for i in range(window_size - 1)]), torch_cat([L_FOLDS[i] for i in range(window_size - 1)])), (D_FOLDS[-1], L_FOLDS[-1])
         
-        # Example:
-        # Train: [Fold1], Validation: Fold2
-        # Train: [Fold1, Fold2], Validation: Fold3
-        # Train: [Fold1, Fold2, Fold3], Validation: Fold4
-        # Train: [Fold1, Fold2, Fold3, Fold4], Validation: Fold5
-        print(f"TRAIN FOLDS | Inputs: {torch_cat([D_FOLDS[i] for i in range(window_size - 1)]).shape} | Labels: {torch_cat([L_FOLDS[i] for i in range(window_size - 1)]).shape}")
-        print(f"VAL FOLD | Inputs: {D_FOLDS[-1].shape} | Labels: {L_FOLDS[-1].shape}")
-
-        # Training folds and validation fold
-        # Note: Each tuple = (data folds, corresponding label folds)
-        # Return the training folds  and validation folds
-        return (torch_cat([D_FOLDS[i] for i in range(window_size - 1)]), torch_cat([L_FOLDS[i] for i in range(window_size - 1)])), (D_FOLDS[-1], L_FOLDS[-1])
-
 class TextDataHandler: 
     """ Will be used to train my own sentiment analysis model after using a pretrained model to label the unlabelled dataset with sentiment values """
 

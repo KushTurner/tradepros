@@ -46,7 +46,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 24
+model_number_load = 26
 # manual_hyperparams = {
 #                     "architecture": "RNN", # Will be deleted after instantiation
 #                     "N_OR_S": "N",
@@ -55,7 +55,8 @@ model_number_load = 24
 #                     "learning_rate": 1e-3,
 #                     "num_folds": 5,
 #                     "multiplicative_trains": 1,
-#                     "uses_dated_sentiments": False,
+#                     "uses_dated_sentiments": True, #False,
+#                     "uses_single_sentiments": True,
 #                     "features_to_remove": ["adjclose"],
 #                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
 #                     "rolling_periods": [2, 5, 10, 15, 20],
@@ -72,7 +73,8 @@ manual_hyperparams = {
                     "learning_rate": 1e-4,
                     "num_folds": 5,
                     "multiplicative_trains": 1,
-                    "uses_dated_sentiments": False,
+                    "uses_dated_sentiments": True,
+                    "uses_single_sentiments": True,
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "rolling_periods": [2, 5, 10, 15, 20],
@@ -96,21 +98,21 @@ DH.create_sets(num_context_days = hyperparameters["num_context_days"], shuffle_d
 DH.create_folds(num_folds = hyperparameters["num_folds"])
 
 # Generate folds for this training iteration
-TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2)
+TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2, use_single_sentiments = hyperparameters["uses_single_sentiments"])
 
 print(f"Hyperparameters used: {hyperparameters}")
 print(f"Model architecture: {model.__class__.__name__} | Number of parameters: {sum(p.numel() for p in model.parameters())}")
 # ---------------------------------------------------------------------------------------
 
 # Testing generate_batch
-X1, Y1 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = 0)
-print(X1.shape, Y1.shape)
+X1, Y1, S1 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = 0, uses_single_sentiments = hyperparameters["uses_single_sentiments"])
+print(X1.shape, Y1.shape, S1.shape if S1 != None else None)
 
-X2, Y2 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = 0)
-print(X2.shape, Y2.shape)
+X2, Y2, S2 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = 0, uses_single_sentiments = hyperparameters["uses_single_sentiments"])
+print(X2.shape, Y2.shape, S2.shape if S2 != None else None)
 
-X3, Y3 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = 0)
-print(X3.shape, Y3.shape)
+X3, Y3, S3 = DH.generate_batch(batch_size = 5, dataset = TRAIN_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = 0, uses_single_sentiments = hyperparameters["uses_single_sentiments"])
+print(X3.shape, Y3.shape, S3.shape if S3 != None else None)
 
 
 # Training:
@@ -125,7 +127,7 @@ if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
         # Notes:
         # - Window size starts at 2: Window sizes = (2 + 0), (2 + 1) (2 + 2) (2 + 3)
         # - Number of total sets = (num_folds - 1)
-        TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2 + k)
+        TRAIN_FOLDS, VAL_FOLDS = DH.retrieve_k_folds(window_size = 2 + k, use_single_sentiments = hyperparameters["uses_single_sentiments"])
         
 
         # Rolling window variables: (Starting indexes, number of batches in each of the training / validation folds, interval for evaluating on the validation fold)
@@ -142,13 +144,19 @@ if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
         for i in range(num_trains):
 
             # Generate inputs and labels
-            Xtr, Ytr = DH.generate_batch(batch_size = BATCH_SIZE, dataset = TRAIN_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = train_fold_sidx)
+            Xtr, Ytr, Str = DH.generate_batch(
+                                            batch_size = BATCH_SIZE,
+                                            dataset = TRAIN_FOLDS, 
+                                            num_context_days = hyperparameters["num_context_days"], 
+                                            start_idx = train_fold_sidx,
+                                            uses_single_sentiments = hyperparameters["uses_single_sentiments"]
+                                            )
             train_fold_sidx += 1
 
             for j in range(multiplicative_trains): # Train on a single batch j times
 
                 # Forward pass
-                logits = model(Xtr)
+                logits = model(Xtr, single_sentiment_values = Str)
 
                 # Find training loss
                 # Note: Did not use F.softmax and F.nll_loss because of floating point accuracy
@@ -179,10 +187,16 @@ if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
                     train_accuracy, train_precision, train_recall, train_f1 = find_P_A_R(predictions = preds, targets = Ytr)
                     
                     # Find the loss, accuracy, precision, recall and f1 score on a validation batch
-                    Xva, Yva = DH.generate_batch(batch_size = BATCH_SIZE, dataset = VAL_FOLDS, num_context_days = hyperparameters["num_context_days"], start_idx = val_fold_sidx)
+                    Xva, Yva, Sva = DH.generate_batch(
+                                                        batch_size = BATCH_SIZE, 
+                                                        dataset = VAL_FOLDS, 
+                                                        num_context_days = hyperparameters["num_context_days"], 
+                                                        start_idx = val_fold_sidx,
+                                                        uses_single_sentiments = hyperparameters["uses_single_sentiments"]
+                                                        )
                     val_fold_sidx += 1
 
-                    v_logits = model(Xva)
+                    v_logits = model(Xva, single_sentiment_values = Sva)
                     v_loss = F.cross_entropy(v_logits, Yva)
                     v_preds = F.softmax(v_logits, dim = 1)
                     val_accuracy, val_precision, val_recall, val_f1 = find_P_A_R(predictions = v_preds, targets = Yva)
@@ -273,123 +287,124 @@ A = 62
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Testing on existing data:
 
-from tools import get_predictions
+if hyperparameters["uses_single_sentiments"] == False:
+    from tools import get_predictions
 
-print(DH.data.shape)
+    print(DH.data.shape)
 
-# selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
-selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
+    # selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
+    selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
 
-DH.retrieve_data(
-            tickers = selected_tickers,
-            start_date = "01/01/2023", # MM/DD/YYYY
-            end_date = "08/28/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
-            interval = "1d",
-            dated_sentiments = None, # Not needed at inference time 
-            include_date_before_prediction_date = True,
-            hyperparameters = hyperparameters,
-            )
+    DH.retrieve_data(
+                tickers = selected_tickers,
+                start_date = "01/01/2023", # MM/DD/YYYY
+                end_date = "08/28/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
+                interval = "1d",
+                dated_sentiments = None, # Not needed at inference time 
+                include_date_before_prediction_date = True,
+                hyperparameters = hyperparameters,
+                )
 
-for company in DH.data:
-    print("num_days", len(company))
+    for company in DH.data:
+        print("num_days", len(company))
 
-print(len(DH.dates))
-for dates in DH.dates:
-    print("num_dates_for_each_sequence_for_each_company", len(dates))
+    print(len(DH.dates))
+    for dates in DH.dates:
+        print("num_dates_for_each_sequence_for_each_company", len(dates))
 
-# Create data sequences
-DH.create_data_sequences(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False)
-print(len(DH.data))
-print(DH.labels.shape)
-print(len(DH.dates))
-input_data = DH.data
-print(len(input_data))
+    # Create data sequences
+    DH.create_data_sequences(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False)
+    print(len(DH.data))
+    print(DH.labels.shape)
+    print(len(DH.dates))
+    input_data = DH.data
+    print(len(input_data))
 
-# Create batches from all the data sequences
-if model.__class__.__name__ == "RNN":
-    # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
-    batches = [input_data[i:i + hyperparameters["batch_size"]].transpose(dim0 = 0, dim1 = 1) for i in range(0, len(input_data), hyperparameters["batch_size"])]
+    # Create batches from all the data sequences
+    if model.__class__.__name__ == "RNN":
+        # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
+        batches = [input_data[i:i + hyperparameters["batch_size"]].transpose(dim0 = 0, dim1 = 1) for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
-    # Padding final batch for batch prompting
-    if batches[-1].shape[1] != hyperparameters["batch_size"]:
-        right_padding = torch.zeros(hyperparameters["num_context_days"], hyperparameters["batch_size"] - batches[-1].shape[1], batches[-1].shape[2])
-        batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 1) # Concatenate on the batch dimension
+        # Padding final batch for batch prompting
+        if batches[-1].shape[1] != hyperparameters["batch_size"]:
+            right_padding = torch.zeros(hyperparameters["num_context_days"], hyperparameters["batch_size"] - batches[-1].shape[1], batches[-1].shape[2])
+            batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 1) # Concatenate on the batch dimension
 
-elif model.__class__.__name__ == "MLP":
-    # Single day sequences
-    batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
+    elif model.__class__.__name__ == "MLP":
+        # Single day sequences
+        batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
-    # Padding final batch for batch prompting
-    if batches[-1].shape[0] != hyperparameters["batch_size"]:
-        right_padding = torch.zeros(hyperparameters["batch_size"] - batches[-1].shape[0], batches[-1].shape[1])
-        batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 0) # Concatenate on the batch dimension
-
-
-# Get all the predictions for each batch
-# Note: [:len(input_data)] to get rid of any padding examples
-all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])[:len(input_data)]
-print(all_predictions.shape)
-
-# Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates
-print(selected_tickers)
-print(DH.sequence_sizes)
-companies_tickers = [selected_tickers[i] for i in range(len(selected_tickers)) for _ in range(DH.sequence_sizes[i])]
-companies_tickers = [companies_tickers[ind] for ind in DH.sort_indices]
-print(len(companies_tickers))
-
-""" 
-Labels = Sorted by dates
-Data = Sorted by dates
-Company tickers = Not sorted
-"""
-
-correct_count = 0
-for prediction, label in zip(all_predictions, DH.labels):
-    pred_i = torch.argmax(prediction, dim = 0)
-    # print(prediction)
-    # print(pred_i)
-    # print(label)
-    # print("----------------")
-    correct_count += 1 if label.item() == pred_i.item() else 0
-
-print(f"Number of uptrends: {DH.labels.count_nonzero().item()} | Number of downtrends {DH.labels.shape[0] - DH.labels.count_nonzero().item()}")
-accuracy, precision, recall, f1_score = find_P_A_R(all_predictions, DH.labels.to(DEVICE))
-print(f"Accuracy: {accuracy} | Precision: {precision} | Recall: {recall} | F1 Score: {f1_score}")
-print(f"Correct: {correct_count}/{all_predictions.shape[0]} | PercentageCorrect: {(correct_count / all_predictions.shape[0]) * 100}")
+        # Padding final batch for batch prompting
+        if batches[-1].shape[0] != hyperparameters["batch_size"]:
+            right_padding = torch.zeros(hyperparameters["batch_size"] - batches[-1].shape[0], batches[-1].shape[1])
+            batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 0) # Concatenate on the batch dimension
 
 
-# Create a list of dictionaries containing information about a sequence
-""" Notes:
-- Each data sequence is mapped with:
-    - Corresponding ticker
-    - The model prediction in the form of a probability distribution
-    - Target (the actual trend) 
-    - The model prediction where 0 = predicted downward trend, 1 = predicted upward trend
-    - Whether the model's prediction was correct
-    - Corresponding date
+    # Get all the predictions for each batch
+    # Note: [:len(input_data)] to get rid of any padding examples
+    all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])[:len(input_data)]
+    print(all_predictions.shape)
 
-- If it appears that there are repeated predictions for completely different sequences, its just how the tensor is displayed (rounded)
+    # Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates
+    print(selected_tickers)
+    print(DH.sequence_sizes)
+    companies_tickers = [selected_tickers[i] for i in range(len(selected_tickers)) for _ in range(DH.sequence_sizes[i])]
+    companies_tickers = [companies_tickers[ind] for ind in DH.sort_indices]
+    print(len(companies_tickers))
 
-# To double-check the number of occurrences of each prediction
-from collections import Counter
-import numpy as np
-all_predictions = [sequence_dict["prediction"].to("cpu") for sequence_dict in prediction_info_dicts]
+    """ 
+    Labels = Sorted by dates
+    Data = Sorted by dates
+    Company tickers = Not sorted
+    """
 
-# Convert the tensors to strings and use Counter to count occurrences
-tensor_tuple_list = [tuple(tensor) for tensor in all_predictions]
-tensor_counts = Counter(tensor_tuple_list)
+    correct_count = 0
+    for prediction, label in zip(all_predictions, DH.labels):
+        pred_i = torch.argmax(prediction, dim = 0)
+        # print(prediction)
+        # print(pred_i)
+        # print(label)
+        # print("----------------")
+        correct_count += 1 if label.item() == pred_i.item() else 0
 
-# Print the counts of unique tensors
-for tensor_tuple, count in tensor_counts.items():
-    tensor = np.array(tensor_tuple)
-    if count > 1:
-        print(f"{tensor}: {count}")
+    print(f"Number of uptrends: {DH.labels.count_nonzero().item()} | Number of downtrends {DH.labels.shape[0] - DH.labels.count_nonzero().item()}")
+    accuracy, precision, recall, f1_score = find_P_A_R(all_predictions, DH.labels.to(DEVICE))
+    print(f"Accuracy: {accuracy} | Precision: {precision} | Recall: {recall} | F1 Score: {f1_score}")
+    print(f"Correct: {correct_count}/{all_predictions.shape[0]} | PercentageCorrect: {(correct_count / all_predictions.shape[0]) * 100}")
 
-"""
-prediction_info_dicts = [{"ticker": ticker, "prediction": prediction, "Target": label.item(), "ModelAnswer": torch.argmax(prediction, dim = 0).item(), "Correct": torch.argmax(prediction, dim = 0).item() == label.item(), "timestamp": timestamp} for prediction, label, ticker, timestamp in zip(all_predictions, DH.labels, companies_tickers, DH.dates)]
-for d in prediction_info_dicts[:5]:
-    print(d)
-prediction_info_dicts.sort(key = lambda x: x["timestamp"]) # Sort by date
 
-for d in prediction_info_dicts[-10:]:
-    print("After", d)
+    # Create a list of dictionaries containing information about a sequence
+    """ Notes:
+    - Each data sequence is mapped with:
+        - Corresponding ticker
+        - The model prediction in the form of a probability distribution
+        - Target (the actual trend) 
+        - The model prediction where 0 = predicted downward trend, 1 = predicted upward trend
+        - Whether the model's prediction was correct
+        - Corresponding date
+
+    - If it appears that there are repeated predictions for completely different sequences, its just how the tensor is displayed (rounded)
+
+    # To double-check the number of occurrences of each prediction
+    from collections import Counter
+    import numpy as np
+    all_predictions = [sequence_dict["prediction"].to("cpu") for sequence_dict in prediction_info_dicts]
+
+    # Convert the tensors to strings and use Counter to count occurrences
+    tensor_tuple_list = [tuple(tensor) for tensor in all_predictions]
+    tensor_counts = Counter(tensor_tuple_list)
+
+    # Print the counts of unique tensors
+    for tensor_tuple, count in tensor_counts.items():
+        tensor = np.array(tensor_tuple)
+        if count > 1:
+            print(f"{tensor}: {count}")
+
+    """
+    prediction_info_dicts = [{"ticker": ticker, "prediction": prediction, "Target": label.item(), "ModelAnswer": torch.argmax(prediction, dim = 0).item(), "Correct": torch.argmax(prediction, dim = 0).item() == label.item(), "timestamp": timestamp} for prediction, label, ticker, timestamp in zip(all_predictions, DH.labels, companies_tickers, DH.dates)]
+    for d in prediction_info_dicts[:5]:
+        print(d)
+    prediction_info_dicts.sort(key = lambda x: x["timestamp"]) # Sort by date
+
+    for d in prediction_info_dicts[-10:]:
+        print("After", d)

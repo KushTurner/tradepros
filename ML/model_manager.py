@@ -52,12 +52,12 @@ class ModelManager:
             hyperparameters = checkpoint["hyperparameters"] # Load hyperparameters of the saved model
 
             if checkpoint["model"]["architecture"] == "RNN":
-                model = RNN(initial_in = hyperparameters["n_features"], final_out = 2, N_OR_S = hyperparameters["N_OR_S"])
+                model = RNN(initial_in = hyperparameters["n_features"], final_out = 2, N_OR_S = hyperparameters["N_OR_S"], uses_single_sentiments = hyperparameters["uses_single_sentiments"])
                 if inference == False:
                     optimiser = torch_optim_Adam(params = model.parameters(), lr = hyperparameters["learning_rate"])
             
             elif checkpoint["model"]["architecture"] == "MLP":
-                model = MLP(initial_in = hyperparameters["n_features"], final_out = 2, N_OR_S = hyperparameters["N_OR_S"])
+                model = MLP(initial_in = hyperparameters["n_features"], final_out = 2, N_OR_S = hyperparameters["N_OR_S"], uses_single_sentiments = hyperparameters["uses_single_sentiments"])
                 if inference == False:
                     optimiser = torch_optim_SGD(params = model.parameters(), lr = hyperparameters["learning_rate"])
                 
@@ -93,13 +93,14 @@ class ModelManager:
                                     "num_folds": 5,
                                     "multiplicative_trains": 2,
                                     "uses_dated_sentiments": True,
+                                    "uses_single_sentiments": True, # Input = [Info1, Info2, Info3, Info4] + Single sentiment value on the date to predict
                                     "features_to_remove": [],
                                     "cols_to_alter": ["open", "close", "high", "low", "volume", "adjclose"],
                                     "rolling_periods": [2, 5, 10, 15, 20],
                                     "rolling_features": ["avg_open", "open_ratio", "avg_close", "close_ratio", "avg_volume", "volume_ratio", "trend_sum", "trend_mean"],
                                     "transform_after": True, # True to transform the comapnies data together or False for separately
                                     "train_split_decimal": 0.8, # Size of the train split as a decimal (0.8 = 80%)
-                                    "train_data_params": None # Training data parameters (mean, std, etc)
+                                    "train_data_params": None, # Training data parameters (mean, std, etc)
                                     }
 
                 # Suggested values for the following hyperparameters, based on the model architecture
@@ -135,11 +136,11 @@ class ModelManager:
             
             # Initialising the model and optimiser
             if manual_hyperparams["architecture"] == "RNN":
-                model = RNN(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"])
+                model = RNN(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"], uses_single_sentiments = manual_hyperparams["uses_single_sentiments"])
                 optimiser = torch_optim_Adam(params = model.parameters(), lr = manual_hyperparams["learning_rate"])
 
             elif manual_hyperparams["architecture"] == "MLP":
-                model = MLP(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"])
+                model = MLP(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"], uses_single_sentiments = manual_hyperparams["uses_single_sentiments"])
                 optimiser = torch_optim_SGD(params = model.parameters(), lr = manual_hyperparams["learning_rate"])
 
             # Modify hyperparams

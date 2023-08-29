@@ -2,10 +2,11 @@
 from typing import Any
 import torch.nn as nn
 from torch import zeros as torch_zeros
+from torch import concat as torch_concat
 
 class MLP(nn.Module):
 
-    def __init__(self, initial_in, final_out, N_OR_S):
+    def __init__(self, initial_in, final_out, N_OR_S, uses_single_sentiments):
 
         super(MLP, self).__init__()
         
@@ -19,9 +20,7 @@ class MLP(nn.Module):
 
                                     nn.Linear(in_features = initial_in // 2, out_features = initial_in // 4),
                                     nn.BatchNorm1d(num_features = initial_in // 4),
-                                    nn.ReLU(),
-
-                                    nn.Linear(in_features = initial_in // 4, out_features = final_out)
+                                    nn.ReLU()
                                     
                                     # -----------------------------------------------------------------
                                     # Config 3:
@@ -46,13 +45,23 @@ class MLP(nn.Module):
                                     
                                     )
         
+        # Output layer
+        self.O = nn.Linear(in_features = (initial_in // 4) + uses_single_sentiments, out_features = final_out)
+
         self.initialise_weights(non_linearity = "relu")
         
         # Determines whether the model will use normalised or standardised data for training and inference
         self.N_OR_S = N_OR_S
     
-    def __call__(self, inputs):
-        return self.model(inputs)
+    def __call__(self, inputs, single_sentiment_values):
+
+        if single_sentiment_values != None:
+            # - Concatenate outputs after hidden layers with the single sentiment values
+            # - Pass through output layer
+            return self.O(torch_concat([self.model(inputs), single_sentiment_values], dim = 1))
+        else:
+            # Pass through output layer directly after hidden layers
+            return self.O(self.model(inputs))
 
     def initialise_weights(self, non_linearity):
         
@@ -66,7 +75,7 @@ class MLP(nn.Module):
 
 class RNN(nn.Module):
 
-    def __init__(self, initial_in, final_out, N_OR_S):
+    def __init__(self, initial_in, final_out, N_OR_S, uses_single_sentiments):
         super(RNN, self).__init__()
 
         self.layers = nn.Sequential(
@@ -184,15 +193,16 @@ class RNN(nn.Module):
         # Hidden state layer
         self.hidden_layer = nn.Linear(initial_in // 4, out_features = initial_in // 4, bias = True)
         self.hidden_state_af = nn.ReLU()
-
-        self.O = nn.Linear(initial_in // 4, final_out)
+        
+        # Output layer
+        self.O = nn.Linear((initial_in // 4) + uses_single_sentiments, final_out) # + 1 if using the sentiment from the date to predict
 
         self.initialise_weights(non_linearity = "relu")
 
         # Determines whether the model will use normalised or standardised data for training and inference
         self.N_OR_S = N_OR_S
 
-    def __call__(self, inputs):
+    def __call__(self, inputs, single_sentiment_values):
         
         # inputs.shape = [Number of x consecutive day sequences, x consecutive day sequences, num features in a single day]
 
@@ -226,7 +236,13 @@ class RNN(nn.Module):
             - If this isn't the first training step, the hidden state will be added with the current output after the linear layers
             """
             self.hidden_state = self.hidden_state_af(self.hidden_layer(self.hidden_state + output))
-    
+
+        # Using input as [data_sequence] + single sentiment value on the day to predict
+        if single_sentiment_values != None:
+            # single_sentiment_values.shape = [batch_size, 1]
+            # self.hidden_state.shape = [batch_size, self.hidden_state.shape[1]]
+            self.hidden_state = torch_concat([self.hidden_state, single_sentiment_values], dim = 1)
+        
         # Predict output for the "num_context_days + 1"th day 
         # Note: Shape should be [batch_size, 2], describing the probability assigned (after softmax) that the stock price will go up or down for each sequence in the batch
         output = self.O(self.hidden_state)
