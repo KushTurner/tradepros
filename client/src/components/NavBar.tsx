@@ -1,7 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AiOutlineStock, AiOutlineMenu } from 'react-icons/ai';
+import {
+  AiOutlineStock,
+  AiOutlineMenu,
+  AiOutlineHistory,
+} from 'react-icons/ai';
 import { BsBookmark, BsBriefcase } from 'react-icons/bs';
+import { MdLeaderboard } from 'react-icons/md';
 import { useAuth } from '../context/AuthContext';
 
 function NavBar() {
@@ -70,7 +75,7 @@ function NavBar() {
             <li className="navbar-item ml-6 mb-6 md:mb-0 md:mx-6 lg:mx-14 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
                 <Link className="text-white navbar-item flex" to="/watchlist">
-                  <BsBookmark
+                  <AiOutlineHistory
                     size={16}
                     className="md:hidden mr-2 self-center"
                   />
@@ -78,10 +83,10 @@ function NavBar() {
                 </Link>
               </div>
             </li>
-            <li className="mb-8 md:mb-0 navbar-item ml-6 md:ml-0 md:hover:underline md:hover:underline-offset-[33px]">
+            <li className="mb-8 md:mb-0 navbar-item mx-6 md:ml-0 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex items-center">
                 <Link className="text-white navbar-item flex" to="/portfolio">
-                  <BsBriefcase
+                  <MdLeaderboard
                     size={16}
                     className="md:hidden mr-2 self-center"
                   />
@@ -111,8 +116,8 @@ function NavBar() {
             </li>
           </div>
         ) : (
-          <div className="flex justify-evenly mx-2 mr-6">
-            <li className="navbar-item ml-2 w-full md:ml-0 md:mr-3 p-1 rounded-lg bg-[#5266FE] text-center text-lg font-bold md:px-4">
+          <div className="flex justify-evenly mr-6">
+            <li className="navbar-item w-full md:ml-0 md:mr-3 p-1 rounded-lg bg-[#5266FE] text-center text-base font-bold md:px-2">
               <button
                 type="button"
                 className="text-white md:font-normal md:font-display"
