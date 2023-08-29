@@ -9,6 +9,7 @@ import SignIn from './pages/SignIn';
 import Register from './pages/Register';
 import { AuthProvider } from './context/AuthContext';
 import IndividualCompany from './pages/IndividualCompany';
+import TradeHistory from './pages/TradeHistory';
 
 function App() {
   const location = useLocation();
@@ -25,6 +26,7 @@ function App() {
         <Route path="/watchlist" element={<Watchlist />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/history" element={<TradeHistory />} />
         <Route path="/stock/:stockId" element={<IndividualCompany />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
