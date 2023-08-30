@@ -1,4 +1,4 @@
-from yahoo_fin.stock_info import get_data
+from yahoo_fin.stock_info import get_data, get_dividends, get_earnings, get_financials
 from torch import float32 as torch_float_32
 from torch import int64 as torch_int_64
 from torch import tensor as torch_tensor
@@ -79,7 +79,7 @@ class DataHandler:
         # For each company, modify the data 
         for ticker in tickers:
             try:
-                # Retrieve data
+                # Retrieve historical data
                 DATA = get_data(
                                 ticker = ticker, 
                                 start_date = start_date, 
@@ -87,6 +87,23 @@ class DataHandler:
                                 index_as_date = True, 
                                 interval = interval
                                 )
+
+                if "dividends" not in hyperparameters["features_to_remove"]:
+                    DIVIDENDS = get_dividends(ticker = ticker, start_date = start_date, end_date = end_date, index_as_date = True)
+                    # Re-index using the dates in the the historical data
+                    DIVIDENDS = DIVIDENDS.reindex(DATA.index) # Fill value is automatically NaN
+
+                    # Use linear interpolation to calculate + fill in the missing rows
+                    """
+                    Notes: 
+                    - Days before the first dividend will always have N/A as its values, so will be removed after DataHandler.modify_data()
+                    - Use method = "time" to consider the time intervals between data points when estimating missing values (Good for time-series data)
+                    """
+                    DIVIDENDS["dividend"] = DIVIDENDS["dividend"].interpolate(method = "time")
+
+                    # Add dividends column to historical dataset
+                    DATA["dividends"] = DIVIDENDS["dividend"]
+            
             # Data does not exist
             except:
                 invalid_tickers.append(ticker)
@@ -112,10 +129,12 @@ class DataHandler:
 
             # Create normalised and standardised versions of the data
             if hyperparameters["transform_after"] == False: # Standardising / Normalising companies separately
-                # Notes:
-                # - Created 2 because some models may perform better on standardised data than normalised data and vice versa
-                # - Min-max normalisation preserves relative relationships between data points but eliminates differences in magnitude
-                # - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
+                """
+                Notes:
+                - Created 2 because some models may perform better on standardised data than normalised data and vice versa
+                - Min-max normalisation preserves relative relationships between data points but eliminates differences in magnitude
+                - Standardisation brings data features onto a similar scale to be comparable (Helps remove the influence of the mean and scale of data where distribution of data is not Gaussian or contains outliers)
+                """
                 DATA[hyperparameters["cols_to_alter"]] = transformation(dataframe = DATA, cols_to_alter = hyperparameters["cols_to_alter"])
             
             # Add this companies data to the list
