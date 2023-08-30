@@ -85,7 +85,7 @@ function NavBar() {
             </li>
             <li className="mb-8 md:mb-0 navbar-item mx-6 md:ml-0 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex items-center">
-                <Link className="text-white navbar-item flex" to="/portfolio">
+                <Link className="text-white navbar-item flex" to="/leaderboard">
                   <MdLeaderboard
                     size={16}
                     className="md:hidden mr-2 self-center"
