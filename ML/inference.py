@@ -8,7 +8,7 @@ def get_model_prediction(ticker, date_to_predict):
     from data_handler import DataHandler
     from model_manager import ModelManager
     from datetime import datetime, timedelta
-    from yahoo_fin.stock_info import get_data
+    from yahoo_fin.stock_info import get_data, get_dividends
 
     DEVICE = "cpu" # Faster inference times on CPU
     M_SEED = 2004
@@ -21,7 +21,7 @@ def get_model_prediction(ticker, date_to_predict):
     model_load_time_1 = get_time()
     DH = DataHandler(device = DEVICE, generator = G)
     model_manager = ModelManager(device = DEVICE, DH_reference = DH, TDH_reference = None)
-    model_number_load = 28
+    model_number_load = 32
     model, _, hyperparameters, _, _ = model_manager.initiate_model(
                                                                     model_number_load = model_number_load, 
                                                                     manual_hyperparams = None, 
@@ -76,8 +76,8 @@ def get_model_prediction(ticker, date_to_predict):
     # print(hyperparameters["num_context_days"])
     # print(num_days_prev)
     # print(start_date, end_date)
-    # Retrieve historical data
 
+    # Retrieve historical data
     DATA = get_data(
                     ticker = ticker, 
                     start_date = start_date, 
@@ -86,6 +86,31 @@ def get_model_prediction(ticker, date_to_predict):
                     interval = "1d"
                     )
 
+    # Adding dividends
+    try:
+        if "dividends" not in hyperparameters["features_to_remove"]:
+            DIVIDENDS = get_dividends(ticker = ticker, start_date = start_date, end_date = end_date, index_as_date = True)
+            # Re-index using the dates in the the historical data
+            DIVIDENDS = DIVIDENDS.reindex(DATA.index) # Fill value is automatically NaN
+
+            # Use linear interpolation to calculate + fill in the missing rows
+            """
+            Notes: 
+            - Days before the first dividend will always have N/A as its values, so will be removed after DataHandler.modify_data()
+            - Use method = "time" to consider the time intervals between data points when estimating missing values (Good for time-series data)
+            """
+            DIVIDENDS["dividend"] = DIVIDENDS["dividend"].interpolate(method = "time")
+
+            # Add dividends column to historical dataset
+            DATA["dividends"] = DIVIDENDS["dividend"]
+
+            # Removes rows which contain "NaN" inside of any columns
+            DATA.dropna(inplace = True)
+
+    # No dividends found, set as 0s
+    except:
+        DATA["dividends"] = [0 for _ in range(DATA.shape[0])]
+    
     # Modify data
     DATA = DH.modify_data(
                         D = DATA, 

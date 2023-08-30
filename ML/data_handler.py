@@ -19,6 +19,9 @@ from os.path import join as os_path_join
 from torch import arange as torch_arange
 from time import time as get_time
 
+import yfinance as yf
+
+
 class DataHandler:
 
     def __init__(self, device, generator):
@@ -78,8 +81,9 @@ class DataHandler:
 
         # For each company, modify the data 
         for ticker in tickers:
+
+            # Retrieve historical data
             try:
-                # Retrieve historical data
                 DATA = get_data(
                                 ticker = ticker, 
                                 start_date = start_date, 
@@ -88,6 +92,13 @@ class DataHandler:
                                 interval = interval
                                 )
 
+            # Historical data does not exist, so skip ticker entirely
+            except:
+                invalid_tickers.append(ticker)
+                continue
+
+            # Adding dividends
+            try:
                 if "dividends" not in hyperparameters["features_to_remove"]:
                     DIVIDENDS = get_dividends(ticker = ticker, start_date = start_date, end_date = end_date, index_as_date = True)
                     # Re-index using the dates in the the historical data
@@ -103,11 +114,13 @@ class DataHandler:
 
                     # Add dividends column to historical dataset
                     DATA["dividends"] = DIVIDENDS["dividend"]
-            
-            # Data does not exist
+
+                    # Removes rows which contain "NaN" inside of any columns
+                    DATA.dropna(inplace = True)
+
+            # No dividends found, set as 0s
             except:
-                invalid_tickers.append(ticker)
-                continue
+                DATA["dividends"] = [0 for _ in range(DATA.shape[0])]
 
             # Modify the data (e.g. adding more columns, removing columns, etc.)
             DATA = self.modify_data(
