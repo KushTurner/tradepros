@@ -204,20 +204,33 @@ class RNN(nn.Module):
 
     def __call__(self, inputs, single_sentiment_values):
         
-        # inputs.shape = [Number of x consecutive day sequences, x consecutive day sequences, num features in a single day]
+        """
+        Forward pass notes:
+        - inputs.shape = [Number of x context days in a data sequence, batch size, num features in each day]
 
-        # Let num_context_days = 10, batch_size = 32
-        # Single batch should be [10 x [32 * num_features] ]
-        # 32 x [ClosingP, OpeningP, Volume, etc..] 10 days ago
-        # The next batch for the recurrence will be the day after that day
-        # 32 x [ClosingP, OpeningP, Volume, etc..] 9 days ago
-        # Repeats until all 10 days have been passed in (for a single batch)
+        # Recurrent layer explained:
+        Let num_context_days = 10, batch_size = 32, num_features = 15
+        A Single batch should be [10, 32, 15]
+        At each timestep in the recurrence, it extracts a single batch (i.e. [1, 32, 15] ---> [32, 15])
         
-        # Forward pass should proceed as:
-        # [batch_size, 0th day, sequence features]
-        # [batch_size, 1st day, sequence features]
-        # [batch_size, 2nd day, sequence features]
+        This batch (i.e. [32, 15]) will then be passed into the model
+        timestep = 0 (10 days ago) = 32 x [ClosingP, OpeningP, Volume, etc..]
+        The hidden state is then updated by passing the addition of the output after the RNN layer (self.layers) and the hidden state from the previous time step into the hidden state layer + activation.
+        timestep = 1 (9 days ago) = 32 x [ClosingP, OpeningP, Volume, etc..]
+        The hidden state is updated again (Done in the same with the previous hidden state)
+        This is repeated until all batches for all 10 days have been passed into the model
 
+        # Final output
+        
+        If the model uses single sentiments (i.e. a batch of single sentiments from the days to predict the stock trends):
+        - The single sentiments are concatenated with the output of the model after the recurrent layer: i.e. [32, 1] concatenated with [32, num_features_after_recurrence] --> [32, num_features_after_recurrence + 1] 
+        - The output after the recurrence is passed through the output layer: i.e. [32, num_features_after_recurrence + 1] ---> [32, 2]
+
+        If the model does not use single sentiments:
+        - The output after the recurrence is passed through the output layer: i.e. [32, num_features_after_recurrence] ---> [32, 2]
+
+        The final output is a probability distribution for each of the 32 data sequences in the batch: [Probability the stock goes down, Probability the stock goes up]
+        """
         num_context_days = inputs.shape[0]
         batch_size = inputs.shape[1]
         self.hidden_state = torch_zeros(batch_size, self.hidden_layer.weight.shape[1], device = self.O.weight.device) # Initialise hidden state at the start of each forward pass as zeroes
