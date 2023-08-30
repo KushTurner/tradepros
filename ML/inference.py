@@ -87,8 +87,8 @@ def get_model_prediction(ticker, date_to_predict):
                     )
 
     # Adding dividends
-    try:
-        if "dividends" not in hyperparameters["features_to_remove"]:
+    if "dividends" not in hyperparameters["features_to_remove"]:
+        try:
             DIVIDENDS = get_dividends(ticker = ticker, start_date = start_date, end_date = end_date, index_as_date = True)
             # Re-index using the dates in the the historical data
             DIVIDENDS = DIVIDENDS.reindex(DATA.index) # Fill value is automatically NaN
@@ -107,9 +107,9 @@ def get_model_prediction(ticker, date_to_predict):
             # Removes rows which contain "NaN" inside of any columns
             DATA.dropna(inplace = True)
 
-    # No dividends found, set as 0s
-    except:
-        DATA["dividends"] = [0 for _ in range(DATA.shape[0])]
+        # No dividends found, set as 0s
+        except:
+            DATA["dividends"] = [0 for _ in range(DATA.shape[0])]
     
     # Modify data
     DATA = DH.modify_data(

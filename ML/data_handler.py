@@ -1,4 +1,4 @@
-from yahoo_fin.stock_info import get_data, get_dividends, get_earnings, get_financials
+from yahoo_fin.stock_info import get_data, get_dividends
 from torch import float32 as torch_float_32
 from torch import int64 as torch_int_64
 from torch import tensor as torch_tensor
@@ -98,8 +98,8 @@ class DataHandler:
                 continue
 
             # Adding dividends
-            try:
-                if "dividends" not in hyperparameters["features_to_remove"]:
+            if "dividends" not in hyperparameters["features_to_remove"]:
+                try:
                     DIVIDENDS = get_dividends(ticker = ticker, start_date = start_date, end_date = end_date, index_as_date = True)
                     # Re-index using the dates in the the historical data
                     DIVIDENDS = DIVIDENDS.reindex(DATA.index) # Fill value is automatically NaN
@@ -118,10 +118,10 @@ class DataHandler:
                     # Removes rows which contain "NaN" inside of any columns
                     DATA.dropna(inplace = True)
 
-            # No dividends found, set as 0s
-            except:
-                DATA["dividends"] = [0 for _ in range(DATA.shape[0])]
-
+                # No dividends found, set as 0s
+                except:
+                    DATA["dividends"] = [0 for _ in range(DATA.shape[0])]
+            
             # Modify the data (e.g. adding more columns, removing columns, etc.)
             DATA = self.modify_data(
                                     D = DATA, 
