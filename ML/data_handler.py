@@ -293,6 +293,22 @@ class DataHandler:
                         rs = gains.rolling(window = p, min_periods = 1).mean() / (losses.rolling(window = p, min_periods = 1).mean() + 1e-10)
                         D[f"RSI_{p}"] = 100 - (100 / (1 + rs))
 
+            # Moving Average Convergence Divergence (MACD)
+            if "macd" in rolling_features:
+                """
+                Notes:
+                - Uses 12 day and 26 day EMAs (standard that most traders use)
+                D["DayEMA_12"] = 12 day exponential moving average
+                D["DayEMA_26"] = 26 day exponential moving average
+                D["MACD_Line"] = MACD line
+                D["SignalLine"] = 9 day EMA of the MACD line (signal line)
+                """
+                D["DayEMA_12"] = D["close"].ewm(span = 12, adjust = False).mean()
+                D["DayEMA_26"] = D["close"].ewm(span = 26, adjust = False).mean()
+                D["MACD_Line"] = D["DayEMA_12"] - D["DayEMA_26"]
+                D["SignalLine"] = D["MACD_Line"].ewm(span = 9, adjust = False).mean()
+                D["MACD_Histogram"] = D["MACD_Line"] - D["SignalLine"]
+
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference
             if hyperparameters["uses_single_sentiments"] == True and include_date_before_prediction_date == False:

@@ -46,7 +46,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 37
+model_number_load = None
 manual_hyperparams = {
                     "architecture": "RNN", # Will be deleted after instantiation
                     "N_OR_S": "N",
@@ -60,7 +60,20 @@ manual_hyperparams = {
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "rolling_periods": [2, 5, 10, 15, 20],
-                    "rolling_features": ["avg_open", "open_ratio", "avg_close", "close_ratio", "avg_volume", "volume_ratio", "trend_sum", "trend_mean", "close_diff", "close_diff_percentage", "rsi"],
+                    "rolling_features": [
+                                        "avg_open", 
+                                        "open_ratio", 
+                                        "avg_close", 
+                                        "close_ratio", 
+                                        "avg_volume", 
+                                        "volume_ratio", 
+                                        "trend_sum", 
+                                        "trend_mean", 
+                                        "close_diff", 
+                                        "close_diff_percentage", 
+                                        "rsi", 
+                                        "macd"
+                                        ],
                     "transform_after": True,
                     "train_split_decimal": 0.8,
                     "train_data_params": None
