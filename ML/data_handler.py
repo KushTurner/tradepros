@@ -269,24 +269,29 @@ class DataHandler:
                     D[f"TrendMean_{p}"] = rolling_trends.mean()
                 
                 # Difference in closing priceWas
-                D[f"CloseDiff_{p}"] = D["close"].diff(periods = p)
+                if "close_diff" in rolling_features:
+                    D[f"CloseDiff_{p}"] = D["close"].diff(periods = p)
 
                 # Percentage difference
-                D[f"CloseDiffPercentage_{p}"] = D["close"].pct_change(periods = p)
+                if "close_diff_percentage" in rolling_features:
+                    D[f"CloseDiffPercentage_{p}"] = D["close"].pct_change(periods = p)
 
                 # Relative Strength Index (RSI) (Values should be between 0 and 100)
-                """
-                Notes:
-                differences_1_day is calculated at the top so that it is only calculated once for all RSIs.
-                gains = List of gains, replacing any losses with 0
-                losses = List of losses, replacing any gains with 0, minus to convert to absolute values
-                rs = Average gain / Average loss (over past x days) [+ 1e-10 to avoid division by 0]
-                D[f"RSI_{p}" = RSI formula 
-                """
-                gains = differences_1_day.where(differences_1_day > 0, 0)
-                losses = -differences_1_day.where(differences_1_day < 0, 0)
-                rs = gains.rolling(window = p, min_periods = 1).mean() / (losses.rolling(window = p, min_periods = 1).mean() + 1e-10)
-                D[f"RSI_{p}"] = 100 - (100 / (1 + rs))
+                if "rsi" in rolling_features:
+                    """
+                    Notes:
+                    Only performed for periods >= 10 because of the false information RSIs over periods below that threshold may provide to the model
+                    differences_1_day is calculated at the top so that it is only calculated once for all RSIs.
+                    gains = List of gains, replacing any losses with 0
+                    losses = List of losses, replacing any gains with 0, minus to convert to absolute values
+                    rs = Average gain / Average loss (over past x days) [+ 1e-10 to avoid division by 0]
+                    D[f"RSI_{p}" = RSI formula 
+                    """
+                    if p >= 10:
+                        gains = differences_1_day.where(differences_1_day > 0, 0)
+                        losses = -differences_1_day.where(differences_1_day < 0, 0)
+                        rs = gains.rolling(window = p, min_periods = 1).mean() / (losses.rolling(window = p, min_periods = 1).mean() + 1e-10)
+                        D[f"RSI_{p}"] = 100 - (100 / (1 + rs))
 
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference
@@ -309,7 +314,7 @@ class DataHandler:
 
         # Remove "TomorrowClose" as the model shouldn't "know" what tomorrow's closing price is
         D.drop("TomorrowClose", axis = 1, inplace = True)
-
+        print(D.columns)
         # Set all columns in the D to the float datatype (All values must be homogenous when passed as a tensor into a model) and return the dataframe
         return D.astype(float)
 

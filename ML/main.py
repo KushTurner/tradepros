@@ -46,7 +46,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = None
+model_number_load = 37
 manual_hyperparams = {
                     "architecture": "RNN", # Will be deleted after instantiation
                     "N_OR_S": "N",
@@ -60,7 +60,7 @@ manual_hyperparams = {
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "rolling_periods": [2, 5, 10, 15, 20],
-                    "rolling_features": ["avg_open", "open_ratio", "avg_close", "close_ratio", "avg_volume", "volume_ratio", "trend_sum", "trend_mean"],
+                    "rolling_features": ["avg_open", "open_ratio", "avg_close", "close_ratio", "avg_volume", "volume_ratio", "trend_sum", "trend_mean", "close_diff", "close_diff_percentage", "rsi"],
                     "transform_after": True,
                     "train_split_decimal": 0.8,
                     "train_data_params": None
@@ -339,7 +339,7 @@ if hyperparameters["uses_single_sentiments"] == False:
 
     # Get all the predictions for each batch
     # Note: [:len(input_data)] to get rid of any padding examples
-    all_predictions = torch.concat([model(inputs = batch.to(device = DEVICE), single_sentiment_values = None) for batch in batches])[:len(input_data)]
+    all_predictions = torch.concat([F.softmax(model(inputs = batch.to(device = DEVICE), single_sentiment_values = None), dim = 1) for batch in batches])[:len(input_data)]
     print(all_predictions.shape)
 
     # Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates
