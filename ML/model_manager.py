@@ -17,21 +17,32 @@ class ModelManager:
         self.DH_REF = DH_reference
         self.TDH_REF = TDH_reference
 
-    def initiate_model(self, model_number_load = None, manual_hyperparams = None, inference = False):
+    def initiate_model(self, model_number_load = None, manual_hyperparams = None, inference = False, feature_test_model_name = None):
 
         model_checkpoints_folder_exists = os_path_exists("model_checkpoints") 
         # Load existing model
         if model_number_load != None and model_checkpoints_folder_exists:
-            checkpoint_directory = f"model_checkpoints/{model_number_load}"
+            # Either deployment model or feature test model (dependent on feature_test_model_name parameter)
+            checkpoint_directory = f"model_checkpoints/{'feature_test_models/' if feature_test_model_name else 'deployment_models/'}{model_number_load}"
             self.clean_empty_directories()
             
         # Creates a new model
         else:
             if model_checkpoints_folder_exists == False:
                 os_mkdir("model_checkpoints")
-            self.clean_empty_directories()
+    
+            # Model specifically for feature testing
+            if feature_test_model_name:
+                if os_path_exists("model_checkpoints/feature_test_models") == False:
+                    os_mkdir("model_checkpoints/feature_test_models")
+                checkpoint_directory = f"model_checkpoints/feature_test_models/{feature_test_model_name}"
+            # Model for deployment
+            else:
+                if os_path_exists("model_checkpoints/deployment_models") == False:
+                    os_mkdir("model_checkpoints/deployment_models")
+                checkpoint_directory = f"model_checkpoints/deployment_models/{len(os_listdir('model_checkpoints/deployment_models'))}"
 
-            checkpoint_directory = f"model_checkpoints/{len(os_listdir('model_checkpoints'))}"
+            self.clean_empty_directories()         
             os_mkdir(checkpoint_directory) 
 
         if model_number_load != None and model_checkpoints_folder_exists:
@@ -200,9 +211,16 @@ class ModelManager:
         return model, optimiser, hyperparameters, stats, checkpoint_directory
     
     def clean_empty_directories(self):
-        # Removes any empty directories in the model_checkpoints directory
+        # Removes any empty model directories in the subdirectories of the model_checkpoints directory
 
-        model_checkpoint_path = 'model_checkpoints'
+        model_checkpoint_path = 'model_checkpoints/deployment_models'
+        models_directory = os_listdir(model_checkpoint_path)
+        for directory_name in models_directory:
+            model_directory_path = f"{model_checkpoint_path}/{directory_name}"
+            if len(os_listdir(model_directory_path)) == 0:
+                os_rmdir(model_directory_path)
+
+        model_checkpoint_path = 'model_checkpoints/feature_test_models'
         models_directory = os_listdir(model_checkpoint_path)
         for directory_name in models_directory:
             model_directory_path = f"{model_checkpoint_path}/{directory_name}"
