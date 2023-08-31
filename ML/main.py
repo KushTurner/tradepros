@@ -54,9 +54,9 @@ manual_hyperparams = {
                     "batch_size": 32,
                     "learning_rate": 1e-3,
                     "num_folds": 5,
-                    "multiplicative_trains": 2,
-                    "uses_dated_sentiments": True, #False,
-                    "uses_single_sentiments": True,
+                    "multiplicative_trains": 1,
+                    "uses_dated_sentiments": False, #True, #False,
+                    "uses_single_sentiments": False, #True,
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "rolling_periods": [2, 5, 10, 15, 20],
@@ -288,10 +288,7 @@ A = 62
 # Testing on existing data:
 
 if hyperparameters["uses_single_sentiments"] == False:
-    from tools import get_predictions
-
     print(DH.data.shape)
-
     # selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
     selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
 
@@ -342,7 +339,7 @@ if hyperparameters["uses_single_sentiments"] == False:
 
     # Get all the predictions for each batch
     # Note: [:len(input_data)] to get rid of any padding examples
-    all_predictions = torch.concat([get_predictions(input_data = batch.to(device = DEVICE), model = model) for batch in batches])[:len(input_data)]
+    all_predictions = torch.concat([model(inputs = batch.to(device = DEVICE), single_sentiment_values = None) for batch in batches])[:len(input_data)]
     print(all_predictions.shape)
 
     # Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates

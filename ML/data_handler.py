@@ -156,7 +156,7 @@ class DataHandler:
             # Add the dates to the list
             self.dates.append(DATA.index.tolist())
 
-            print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape} | SentimentsShape: {self.single_sentiments[-1].shape}")
+            print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape} " + f"| SingleSentimentsShape: {self.single_sentiments[-1].shape}" if hyperparameters["uses_single_sentiments"] else "")
         
         print(f"Total examples: {sum([company_labels.shape[0] for company_labels in self.labels])}")
 
@@ -227,6 +227,9 @@ class DataHandler:
             - if shift(1) is used, it is not including the current day, otherwise it is
             """
             rolling_features = set(hyperparameters["rolling_features"])
+            # The difference between the closing price in the ith row and the (i - 1)th row)
+            differences_1_day = D["close"].diff(periods = 1)
+
             for p in hyperparameters["rolling_periods"]:
 
                 # Average opening price 
@@ -264,6 +267,26 @@ class DataHandler:
                 # Trend mean
                 if "trend_mean" in rolling_features:
                     D[f"TrendMean_{p}"] = rolling_trends.mean()
+                
+                # Difference in closing priceWas
+                D[f"CloseDiff_{p}"] = D["close"].diff(periods = p)
+
+                # Percentage difference
+                D[f"CloseDiffPercentage_{p}"] = D["close"].pct_change(periods = p)
+
+                # Relative Strength Index (RSI) (Values should be between 0 and 100)
+                """
+                Notes:
+                differences_1_day is calculated at the top so that it is only calculated once for all RSIs.
+                gains = List of gains, replacing any losses with 0
+                losses = List of losses, replacing any gains with 0, minus to convert to absolute values
+                rs = Average gain / Average loss (over past x days) [+ 1e-10 to avoid division by 0]
+                D[f"RSI_{p}" = RSI formula 
+                """
+                gains = differences_1_day.where(differences_1_day > 0, 0)
+                losses = -differences_1_day.where(differences_1_day < 0, 0)
+                rs = gains.rolling(window = p, min_periods = 1).mean() / (losses.rolling(window = p, min_periods = 1).mean() + 1e-10)
+                D[f"RSI_{p}"] = 100 - (100 / (1 + rs))
 
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference

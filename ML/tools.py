@@ -51,11 +51,3 @@ def find_P_A_R(predictions, targets):
     # print(accuracy, precision, recall, f1_score)
 
     return accuracy, precision, recall, f1_score
-
-def get_predictions(input_data, model):
-    """
-    input_data shape should be: [batch_size, num_context days, num_features]
-    """
-    with torch_no_grad():
-        # Find probability distribution (the predictions)
-        return F.softmax(model(input_data), dim = 1)
