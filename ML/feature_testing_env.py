@@ -59,6 +59,9 @@ rolling_periods = [2, 5, 10, 15, 20]
 # Initalise model manager
 model_manager = ModelManager(device = DEVICE, DH_reference = DH, TDH_reference = TDH)
 
+models_info = {}
+training = False
+
 for test_feature in features_to_test: # For each testing feature
     for r_period in rolling_periods: # For each rolling period
         
@@ -85,12 +88,28 @@ for test_feature in features_to_test: # For each testing feature
         model, optimiser, hyperparameters, stats, checkpoint_directory = model_manager.initiate_model(
                                                                                                     model_number_load = model_number_load, 
                                                                                                     manual_hyperparams = manual_hyperparams, 
-                                                                                                    feature_test_model_name = feature_test_model_name
+                                                                                                    feature_test_model_name = feature_test_model_name,
+                                                                                                    inference = not training, # Set to False if training, True if training == False
                                                                                                     )
         
+
+
         # Already completely trained
         if hyperparameters["fold_number"] == hyperparameters["num_folds"] - 1:
-            print(f"Skipping fully trained model: {feature_test_model_name}")
+
+            # Training model
+            if training == True:
+                print(f"Skipping fully trained model: {feature_test_model_name}")
+
+            # Testing model
+            else:
+                models_info[feature_test_model_name] = {
+                                                        "model": model,
+                                                        "hyperparameters": hyperparameters,
+                                                        "stats": stats
+                                                        }
+
+            # Go to next model
             continue
 
         metrics = ["loss", "accuracy", "precision", "recall", "f1"]
@@ -238,3 +257,70 @@ for test_feature in features_to_test: # For each testing feature
             torch.save(obj = checkpoint, f = f"{checkpoint_directory}/fold_{k}.pth")
         
         print(f"Completed training for {feature_test_model_name}")
+
+
+class Tester:
+    def create_results_dict(self, models_info):
+    
+        self.graph_tensors = {}
+        self.metrics = []
+        """
+        tester.graph_tensors.keys() = metric names
+        tester.graph_tensors[metric_name].keys() = feature names
+        tester.graph_tensors[metric_name][feature_name] = Results for that feature for that metric
+        """
+        for feature_name, model_dict in models_info.items():
+            for metric_name, metric_list in model_dict["stats"].items():
+                if metric_name not in self.graph_tensors:
+                    self.graph_tensors[metric_name] = {}
+                    self.metrics.append(metric_name)
+                self.graph_tensors[metric_name][feature_name] = metric_list
+
+    def plot_graphs(self, features_to_test):
+
+        for test_feature in features_to_test:
+            for metric_name in self.metrics:
+                stats_for_this_metric = {}
+
+                # Find the same test feature but for different periods, e.g. train_f1 for average_close_2, average_close_5, average_close_10, etc...
+                for feature_name in self.graph_tensors[metric_name].keys():
+                    if feature_name.startswith(f"{test_feature}_rolling"):
+                        stats_for_this_metric[feature_name] = self.graph_tensors[metric_name][feature_name]
+                        print(feature_name)
+
+                
+                # After finding all lengths, find the LCF
+                lengths = [len(stat_list) for stat_list in stats_for_this_metric]
+                lcf = self.find_lcf(lengths)
+
+                print(f"Lengths | {lengths} | LCF {lcf}")
+
+                fig, ax = plt.subplots()
+                fig.suptitle(metric_name)
+
+                for feature_name, stat_list in stats_for_this_metric.items():
+                    # Fold metrics don't need to be altered
+                    if metric_name.startswith("fold"):
+                        ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list), label = feature_name)
+                    # Other metrics are too noisy, so apply log10 and 
+                    else:
+                        ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list).log10(), label = feature_name)
+                        # ax.plot([i for i in range(len(int(stat_list / LCF)))], torch.tensor(stat_list).view(-1, LCF).log10(), label = feature_name)
+                
+                ax.legend()
+                plt.show()
+
+    def find_lcf(self, numbers):
+        result = numbers[0]
+        for num in numbers[1:]:
+            result = gcd(result, num)
+        return result
+    
+
+    
+if training == False:
+    from math import gcd
+    print("Displaying statistics")
+    tester = Tester()
+    tester.create_results_dict(models_info = models_info)
+    tester.plot_graphs(features_to_test = features_to_test)
