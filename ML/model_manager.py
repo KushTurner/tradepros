@@ -25,27 +25,7 @@ class ModelManager:
             # Either deployment model or feature test model (dependent on feature_test_model_name parameter)
             checkpoint_directory = f"model_checkpoints/{'feature_test_models/' if feature_test_model_name else 'deployment_models/'}{model_number_load}"
             self.clean_empty_directories()
-            
-        # Creates a new model
-        else:
-            if model_checkpoints_folder_exists == False:
-                os_mkdir("model_checkpoints")
-    
-            # Model specifically for feature testing
-            if feature_test_model_name:
-                if os_path_exists("model_checkpoints/feature_test_models") == False:
-                    os_mkdir("model_checkpoints/feature_test_models")
-                checkpoint_directory = f"model_checkpoints/feature_test_models/{feature_test_model_name}"
-            # Model for deployment
-            else:
-                if os_path_exists("model_checkpoints/deployment_models") == False:
-                    os_mkdir("model_checkpoints/deployment_models")
-                checkpoint_directory = f"model_checkpoints/deployment_models/{len(os_listdir('model_checkpoints/deployment_models'))}"
 
-            self.clean_empty_directories()         
-            os_mkdir(checkpoint_directory) 
-
-        if model_number_load != None and model_checkpoints_folder_exists:
             # print("Loading existing model")
             existing_checkpoint_path = f"{checkpoint_directory}/fold_{len(os_listdir(f'{checkpoint_directory}')) - 1}.pth"
             checkpoint = torch_load(existing_checkpoint_path) # Load the last checkpoint (Which would be the complete model)
@@ -59,7 +39,6 @@ class ModelManager:
                 - "stats": Model statistics (e.g. loss, accuracy, f1 score, etc..)
             - Optimiser is not loaded if called for model inference (not on the test set)
             """
-
             hyperparameters = checkpoint["hyperparameters"] # Load hyperparameters of the saved model
 
             if checkpoint["model"]["architecture"] == "RNN":
@@ -90,11 +69,27 @@ class ModelManager:
                 optimiser = None
                 # Set to evaluation mode at model inference
                 model.eval()
-
-
+        
+        # Creates a new model
         else:
-            # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
+            if model_checkpoints_folder_exists == False:
+                os_mkdir("model_checkpoints")
+    
+            # Model specifically for feature testing
+            if feature_test_model_name:
+                if os_path_exists("model_checkpoints/feature_test_models") == False:
+                    os_mkdir("model_checkpoints/feature_test_models")
+                checkpoint_directory = f"model_checkpoints/feature_test_models/{feature_test_model_name}"
+            # Model for deployment
+            else:
+                if os_path_exists("model_checkpoints/deployment_models") == False:
+                    os_mkdir("model_checkpoints/deployment_models")
+                checkpoint_directory = f"model_checkpoints/deployment_models/{len(os_listdir('model_checkpoints/deployment_models'))}"
 
+            self.clean_empty_directories()         
+            os_mkdir(checkpoint_directory) 
+
+            # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
             # Manual hyperparameters were not passed in when creating the new model (Use the recommended hyperparams)
             if manual_hyperparams == None:
                 # Can change the values in this dictionary
