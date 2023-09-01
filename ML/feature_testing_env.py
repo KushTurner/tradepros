@@ -258,69 +258,142 @@ for test_feature in features_to_test: # For each testing feature
         
         print(f"Completed training for {feature_test_model_name}")
 
-
-class Tester:
-    def create_results_dict(self, models_info):
-    
-        self.graph_tensors = {}
-        self.metrics = []
-        """
-        tester.graph_tensors.keys() = metric names
-        tester.graph_tensors[metric_name].keys() = feature names
-        tester.graph_tensors[metric_name][feature_name] = Results for that feature for that metric
-        """
-        for feature_name, model_dict in models_info.items():
-            for metric_name, metric_list in model_dict["stats"].items():
-                if metric_name not in self.graph_tensors:
-                    self.graph_tensors[metric_name] = {}
-                    self.metrics.append(metric_name)
-                self.graph_tensors[metric_name][feature_name] = metric_list
-
-    def plot_graphs(self, features_to_test):
-
-        for test_feature in features_to_test:
-            for metric_name in self.metrics:
-                stats_for_this_metric = {}
-
-                # Find the same test feature but for different periods, e.g. train_f1 for average_close_2, average_close_5, average_close_10, etc...
-                for feature_name in self.graph_tensors[metric_name].keys():
-                    if feature_name.startswith(f"{test_feature}_rolling"):
-                        stats_for_this_metric[feature_name] = self.graph_tensors[metric_name][feature_name]
-                        print(feature_name)
-
-                
-                # After finding all lengths, find the LCF
-                lengths = [len(stat_list) for stat_list in stats_for_this_metric]
-                lcf = self.find_lcf(lengths)
-
-                print(f"Lengths | {lengths} | LCF {lcf}")
-
-                fig, ax = plt.subplots()
-                fig.suptitle(metric_name)
-
-                for feature_name, stat_list in stats_for_this_metric.items():
-                    # Fold metrics don't need to be altered
-                    if metric_name.startswith("fold"):
-                        ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list), label = feature_name)
-                    # Other metrics are too noisy, so apply log10 and 
-                    else:
-                        ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list).log10(), label = feature_name)
-                        # ax.plot([i for i in range(len(int(stat_list / LCF)))], torch.tensor(stat_list).view(-1, LCF).log10(), label = feature_name)
-                
-                ax.legend()
-                plt.show()
-
-    def find_lcf(self, numbers):
-        result = numbers[0]
-        for num in numbers[1:]:
-            result = gcd(result, num)
-        return result
-    
-
-    
 if training == False:
     from math import gcd
+
+    class Tester:
+        def create_results_dict(self, models_info):
+
+            self.graph_tensors = {}
+            self.metrics = []
+            """
+            tester.graph_tensors.keys() = metric names
+            tester.graph_tensors[metric_name].keys() = feature names
+            tester.graph_tensors[metric_name][feature_name] = Results for that feature for that metric
+            """
+            for feature_name, model_dict in models_info.items():
+                for metric_name, metric_list in model_dict["stats"].items():
+                    if metric_name not in self.graph_tensors:
+                        self.graph_tensors[metric_name] = {}
+                        self.metrics.append(metric_name)
+                    self.graph_tensors[metric_name][feature_name] = metric_list
+
+        def plot_graphs(self, features_to_test):
+
+            for test_feature in features_to_test:
+                for metric_name in self.metrics:
+                    stats_for_this_metric = {}
+
+                    # Find the same test feature but for different periods, e.g. train_f1 for average_close_2, average_close_5, average_close_10, etc...
+                    for feature_name in self.graph_tensors[metric_name].keys():
+                        if feature_name.startswith(f"{test_feature}_rolling"):
+                            stats_for_this_metric[feature_name] = self.graph_tensors[metric_name][feature_name]
+                            print(feature_name)
+                    
+                    # After finding all lengths, find the LCF
+                    lengths = [len(stat_list) for stat_list in stats_for_this_metric]
+                    lcf = self.find_lcf(lengths)
+
+                    print(f"Lengths | {lengths} | LCF {lcf}")
+
+                    fig, ax = plt.subplots()
+                    fig.suptitle(metric_name)
+
+                    for feature_name, stat_list in stats_for_this_metric.items():
+                        # Fold metrics don't need to be altered
+                        if metric_name.startswith("fold"):
+                            ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list), label = feature_name)
+                        # Other metrics are too noisy, so apply log10 and 
+                        else:
+                            ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list).log10(), label = feature_name)
+                            # ax.plot([i for i in range(len(int(stat_list / LCF)))], torch.tensor(stat_list).view(-1, LCF).log10(), label = feature_name)
+                    
+                    ax.legend()
+                    plt.show()
+
+        def find_lcf(self, numbers):
+            result = numbers[0]
+            for num in numbers[1:]:
+                result = gcd(result, num)
+            return result
+        
+        def plot_fold_metrics(self):
+
+            # Create a bar chart with each 
+            for metric_name in self.metrics:
+                
+                # Only plot fold metrics
+                if metric_name.startswith("fold"):
+                    
+                    # For each test feature
+                    for test_feature in features_to_test:
+                        
+                        # Create figure and set of subplots
+                        fig, ax = plt.subplots()
+                        fig.suptitle(test_feature + " " + metric_name) # Add title
+
+                        # Create a dictionary for each fold, with the keys being the list of values from each of the periods
+                        # E.g. Value = [fold_t_losses[0] for avg_close, then fold_t_losses[1] for avg_close, etc...]
+                        features_in_plot = [f"{test_feature}_rolling_{p}" for p in rolling_periods]
+                        print(features_in_plot, test_feature)
+                        data = {}
+                        for i in range(hyperparameters["num_folds"] - 1): # There should be "num_sets" folds that have stats
+                            fold_values = []
+                            for feature in features_in_plot:
+                                fold_values.append(self.graph_tensors[metric_name][feature][i])
+                            data[f"fold_{i}"] = fold_values
+
+                        # for name, data_list in data.items():
+                        #     print(name, len(data_list))
+
+                        # Width of bars
+                        total_width = 0.8
+
+                        # Number of bars per group
+                        n_bars = len(rolling_periods)
+
+                        # The width of a single bar
+                        bar_width = total_width / n_bars
+
+                        # Cycling colours (Must have)
+                        colours = plt.rcParams['axes.prop_cycle'].by_key()['color'] # List of hex strings
+
+                        # List containing handles for the drawn bars (used for the legend)
+                        bars = []
+
+                        # Rename each group of bars (to be the periods used in rolling periods)
+                        plt.xticks([i for i in range(n_bars)], [f"P_{p}" for p in rolling_periods]) 
+
+                        # Iterate over all data
+                        for i, (fold_name, values) in enumerate(data.items()):
+                            print(fold_name, values)
+                            # The offset in x direction of that bar
+                            x_offset = (i - n_bars / 2) * bar_width + bar_width / 2
+
+                            # For each of the values
+                            for x, value in enumerate(values):
+                                # Draw bar
+                                bar = ax.bar(
+                                            x = x + x_offset, 
+                                            height = value, 
+                                            width = bar_width, 
+                                            color = colours[i % len(colours)]
+                                            )
+
+                                # Draw text
+                                ax.text(x = x + x_offset, y = value, s = str(round(value, 3)), ha = "center") # Round values to 2 decimal places
+                            
+                            # Add a handle to the last drawn bar, which we'll need for the legend
+                            bars.append(bar[0])
+
+                        # Draw legend
+                        ax.legend(bars, data.keys())
+                        plt.show()
+
+
+
     print("Displaying statistics")
     tester = Tester()
     tester.create_results_dict(models_info = models_info)
-    tester.plot_graphs(features_to_test = features_to_test)
+    # tester.plot_graphs(features_to_test = features_to_test)
+    tester.plot_fold_metrics()
