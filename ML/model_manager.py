@@ -79,14 +79,15 @@ class ModelManager:
             if feature_test_model_name:
                 if os_path_exists("model_checkpoints/feature_test_models") == False:
                     os_mkdir("model_checkpoints/feature_test_models")
+                self.clean_empty_directories()
                 checkpoint_directory = f"model_checkpoints/feature_test_models/{feature_test_model_name}"
             # Model for deployment
             else:
                 if os_path_exists("model_checkpoints/deployment_models") == False:
                     os_mkdir("model_checkpoints/deployment_models")
+                self.clean_empty_directories()
                 checkpoint_directory = f"model_checkpoints/deployment_models/{len(os_listdir('model_checkpoints/deployment_models'))}"
 
-            self.clean_empty_directories()         
             os_mkdir(checkpoint_directory) 
 
             # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
