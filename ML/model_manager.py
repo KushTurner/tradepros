@@ -118,7 +118,8 @@ class ModelManager:
                                                             "rsi", 
                                                             "macd",
                                                             "bollinger_bands",
-                                                            "average_true_range"
+                                                            "average_true_range",
+                                                            "stochastic_oscillator"
                                                             ]
                                                             ),
                                     "transform_after": True, # True to transform the comapnies data together or False for separately

@@ -266,7 +266,7 @@ class DataHandler:
                 if "trend_mean" in rolling_features:
                     D[f"TrendMean_{p}"] = rolling_trends.mean()
                 
-                # Difference in closing priceWas
+                # Difference in closing price
                 if "close_diff" in rolling_features:
                     D[f"CloseDiff_{p}"] = D["close"].diff(periods = p)
 
@@ -340,6 +340,20 @@ class DataHandler:
                 D["UpperBand"] = D["MiddleBand"] + k_std_closing
                 D["LowerBand"] = D["MiddleBand"] - k_std_closing
 
+            # Stochastic Oscillator
+            if "stochastic_oscillator" in rolling_features:
+                """
+                %K = ((current close - lowest low) / (highest high - lowest low)) * 100 (period generally set to 14)
+                %D = n-day simple moving average (SMA) of %K (period generally set to 3, 5 or 9)
+                lowest_lows and highest_highs should include the low/high from the current day
+                """
+                lowest_lows = D["low"].rolling(window = 14).min()
+                highest_highs = D["high"].rolling(window = 14).max()
+                D["StochasticOscillator_K_14"] = ((D["close"] - lowest_lows) / (highest_highs - lowest_lows)) * 100
+                D["StochasticOscillator_D_3"] = D["StochasticOscillator_K_14"].rolling(window = 3).mean()
+                D["StochasticOscillator_D_5"] = D["StochasticOscillator_K_14"].rolling(window = 5).mean()
+                D["StochasticOscillator_D_9"] = D["StochasticOscillator_K_14"].rolling(window = 9).mean()
+                
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference
             if hyperparameters["uses_single_sentiments"] == True and include_date_before_prediction_date == False:

@@ -75,7 +75,8 @@ manual_hyperparams = {
                                             "rsi", 
                                             "macd",
                                             "bollinger_bands",
-                                            "average_true_range"
+                                            "average_true_range",
+                                            "stochastic_oscillator"
                                             ]
                                             ),
                     "transform_after": True,
