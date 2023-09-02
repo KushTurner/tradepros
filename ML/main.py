@@ -77,7 +77,8 @@ manual_hyperparams = {
                                             "bollinger_bands",
                                             "average_true_range",
                                             "stochastic_oscillator",
-                                            "on_balance_volume"
+                                            "on_balance_volume",
+                                            "ichimoku_cloud",
                                             ]
                                             ),
                     "transform_after": True,

@@ -233,46 +233,46 @@ class DataHandler:
                 # Average opening price 
                 rolling_open_averages =  D["open"].rolling(window = p).mean()  
                 if "avg_open" in rolling_features:
-                    D[f"AvgOpen_{p}"] = rolling_open_averages
+                    D[f"avg_open_{p}"] = rolling_open_averages
                 
                 # Opening price ratio
                 if "open_ratio" in rolling_features:
-                    D[f"OpenRatio_{p}"] = D["open"] / rolling_open_averages
+                    D[f"open_ratio_{p}"] = D["open"] / rolling_open_averages
 
                 # Average closing price 
                 rolling_close_averages =  D["close"].rolling(window = p).mean()  
                 if "avg_close" in rolling_features:
-                    D[f"AvgClose_{p}"] = rolling_close_averages
+                    D[f"avg_close_{p}"] = rolling_close_averages
                 
                 # Closing price ratio
                 if "close_ratio" in rolling_features:
-                    D[f"CloseRatio_{p}"] = D["close"] / rolling_close_averages
+                    D[f"close_ratio_{p}"] = D["close"] / rolling_close_averages
 
                 # Average volume
                 rolling_volume_averages =  D["volume"].rolling(window = p).mean()  
                 if "avg_volume" in rolling_features:
-                    D[f"AvgVolume_{p}"] = rolling_volume_averages
+                    D[f"avg_volume_{p}"] = rolling_volume_averages
 
                 # Volume ratio
                 if "volume_ratio" in rolling_features:
-                    D[f"VolumeRatio_{p}"] = D["volume"] / rolling_volume_averages
+                    D[f"volume_ratio_{p}"] = D["volume"] / rolling_volume_averages
 
                 # Trend sum
                 rolling_trends = D["Target"].shift(1).rolling(window = p)
                 if "trend_sum" in rolling_features:
-                    D[f"TrendSum_{p}"] = rolling_trends.sum()
+                    D[f"trend_sum_{p}"] = rolling_trends.sum()
                 
                 # Trend mean
                 if "trend_mean" in rolling_features:
-                    D[f"TrendMean_{p}"] = rolling_trends.mean()
+                    D[f"trend_mean_{p}"] = rolling_trends.mean()
                 
                 # Difference in closing price
                 if "close_diff" in rolling_features:
-                    D[f"CloseDiff_{p}"] = D["close"].diff(periods = p)
+                    D[f"close_diff_{p}"] = D["close"].diff(periods = p)
 
                 # Percentage difference
                 if "close_diff_percentage" in rolling_features:
-                    D[f"CloseDiffPercentage_{p}"] = D["close"].pct_change(periods = p)
+                    D[f"close_diff_percentage_{p}"] = D["close"].pct_change(periods = p)
 
                 # Relative Strength Index (RSI) (Values should be between 0 and 100)
                 if "rsi" in rolling_features:
@@ -305,7 +305,7 @@ class DataHandler:
                         highs_sub_lows = D["high"] - D["low"]
                         D["true_range"] = pd_concat([abs_lows_sub_close, abs_highs_sub_close, highs_sub_lows], axis = 1).max(axis = 1)
                     
-                    D[f"AverageTrueRange_{p}"] = D["true_range"].ewm(span = p, adjust = False).mean()
+                    D[f"average_true_range_{p}"] = D["true_range"].ewm(span = p, adjust = False).mean()
 
                     # Last period, remove true range
                     if p == hyperparameters["rolling_periods"][-1]:
@@ -318,14 +318,14 @@ class DataHandler:
                 - Uses 12 day and 26 day EMAs (standard that most traders use)
                 day_EMA_12  = 12 day exponential moving average
                 day_EMA_26 = 26 day exponential moving average
-                D["MACD_Line"] = MACD line
-                D["SignalLine"] = 9 day EMA of the MACD line (signal line)
+                D["macd_line"] = MACD line
+                D["signal_line"] = 9 day EMA of the MACD line (signal line)
                 """
                 day_EMA_12 = D["close"].ewm(span = 12, adjust = False).mean()
                 day_EMA_26 = D["close"].ewm(span = 26, adjust = False).mean()
-                D["MACD_Line"] = day_EMA_12 - day_EMA_26
-                D["SignalLine"] = D["MACD_Line"].ewm(span = 9, adjust = False).mean()
-                D["MACD_Histogram"] = D["MACD_Line"] - D["SignalLine"]
+                D["macd_line"] = day_EMA_12 - day_EMA_26
+                D["signal_line"] = D["macd_line"].ewm(span = 9, adjust = False).mean()
+                D["macd_histogram"] = D["macd_line"] - D["signal_line"]
             
             # Bollinger bands
             if "bollinger_bands" in rolling_features:
@@ -336,9 +336,9 @@ class DataHandler:
                 """
                 num_st_devs = 2
                 k_std_closing = (num_st_devs * D["close"].rolling(window = 20).std())
-                D["MiddleBand"] = D["close"].rolling(window = 20).mean()
-                D["UpperBand"] = D["MiddleBand"] + k_std_closing
-                D["LowerBand"] = D["MiddleBand"] - k_std_closing
+                D["middle_band"] = D["close"].rolling(window = 20).mean()
+                D["upper_band"] = D["middle_band"] + k_std_closing
+                D["lower_band"] = D["middle_band"] - k_std_closing
 
             # Stochastic Oscillator
             if "stochastic_oscillator" in rolling_features:
@@ -349,10 +349,10 @@ class DataHandler:
                 """
                 lowest_lows = D["low"].rolling(window = 14).min()
                 highest_highs = D["high"].rolling(window = 14).max()
-                D["StochasticOscillator_K_14"] = ((D["close"] - lowest_lows) / (highest_highs - lowest_lows)) * 100
-                D["StochasticOscillator_D_3"] = D["StochasticOscillator_K_14"].rolling(window = 3).mean()
-                D["StochasticOscillator_D_5"] = D["StochasticOscillator_K_14"].rolling(window = 5).mean()
-                D["StochasticOscillator_D_9"] = D["StochasticOscillator_K_14"].rolling(window = 9).mean()
+                D["stochastic_oscillator_k_14"] = ((D["close"] - lowest_lows) / (highest_highs - lowest_lows)) * 100
+                D["stochastic_oscillator_d_3"] = D["stochastic_oscillator_k_14"].rolling(window = 3).mean()
+                D["stochastic_oscillator_d_5"] = D["stochastic_oscillator_k_14"].rolling(window = 5).mean()
+                D["stochastic_oscillator_d_9"] = D["stochastic_oscillator_k_14"].rolling(window = 9).mean()
 
             # On-Balance volume (OBV)
             if "on_balance_volume" in rolling_features:
@@ -375,7 +375,22 @@ class DataHandler:
                 D.loc[D["close"] > previous_closes, "OBV"] = previous_obvs + D["volume"]
                 D.loc[D["close"] < previous_closes, "OBV"] = previous_obvs - D["volume"]
                 D.loc[D["close"] == previous_closes, "OBV"] = previous_obvs
-                
+
+            # Ichimoku Cloud / Ichimoku kinko hyo
+            if "ichimoku_cloud" in rolling_features:
+                """
+                Conversion line (Tenkan-sen) = (Highest high + Lowest low) / 2 over a period of 9 days
+                Base line (Kijun-sen) = (Highest high + Lowest low) / 2 over a period of 26 days
+                Leading span A (Senkou Span A)= (Conversion line + Base line) / 2, plotted 26 periods ahead
+                Leading span B (Senkou Span B)= (Highest high + Lowest low) / 2 over a period of 52 days, plotted 26 periods ahead
+                Lagging span (Chikou Span) = Current closing price, plotted 26 periods behind
+                """
+                D["tenkan_sen"] = (D["high"].rolling(window = 9).max() - D["low"].rolling(window = 9).min()) / 2
+                D["kijun_sen"] = (D["high"].rolling(window = 26).max() - D["low"].rolling(window = 26).min())
+                D["senkou_span_a"] = ((D["tenkan_sen"] + D["kijun_sen"]) / 2).shift(26)
+                D["senkou_span_b"] = ((D["high"].rolling(window = 52).max() - D["low"].rolling(window = 52).min()) / 2).shift(26)
+                D["chikou_span"] = D["close"].shift(-26)
+
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference
             if hyperparameters["uses_single_sentiments"] == True and include_date_before_prediction_date == False:
