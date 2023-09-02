@@ -18,9 +18,7 @@ from os import mkdir as os_mkdir
 from os.path import join as os_path_join
 from torch import arange as torch_arange
 from time import time as get_time
-
-import yfinance as yf
-
+from pandas import concat as pd_concat
 
 class DataHandler:
 
@@ -292,7 +290,27 @@ class DataHandler:
                         losses = -differences_1_day.where(differences_1_day < 0, 0)
                         rs = gains.rolling(window = p, min_periods = 1).mean() / (losses.rolling(window = p, min_periods = 1).mean() + 1e-10)
                         D[f"RSI_{p}"] = 100 - (100 / (1 + rs))
+                
+                # Average True Range (ATR)
+                if "average_true_range" in rolling_features:
+                    """
+                    true_range = max(high - low, abs(high - previous close), abs(low - previous close))
+                    Only calculates the true range once, then for each period, will add the ATR using previous calculations
+                    D[f"AverageTrueRange_{p}"] = Exponential Moving Average of true_range over a period
+                    """
+                    if "true_range" not in D.columns:
+                        previous_closes = D["close"].shift(1)
+                        abs_lows_sub_close = (D["low"] - previous_closes).abs()
+                        abs_highs_sub_close = (D["high"] - previous_closes).abs()
+                        highs_sub_lows = D["high"] - D["low"]
+                        D["true_range"] = pd_concat([abs_lows_sub_close, abs_highs_sub_close, highs_sub_lows], axis = 1).max(axis = 1)
+                    
+                    D[f"AverageTrueRange_{p}"] = D["true_range"].ewm(span = p, adjust = False).mean()
 
+                    # Last period, remove true range
+                    if p == hyperparameters["rolling_periods"][-1]:
+                        D.drop("true_range", axis = 1, inplace = True)
+                
             # Moving Average Convergence Divergence (MACD)
             if "macd" in rolling_features:
                 """
@@ -321,7 +339,7 @@ class DataHandler:
                 D["MiddleBand"] = D["close"].rolling(window = 20).mean()
                 D["UpperBand"] = D["MiddleBand"] + k_std_closing
                 D["LowerBand"] = D["MiddleBand"] - k_std_closing
-                
+
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference
             if hyperparameters["uses_single_sentiments"] == True and include_date_before_prediction_date == False:

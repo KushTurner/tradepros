@@ -117,7 +117,8 @@ class ModelManager:
                                                             "close_diff_percentage", 
                                                             "rsi", 
                                                             "macd",
-                                                            "bollinger_bands"
+                                                            "bollinger_bands",
+                                                            "average_true_range"
                                                             ]
                                                             ),
                                     "transform_after": True, # True to transform the comapnies data together or False for separately
