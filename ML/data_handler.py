@@ -353,6 +353,28 @@ class DataHandler:
                 D["StochasticOscillator_D_3"] = D["StochasticOscillator_K_14"].rolling(window = 3).mean()
                 D["StochasticOscillator_D_5"] = D["StochasticOscillator_K_14"].rolling(window = 5).mean()
                 D["StochasticOscillator_D_9"] = D["StochasticOscillator_K_14"].rolling(window = 9).mean()
+
+            # On-Balance volume (OBV)
+            if "on_balance_volume" in rolling_features:
+                """
+                D["OBV"] = 0: Initialise OBV as 0s 
+                previous_obvs = Previous OBVs
+                previous_closes = Previous closes
+                Formula:
+                OBV = Previous OBV + Current volume if Current close > Previous close
+                OBV = Previous OBV - Current volume if Current close < Previous close
+                OBV = Previous OBV if Current close == Previous close
+                
+                - For the first value, it should be at 0, previous close and previous OBV should be NaN, which would execute the 3rd command:
+                    - D.loc[D["close"] == previous_closes, "OBV"] = previous_obvs
+                    - D[x < NaN, "OBV"] = NaN ---> 0
+                """
+                D["OBV"] = 0
+                previous_obvs = D["OBV"].shift(1)
+                previous_closes = D["close"].shift(1)
+                D.loc[D["close"] > previous_closes, "OBV"] = previous_obvs + D["volume"]
+                D.loc[D["close"] < previous_closes, "OBV"] = previous_obvs - D["volume"]
+                D.loc[D["close"] == previous_closes, "OBV"] = previous_obvs
                 
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference

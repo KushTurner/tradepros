@@ -76,7 +76,8 @@ manual_hyperparams = {
                                             "macd",
                                             "bollinger_bands",
                                             "average_true_range",
-                                            "stochastic_oscillator"
+                                            "stochastic_oscillator",
+                                            "on_balance_volume"
                                             ]
                                             ),
                     "transform_after": True,
