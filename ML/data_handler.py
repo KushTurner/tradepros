@@ -309,8 +309,8 @@ class DataHandler:
                 D["SignalLine"] = D["MACD_Line"].ewm(span = 9, adjust = False).mean()
                 D["MACD_Histogram"] = D["MACD_Line"] - D["SignalLine"]
             
-            # Boilinger bands
-            if "boilinger_bands" in rolling_features:
+            # Bollinger bands
+            if "bollinger_bands" in rolling_features:
                 """
                 num_st_devs = Number of standard deviations, usually set to 2
                 k_std_closing = Number of standard deviations multiplied by the standard deviation of the last 20 closing prices

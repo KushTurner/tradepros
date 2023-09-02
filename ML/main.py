@@ -74,7 +74,7 @@ manual_hyperparams = {
                                             "close_diff_percentage", 
                                             "rsi", 
                                             "macd",
-                                            "boilinger_bands"
+                                            "bollinger_bands"
                                             ]
                                             ),
                     "transform_after": True,
