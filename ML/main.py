@@ -72,7 +72,8 @@ manual_hyperparams = {
                                         "close_diff", 
                                         "close_diff_percentage", 
                                         "rsi", 
-                                        "macd"
+                                        "macd",
+                                        "boilinger_bands"
                                         ],
                     "transform_after": True,
                     "train_split_decimal": 0.8,

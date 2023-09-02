@@ -115,7 +115,8 @@ class ModelManager:
                                                         "close_diff", 
                                                         "close_diff_percentage", 
                                                         "rsi", 
-                                                        "macd"
+                                                        "macd",
+                                                        "boilinger_bands"
                                                         ],
                                     "transform_after": True, # True to transform the comapnies data together or False for separately
                                     "train_split_decimal": 0.8, # Size of the train split as a decimal (0.8 = 80%)

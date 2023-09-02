@@ -308,7 +308,20 @@ class DataHandler:
                 D["MACD_Line"] = day_EMA_12 - day_EMA_26
                 D["SignalLine"] = D["MACD_Line"].ewm(span = 9, adjust = False).mean()
                 D["MACD_Histogram"] = D["MACD_Line"] - D["SignalLine"]
-
+            
+            # Boilinger bands
+            if "boilinger_bands" in rolling_features:
+                """
+                num_st_devs = Number of standard deviations, usually set to 2
+                k_std_closing = Number of standard deviations multiplied by the standard deviation of the last 20 closing prices
+                D["MiddleBand"] = (Sum of the last 20 closing prices / 20)
+                """
+                num_st_devs = 2
+                k_std_closing = (num_st_devs * D["close"].rolling(window = 20).std())
+                D["MiddleBand"] = D["close"].rolling(window = 20).mean()
+                D["UpperBand"] = D["MiddleBand"] + k_std_closing
+                D["LowerBand"] = D["MiddleBand"] - k_std_closing
+                
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             # - include_date_before_prediction_date == False ensures that this isn't code isn't performed at inference
             if hyperparameters["uses_single_sentiments"] == True and include_date_before_prediction_date == False:
