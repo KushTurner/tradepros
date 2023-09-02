@@ -226,7 +226,7 @@ class DataHandler:
             - Rolling features = _ over the last p days/weeks/months
             - if shift(1) is used, it is not including the current day, otherwise it is
             """
-            rolling_features = set(hyperparameters["rolling_features"])
+            rolling_features = hyperparameters["rolling_features"]
             # The difference between the closing price in the ith row and the (i - 1)th row)
             differences_1_day = D["close"].diff(periods = 1)
 

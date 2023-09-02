@@ -60,21 +60,23 @@ manual_hyperparams = {
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "rolling_periods": [2, 5, 10, 15, 20],
-                    "rolling_features": [
-                                        "avg_open", 
-                                        "open_ratio", 
-                                        "avg_close", 
-                                        "close_ratio", 
-                                        "avg_volume", 
-                                        "volume_ratio", 
-                                        "trend_sum", 
-                                        "trend_mean", 
-                                        "close_diff", 
-                                        "close_diff_percentage", 
-                                        "rsi", 
-                                        "macd",
-                                        "boilinger_bands"
-                                        ],
+                    "rolling_features": set(
+                                            [
+                                            "avg_open", 
+                                            "open_ratio", 
+                                            "avg_close", 
+                                            "close_ratio", 
+                                            "avg_volume", 
+                                            "volume_ratio", 
+                                            "trend_sum", 
+                                            "trend_mean", 
+                                            "close_diff", 
+                                            "close_diff_percentage", 
+                                            "rsi", 
+                                            "macd",
+                                            "boilinger_bands"
+                                            ]
+                                            ),
                     "transform_after": True,
                     "train_split_decimal": 0.8,
                     "train_data_params": None
