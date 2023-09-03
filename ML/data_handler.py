@@ -128,10 +128,6 @@ class DataHandler:
                                     hyperparameters = hyperparameters
                                     )
             # print(DATA)
-            # Separate the labels from the main dataframe (the other columns will be used as inputs)
-            labels = DATA["Target"]
-            self.labels.append(self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64))
-            DATA.drop("Target", axis = 1, inplace = True)
 
             # Single sentiments (Used to extract the sentiment values from the dates that the model is predicting the stock trend on)
             if hyperparameters["uses_single_sentiments"]:
@@ -148,14 +144,24 @@ class DataHandler:
                 """
                 DATA[hyperparameters["cols_to_alter"]] = transformation(dataframe = DATA, cols_to_alter = hyperparameters["cols_to_alter"])
             
-            # Add this companies data to the list
-            self.data.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
+            # If there is enough data to create at least 1 data sequence
+            if DATA.shape[0] >= hyperparameters["num_context_days"]:
+                # Separate the labels from the main dataframe (the other columns will be used as inputs)
+                labels = DATA["Target"]
+                self.labels.append(self.dataframe_to_ptt(pandas_dataframe = labels, desired_dtype = torch_int_64))
+                DATA.drop("Target", axis = 1, inplace = True)
 
-            # Add the dates to the list
-            self.dates.append(DATA.index.tolist())
+                # Add this companies data to the list
+                self.data.append(self.dataframe_to_ptt(pandas_dataframe = DATA, desired_dtype = torch_float_32))
 
-            print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape} " + f"| SingleSentimentsShape: {self.single_sentiments[-1].shape}" if hyperparameters["uses_single_sentiments"] else "")
-        
+                # Add the dates to the list
+                self.dates.append(DATA.index.tolist())
+
+                print(f"Ticker: {ticker} | DataShape: {self.data[-1].shape} | LabelsShape: {self.labels[-1].shape} " + f"| SingleSentimentsShape: {self.single_sentiments[-1].shape}" if hyperparameters["uses_single_sentiments"] else "")
+            else:
+                invalid_tickers.append(ticker)
+                print(f"Removed {ticker} due to an insufficient amount of data")
+
         print(f"Total examples: {sum([company_labels.shape[0] for company_labels in self.labels])}")
 
         # Standardising / Normalising companies together
@@ -591,6 +597,8 @@ class DataHandler:
                 # Trim dates 
                 # - Each c_data[i] should correspond to the correct date in c_dates[i], where c_dates[i] is the date before the date to predict
                 c_dates = c_dates[start_trim_idx:]
+
+                print(len(c_labels), len(c_dates), len(c_data))
 
                 # Let num_context_days = 10, batch_size = 32
                 # Single batch should be [10 x [32 * num_features] ]

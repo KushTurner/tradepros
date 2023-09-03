@@ -23,11 +23,10 @@ DH = DataHandler(device = DEVICE, generator = G)
 # Retrieve dates for the text data handler (To generate sentiments for tweets on dates in the historical dataset)
 DH.retrieve_dates(
                 tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],
-                start_date = "01/01/2015", # Date in MM/DD/YYYY format
-                end_date = "12/31/2019", 
+                start_date = "2015-01-01", # Date in MM/DD/YYYY or YYYY-MM-DD format, including the starting date
+                end_date = "2020-01-01", # Not including the end_date
                 interval = "1d",
                 )
-
 # Initialising text data handler
 TDH = TextDataHandler(dates = DH.dates, device = DEVICE, generator = G)
 TDH.retrieve_data()
@@ -309,16 +308,15 @@ A = 62
 
 if hyperparameters["uses_single_sentiments"] == False:
     print(DH.data.shape)
-    # selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber"]
-    selected_tickers = ["jpm", "meta", "wmt", "ma", "005930.KS", "nesn.sw"]
+    selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber", "jpm", "meta", "amzn", "goog", "tsla", "wmt", "intc", "ko"]
 
     DH.retrieve_data(
                 tickers = selected_tickers,
-                start_date = "01/01/2023", # MM/DD/YYYY
-                end_date = "08/28/2023", # This will be the final date used to predict e.g. 25/08/2023, include_date_before_prediction_date = True is used to include 24/08/2023
+                start_date = "2022-01-01", # Date in MM/DD/YYYY or YYYY-MM-DD format, including the starting date
+                end_date = "2023-08-28", # Not including the end_date, e.g. if the date to predict is 25/08/2023, set that as the end_date. 
                 interval = "1d",
                 dated_sentiments = None, # Not needed at inference time 
-                include_date_before_prediction_date = True,
+                include_date_before_prediction_date = True, # include_date_before_prediction_date = True is used to include e.g. 24/08/2023 (the date before the date to predict)
                 hyperparameters = hyperparameters,
                 )
 
