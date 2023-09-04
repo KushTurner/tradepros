@@ -335,10 +335,11 @@ class LSTM(nn.Module):
         return self.output_layer(output)
     
     def to(self, *args, **kwargs):
-        # Overrides the existing .to() method to move the parameters in each gate to the specified device
+        # Overrides the existing .to() method to move all model parameters to the specified device
         self = super(LSTM, self).to(*args, **kwargs)
         for cell in self.cells:
             cell.to(*args, **kwargs)
+        # Returns the modified model
         return self
 
     def initialise_weights(self):
