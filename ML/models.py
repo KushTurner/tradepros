@@ -273,3 +273,155 @@ class RNN(nn.Module):
                 init_function(layer.weight, mode = "fan_in", nonlinearity = non_linearity)
         init_function(self.hidden_layer.weight, mode = "fan_in", nonlinearity = non_linearity)
         init_function(self.O.weight, mode = "fan_in", nonlinearity = non_linearity)
+
+class LSTM(nn.Module):
+    
+    def __init__(self, hyperparameters):
+        super(LSTM, self).__init__()
+
+        self.N_OR_S = hyperparameters["N_OR_S"]
+        self.batch_size = hyperparameters["batch_size"]
+        self.n_features = hyperparameters["n_features"]
+        initial_in = hyperparameters["n_features"] # Should be the same as the number of hidden units in the hidden state
+
+        # Cell state
+        self.long_term_memory = torch_zeros(self.batch_size, hyperparameters["n_features"]) 
+
+        # LSTM Cells
+        self.cells = [LSTMCell(n_hidden_units = hyperparameters["n_features"], LSTM_reference = self)]
+                                    
+        # Linear layers
+        self.layers = nn.Sequential(
+                                    nn.Linear(initial_in, initial_in),
+                                    nn.BatchNorm1d(num_features = initial_in),
+                                    nn.ReLU(),
+
+                                    nn.Linear(initial_in , initial_in // 2),
+                                    nn.BatchNorm1d(num_features = initial_in // 2),
+                                    nn.ReLU(),
+
+                                    nn.Linear(initial_in  // 2, initial_in // 4),
+                                    nn.BatchNorm1d(num_features = initial_in // 4),
+                                    nn.ReLU(),
+                                    )
+        self.output_layer = nn.Linear((initial_in  // 4) + hyperparameters["uses_single_sentiments"], 2)
+    
+    def __call__(self, inputs, single_sentiment_values):
+
+        num_context_days = inputs.shape[0]
+        self.short_term_memory = torch_zeros(self.batch_size, self.n_features, device = self.output_layer.weight.device) # Initialise hidden state / short term memory at the start of each forward pass as zeroes
+
+        # For each time step / context day
+        for i in range(num_context_days):
+            # Current context day with batch_size examples
+            current_day_batch = inputs[i][:][:]
+
+            # Pass through LSTM cells, updating the short term memory and long-term memory
+            for cell in self.cells:
+                cell(inputs = current_day_batch + self.short_term_memory)
+        
+        # Pass through linear layers (excluding output layer) to reduce dimensionality
+        output = self.layers(self.short_term_memory)
+        
+        # Single sentiment values to concatenate
+        if single_sentiment_values != None:
+            output = torch_concat([output, single_sentiment_values], dim = 1)
+            
+        # Pass through output layer
+        return self.output_layer(output)
+    
+    def to(self, *args, **kwargs):
+        # Overrides the existing .to() method to move the parameters in each gate to the specified device
+        self = super(LSTM, self).to(*args, **kwargs)
+        for cell in self.cells:
+            cell.to(*args, **kwargs)
+        return self
+    
+class LSTMCell(nn.Module):
+
+    def __init__(self, n_hidden_units, LSTM_reference):
+        super(LSTMCell, self).__init__()
+        self.FG = ForgetGate(n_hidden_units = n_hidden_units)
+        self.IG = InputGate(n_hidden_units = n_hidden_units)
+        self.OG = OutputGate(n_hidden_units = n_hidden_units)
+        self.LSTM_reference = LSTM_reference # Reference to the LSTM model (to access short term and long term memory)
+    
+    def __call__(self, inputs):
+        # Forget gate
+        self.LSTM_reference.long_term_memory = self.FG(inputs = inputs, short_term_memory = self.LSTM_reference.short_term_memory)
+
+        # Input gate
+        self.LSTM_reference.long_term_memory = self.IG(inputs = inputs, long_term_memory = self.LSTM_reference.long_term_memory, short_term_memory = self.LSTM_reference.short_term_memory)
+
+        # Output gate
+        self.LSTM_reference.short_term_memory = self.OG(inputs = inputs, long_term_memory = self.LSTM_reference.long_term_memory, short_term_memory = self.LSTM_reference.short_term_memory)
+
+    def to(self, device):
+        # Overrides the existing .to() method to move the parameters in each gate to the specified device
+        self.FG.to(device)
+        self.IG.to(device)
+        self.OG.to(device)
+        return super(LSTMCell, self).to(device)
+    
+class ForgetGate(nn.Module):
+    def __init__(self, n_hidden_units):
+        super(ForgetGate, self).__init__()
+        self.sigmoid = nn.Sigmoid()
+        self.sigmoid_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+
+    def __call__(self, inputs, short_term_memory):
+        """
+        Long term to remember percentage = Sigmoid activation((Layer output + short_term_memory) + Nodebias0)
+        Long term memory *= Long term to remember percentage
+        """
+        return self.sigmoid(self.sigmoid_layer(inputs + short_term_memory))
+    
+    def to(self, device):
+        # Overrides the existing .to() method to move the parameters in each gate to the specified device
+        self.sigmoid_layer.to(device)
+        return super(ForgetGate, self).to(device)
+    
+class InputGate(nn.Module):
+    def __init__(self, n_hidden_units):
+        super(InputGate, self).__init__()
+        self.sigmoid = nn.Sigmoid()
+        self.sigmoid_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+        self.tanh = nn.Tanh()
+        self.tanh_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+
+    def __call__(self, inputs, long_term_memory, short_term_memory):
+        """
+        Potential memory to remember = Sigmoid activation((Layer output + short_term_memory) + Nodebias1)
+        Potential long term memory = Tanh activation((Layer output + short_term_memory) + Nodebias2)
+        Long term memory += (Potential memory to remember * Potential long term memory)
+        New_long_term_memory = Long term memory
+        """
+        return long_term_memory + (self.sigmoid(self.sigmoid_layer(inputs + short_term_memory)) * self.tanh(self.tanh_layer(inputs + short_term_memory)))
+    
+    def to(self, device):
+        # Overrides the existing .to() method to move the parameters in each gate to the specified device
+        self.sigmoid_layer.to(device)
+        self.tanh_layer.to(device)
+        return super(InputGate, self).to(device)
+    
+class OutputGate(nn.Module):
+    def __init__(self, n_hidden_units):
+        super(OutputGate, self).__init__()
+        self.sigmoid = nn.Sigmoid()
+        self.sigmoid_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+        self.tanh = nn.Tanh()
+        self.tanh_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+
+    def __call__(self, inputs, long_term_memory, short_term_memory):
+        """
+        Potential short term memory = Tanh activation(Long term memory)
+        Potential memory to remember = Sigmoid activation((Layer output + short_term_memory) + Nodebias3)
+        New short term memory(The final output) = Potential short term memory * Potential memory to remember
+        """
+        return self.tanh(long_term_memory) * self.sigmoid(self.sigmoid_layer(inputs + short_term_memory))
+    
+    def to(self, device):
+        # Overrides the existing .to() method to move the parameters in each gate to the specified device
+        self.sigmoid_layer.to(device)
+        self.tanh_layer.to(device)
+        return super(OutputGate, self).to(device)

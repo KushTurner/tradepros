@@ -5,7 +5,7 @@ from os.path import exists as os_path_exists
 from torch import load as torch_load
 from torch.optim import Adam as torch_optim_Adam
 from torch.optim import SGD as torch_optim_SGD
-from models import *
+from models import MLP, RNN, LSTM
 from torch import Tensor as torch_Tensor
 
 class ModelManager:
@@ -50,6 +50,11 @@ class ModelManager:
                 model = MLP(initial_in = hyperparameters["n_features"], final_out = 2, N_OR_S = hyperparameters["N_OR_S"], uses_single_sentiments = hyperparameters["uses_single_sentiments"])
                 if inference == False:
                     optimiser = torch_optim_SGD(params = model.parameters(), lr = hyperparameters["learning_rate"])
+            
+            elif checkpoint["model"]["architecture"] == "LSTM":
+                model = LSTM(hyperparameters = hyperparameters)
+                if inference == False:
+                    optimiser = torch_optim_Adam(params = model.parameters(), lr = hyperparameters["learning_rate"])
                 
             stats = checkpoint["stats"]
             model.load_state_dict(checkpoint["model"]["model_state_dict"])
@@ -95,7 +100,7 @@ class ModelManager:
             if manual_hyperparams == None:
                 # Can change the values in this dictionary
                 manual_hyperparams = {
-                                    "architecture": "RNN", 
+                                    "architecture": "LSTM", 
                                     "batch_size": 32,
                                     "num_folds": 5,
                                     "multiplicative_trains": 2,
@@ -140,7 +145,11 @@ class ModelManager:
                     manual_hyperparams["learning_rate"] = 1e-4
                     manual_hyperparams["N_OR_S"] = "S"
                     manual_hyperparams["num_context_days"] = 1
-
+                    
+                elif manual_hyperparams["architecture"] == "LSTM":
+                    manual_hyperparams["learning_rate"] = 1e-3
+                    manual_hyperparams["N_OR_S"] = "N"
+                    manual_hyperparams["num_context_days"] = 10
                 
             # Removing any features to remove from the manual parameters
             """
@@ -162,6 +171,10 @@ class ModelManager:
                                     )
             
             # Initialising the model and optimiser
+            manual_hyperparams["n_features"] = self.DH_REF.n_features
+            manual_hyperparams["fold_number"] = 0
+            manual_hyperparams["train_data_params"] = self.DH_REF.train_data_params if manual_hyperparams["transform_after"] == True else None # The mean, std, maximums, minimums, depending on whether the training data for all the companies were transformed together, or separately
+            
             if manual_hyperparams["architecture"] == "RNN":
                 model = RNN(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"], uses_single_sentiments = manual_hyperparams["uses_single_sentiments"])
                 optimiser = torch_optim_Adam(params = model.parameters(), lr = manual_hyperparams["learning_rate"])
@@ -170,12 +183,13 @@ class ModelManager:
                 model = MLP(initial_in = self.DH_REF.n_features, final_out = 2, N_OR_S = manual_hyperparams["N_OR_S"], uses_single_sentiments = manual_hyperparams["uses_single_sentiments"])
                 optimiser = torch_optim_SGD(params = model.parameters(), lr = manual_hyperparams["learning_rate"])
 
+            elif manual_hyperparams["architecture"] == "LSTM":
+                model = LSTM(hyperparameters = manual_hyperparams)
+                optimiser = torch_optim_Adam(params = model.parameters(), lr = manual_hyperparams["learning_rate"])
+
             # Modify hyperparams
             del manual_hyperparams["architecture"] # Not needed in hyperparameters dict
             hyperparameters = manual_hyperparams
-            hyperparameters["fold_number"] = 0
-            hyperparameters["n_features"] = self.DH_REF.n_features
-            hyperparameters["train_data_params"] = self.DH_REF.train_data_params if hyperparameters["transform_after"] == True else None # The mean, std, maximums, minimums, depending on whether the training data for all the companies were transformed together, or separately
             print(hyperparameters.keys())
 
             # Stats 

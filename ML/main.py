@@ -45,9 +45,9 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = None
+model_number_load = 42
 manual_hyperparams = {
-                    "architecture": "RNN", # Will be deleted after instantiation
+                    "architecture": "LSTM", # Will be deleted after instantiation
                     "N_OR_S": "N",
                     "num_context_days": 10,
                     "batch_size": 32,
@@ -336,7 +336,7 @@ if hyperparameters["uses_single_sentiments"] == False:
     print(len(input_data))
 
     # Create batches from all the data sequences
-    if model.__class__.__name__ == "RNN":
+    if model.__class__.__name__ == "RNN" or model.__class__.__name__ == "LSTM":
         # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
         batches = [input_data[i:i + hyperparameters["batch_size"]].transpose(dim0 = 0, dim1 = 1) for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
