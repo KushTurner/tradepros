@@ -53,7 +53,7 @@ manual_hyperparams = {
                     "batch_size": 32,
                     "learning_rate": 1e-3,
                     "num_folds": 5,
-                    "multiplicative_trains": 1,
+                    "multiplicative_trains": 3,
                     "uses_dated_sentiments": False, #True, #False,
                     "uses_single_sentiments": False, #True,
                     "features_to_remove": ["adjclose"],

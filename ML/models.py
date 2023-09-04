@@ -72,6 +72,7 @@ class MLP(nn.Module):
         for layer in self.model:
             if isinstance(layer, nn.Linear):
                 init_function(layer.weight, mode = "fan_in", nonlinearity = non_linearity)
+        init_function(self.O.weight, mode = "fan_in", nonlinearity = non_linearity)
 
 class RNN(nn.Module):
 
@@ -305,6 +306,9 @@ class LSTM(nn.Module):
                                     nn.ReLU(),
                                     )
         self.output_layer = nn.Linear((initial_in  // 4) + hyperparameters["uses_single_sentiments"], 2)
+
+        # Initialise weights for all model weights
+        self.initialise_weights()
     
     def __call__(self, inputs, single_sentiment_values):
 
@@ -336,6 +340,18 @@ class LSTM(nn.Module):
         for cell in self.cells:
             cell.to(*args, **kwargs)
         return self
+
+    def initialise_weights(self):
+        # Initialises all weights in the LSTM cells and gates using Xavier uniform (Because of tanh + sigmoid activations)
+        for cell in self.cells:
+            cell.initialise_weights(init_function = nn.init.xavier_uniform_)
+
+        # Apply Kai-Ming initialisation to all linear layer weights (using Kai Ming uniform because of ReLU activation functions)
+        for layer in self.layers:
+            init_function = nn.init.kaiming_uniform_
+            if isinstance(layer, nn.Linear):
+                init_function(layer.weight, mode = "fan_in", nonlinearity = "relu")
+            init_function(self.output_layer.weight, mode = "fan_in", nonlinearity =  "relu")
     
 class LSTMCell(nn.Module):
 
@@ -362,7 +378,13 @@ class LSTMCell(nn.Module):
         self.IG.to(device)
         self.OG.to(device)
         return super(LSTMCell, self).to(device)
-    
+
+    def initialise_weights(self, init_function):
+        # Calls the initialise weights method for all gates
+        self.FG.initialise_weights(init_function)
+        self.IG.initialise_weights(init_function)
+        self.OG.initialise_weights(init_function)
+
 class ForgetGate(nn.Module):
     def __init__(self, n_hidden_units):
         super(ForgetGate, self).__init__()
@@ -381,6 +403,9 @@ class ForgetGate(nn.Module):
         self.sigmoid_layer.to(device)
         return super(ForgetGate, self).to(device)
     
+    def initialise_weights(self, init_function):
+        init_function(self.sigmoid_layer.weight)
+
 class InputGate(nn.Module):
     def __init__(self, n_hidden_units):
         super(InputGate, self).__init__()
@@ -404,6 +429,10 @@ class InputGate(nn.Module):
         self.tanh_layer.to(device)
         return super(InputGate, self).to(device)
     
+    def initialise_weights(self, init_function):
+        init_function(self.sigmoid_layer.weight)
+        init_function(self.tanh_layer.weight)
+
 class OutputGate(nn.Module):
     def __init__(self, n_hidden_units):
         super(OutputGate, self).__init__()
@@ -425,3 +454,7 @@ class OutputGate(nn.Module):
         self.sigmoid_layer.to(device)
         self.tanh_layer.to(device)
         return super(OutputGate, self).to(device)
+
+    def initialise_weights(self, init_function):
+        init_function(self.sigmoid_layer.weight)
+        init_function(self.tanh_layer.weight)
