@@ -24,6 +24,13 @@ export type HistoryData = {
   date: string;
 };
 
+export type LeaderboardData = {
+  rank: string;
+  username: string;
+  balance: string;
+  total_return: string;
+};
+
 export const companyColumns: ColumnDef<CompanyData>[] = [
   {
     header: 'Company Name',
@@ -81,7 +88,7 @@ export const historyColumns: ColumnDef<HistoryData>[] = [
     cell: (s) => {
       const value = s.getValue() as string;
       return (
-        <span className={value === 'Buy' ? 'text-[#05A56E]' : 'text-[#DC2625]'}>
+        <span className={value === 'Buy' ? 'text-success' : 'text-warning'}>
           {value}
         </span>
       );
@@ -98,5 +105,24 @@ export const historyColumns: ColumnDef<HistoryData>[] = [
   {
     header: 'Date',
     accessorKey: 'date',
+  },
+];
+
+export const leadererboardColumns: ColumnDef<LeaderboardData>[] = [
+  {
+    header: 'Rank',
+    accessorKey: 'rank',
+  },
+  {
+    header: 'Name',
+    accessorKey: 'username',
+  },
+  {
+    header: 'Balance',
+    accessorKey: 'balance',
+  },
+  {
+    header: 'Total Return',
+    accessorKey: 'total_return',
   },
 ];

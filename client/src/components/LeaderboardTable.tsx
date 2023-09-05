@@ -4,31 +4,21 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useMediaQuery } from 'react-responsive';
-import { useNavigate } from 'react-router-dom';
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
 }
 
-function CompanyTable<TData, TValue>({
+function LeaderboardTable<TData, TValue>({
   columns,
   data,
 }: DataTableProps<TData, TValue>) {
-  const isLaptopAndDesktop = useMediaQuery({ query: '(min-width: 768px)' });
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    state: {
-      columnVisibility: {
-        no_of_shares: isLaptopAndDesktop,
-        current_val: isLaptopAndDesktop,
-      },
-    },
   });
-  const navigate = useNavigate();
 
   return (
     <table className="text-white font-display w-full border-b-2 border-border">
@@ -38,7 +28,7 @@ function CompanyTable<TData, TValue>({
             {headerGroup.headers.map((header) => (
               <th
                 key={header.id}
-                className="py-2 text-left text-xs text-neutraldark pr-5 lg:pl-16 md:pl-10 lg:text-base"
+                className="py-2 text-center text-xs text-neutraldark lg:text-base"
               >
                 {flexRender(
                   header.column.columnDef.header,
@@ -49,15 +39,11 @@ function CompanyTable<TData, TValue>({
           </tr>
         ))}
       </thead>
-      <tbody className="text-sm lg:text-lg">
+      <tbody className="text-sm lg:text-lg text-center">
         {table.getRowModel().rows.map((row) => (
-          <tr
-            key={row.id}
-            className="hover:bg-black hover:bg-opacity-30 hover:cursor-pointer overflow-hidden"
-            onClick={() => navigate('/stock/aapl')}
-          >
+          <tr key={row.id}>
             {row.getVisibleCells().map((cell) => (
-              <td key={cell.id} className="py-3 lg:pl-16 md:pl-10">
+              <td key={cell.id} className="py-3">
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </td>
             ))}
@@ -68,4 +54,4 @@ function CompanyTable<TData, TValue>({
   );
 }
 
-export default CompanyTable;
+export default LeaderboardTable;

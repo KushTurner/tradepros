@@ -28,13 +28,13 @@ const instructionsData = [
 function Home() {
   return (
     <div>
-      <div className="flex flex-col bg-[#121318] mt-5 mx-[16px] md:mx-6 lg:mx-8 rounded-xl md:pt-0 md:pb-5 md:mt-10 lg:pb-[220px] md:flex-row">
+      <div className="flex flex-col bg-main mt-5 mx-[16px] md:mx-6 lg:mx-8 rounded-xl md:pt-0 md:pb-5 md:mt-10 lg:pb-[220px] md:flex-row">
         <div className="md:mr-20 lg:mr-20">
           <p className="py-[132px] rounded-xl m-2 bg-black md:hidden">asdas</p>
-          <section className="font-display text-[#9395A5] md:pt-0 lg:mt-40">
+          <section className="font-display text-neutral md:pt-0 lg:mt-40">
             {/* Note: Image is around 337px vertically */}
             <div className="ml-[23px] md:mt-20 md:ml-20">
-              <h2 className="mb-7 font-display font-bold md:text-xl lg:text-4xl text-[#5367FE]">
+              <h2 className="mb-7 font-display font-bold md:text-xl lg:text-4xl text-primary">
                 Buy and Sell
               </h2>
               <p className="text-xs md:max-w-3xl lg:max-w-xl">
@@ -46,7 +46,7 @@ function Home() {
           </section>
           <button
             type="button"
-            className="bg-[#5367FE] text-white rounded-md p-2 mx-[20px] mt-[42px] mb-4 md:ml-20"
+            className="bg-primarydark text-white rounded-md p-2 mx-[20px] mt-[42px] mb-4 md:ml-20"
           >
             Start Investing
           </button>
@@ -62,15 +62,15 @@ function Home() {
           </p>
         </div>
       </div>
-      <div className="bg-[#121318] mt-16 md:flex md:flex-row md:py-5 md:pl-7">
+      <div className="bg-main mt-16 md:flex md:flex-row md:py-5 md:pl-7">
         <div className="text-white flex flex-col text-center font-display pt-24 md:justify-center md:max-w-sm md:pt-0 lg:max-w-3xl lg:pl-10 md:pr-5">
-          <h3 className="text-[#5367FE] text-md lg:text-lg mb-2 md:text-left">
+          <h3 className="text-primary text-md lg:text-lg mb-2 md:text-left">
             Create Profile
           </h3>
           <h4 className=" text-2xl lg:text-3xl mb-5 md:text-left">
             Easy Way to Get Started
           </h4>
-          <p className="text-[#9395A5] p-5 pt-0 text-center text-sm lg:text-base md:text-left md:p-0">
+          <p className="text-neutral p-5 pt-0 text-center text-sm lg:text-base md:text-left md:p-0">
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur
             et nisi vel turpis fermentum posuere. Suspendisse laoreet tristique
             laoreet. Duis egestas tincidunt ligula ut sollicitudin.

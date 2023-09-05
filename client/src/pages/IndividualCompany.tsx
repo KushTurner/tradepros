@@ -46,7 +46,7 @@ function IndividualCompany() {
   return (
     <div className="lg:grid lg:grid-cols-4">
       <div className="lg:col-span-3">
-        <div className="font-display text-white bg-[#121318] rounded-xl mt-5 mx-[16px] p-5 md:pb-12 md:mt-10">
+        <div className="font-display text-white bg-main rounded-xl mt-5 mx-[16px] p-5 md:pb-12 md:mt-10">
           <div className="mb-10 md:ml-2 lg:ml-6">
             <h1 className="text-2xl font-bold mb-2 md:text-4xl">
               Market stats
@@ -61,11 +61,11 @@ function IndividualCompany() {
               />
               <span className="ml-2 self-center">
                 <h2 className="text-lg font-bold md:text-3xl">Apple</h2>
-                <p className="text-xs md:text-xl text-[#008CFF]">AAPL</p>
+                <p className="text-xs md:text-xl text-symbol">AAPL</p>
               </span>
             </div>
             <div className="md:self-center">
-              <p className="text-[#616573] self-center px-8 md:px-2 md:mb-5 lg:ml-4 lg:text-lg md:hidden">
+              <p className="text-neutraldark self-center px-8 md:px-2 md:mb-5 lg:ml-4 lg:text-lg md:hidden">
                 Price{' '}
                 <span className="text-white self-center float-right text-lg relative bottom-1 md:hidden">
                   $32,455.12
@@ -80,33 +80,33 @@ function IndividualCompany() {
             </div>
           </div>
           <ul className="grid grid-cols-2 w-full gap-4 mt-8 md:grid-cols-4">
-            <li className="p-4 col-span-1 bg-[#080808] rounded-md">
-              <h2 className="text-[#616573] text-sm mb-8 lg:text-lg">
+            <li className="p-4 col-span-1 bg-background rounded-md">
+              <h2 className="text-neutraldark text-sm mb-8 lg:text-lg">
                 Market Cap
               </h2>
               <p>$30,455.12</p>
             </li>
-            <li className="p-4 col-span-1 md:row-span-1 bg-[#080808] rounded-md">
-              <h2 className="text-[#616573] text-sm mb-8 lg:text-lg">
+            <li className="p-4 col-span-1 md:row-span-1 bg-background rounded-md">
+              <h2 className="text-neutraldark text-sm mb-8 lg:text-lg">
                 Previous Close
               </h2>
               <p>$30,455.12</p>
             </li>
-            <li className="p-4 col-span-1 md:row-span-1 bg-[#080808] rounded-md">
-              <h2 className="text-[#616573] text-sm mb-8 lg:text-lg">
+            <li className="p-4 col-span-1 md:row-span-1 bg-background rounded-md">
+              <h2 className="text-neutraldark text-sm mb-8 lg:text-lg">
                 52W Range
               </h2>
               <p>169-192</p>
             </li>
-            <li className="p-4 col-span-1 md:row-span-1 bg-[#080808] rounded-md">
-              <h2 className="text-[#616573] text-sm mb-8 lg:text-lg">
+            <li className="p-4 col-span-1 md:row-span-1 bg-background rounded-md">
+              <h2 className="text-neutraldark text-sm mb-8 lg:text-lg">
                 Stock Prediction
               </h2>
               <p>40% chance ^</p>
             </li>
           </ul>
         </div>
-        <div className="flex font-display text-white bg-[#121318] rounded-xl mx-[16px] mt-5 p-5 pl-0">
+        <div className="flex font-display text-white bg-main rounded-xl mx-[16px] mt-5 p-5 pl-0">
           <ResponsiveContainer width="99%" height={350}>
             <AreaChart
               data={dataHere}
@@ -141,14 +141,14 @@ function IndividualCompany() {
           </ResponsiveContainer>
         </div>
       </div>
-      <div className="mt-5 bg-[#121318] rounded-xl lg:col-span-1 lg:mt-10 mx-[16px] lg:ml-0">
+      <div className="mt-5 bg-main rounded-xl lg:col-span-1 lg:mt-10 mx-[16px] lg:ml-0">
         <div className="flex flex-row font-display text-2xl md:text-3xl justify-center mt-5 pt-5 lg:pt-0">
           <button
             type="button"
             className={`${
               activeTab === 'buy'
-                ? 'text-[#5266FE] border-[#5266FE]'
-                : 'text-[#6C7180]'
+                ? 'text-primary border-primary'
+                : 'text-neutraldark'
             } border-b-4 px-7 md:px-8 2xl:px-16 pb-6`}
             onClick={() => setActiveTab('buy')}
           >
@@ -158,8 +158,8 @@ function IndividualCompany() {
             type="button"
             className={`${
               activeTab === 'sell'
-                ? 'text-[#5266FE] border-[#5266FE]'
-                : 'text-[#6C7180]'
+                ? 'text-primary border-primary'
+                : 'text-neutraldark'
             } border-b-4 px-7 md:px-8 2xl:px-16 pb-6`}
             onClick={() => setActiveTab('sell')}
           >
@@ -176,7 +176,7 @@ function IndividualCompany() {
               />
               <span className="ml-2">
                 <h2 className="text-2xl font-bold text-white">BUY AAPL</h2>
-                <p className="text-3xl font-bold text-[#008CFF]">179.91</p>
+                <p className="text-3xl font-bold text-symbol">179.91</p>
               </span>
             </div>
             <div className="flex flex-row justify-around text-white mt-10 font-display text-2xl">
@@ -188,17 +188,17 @@ function IndividualCompany() {
               <input
                 type="text"
                 placeholder="Amount"
-                className="bg-[#080808] rounded-md text-white caret-[#5266FE] focus:outline-none focus:border focus:border-[#5266FE] pl-2 py-3 md:py-4 md:pl-3"
+                className="bg-background rounded-md text-white caret-primary focus:outline-none focus:border focus:border-primary pl-2 py-3 md:py-4 md:pl-3"
               />
               <h2 className="font-bold text-white text-center mt-4">Unit</h2>
               <input
                 type="text"
                 placeholder="Unit"
-                className="bg-[#080808] rounded-md text-white caret-[#5266FE] focus:outline-none focus:border focus:border-[#5266FE] pl-2 py-3 md:py-4 md:pl-3"
+                className="bg-background rounded-md text-white caret-primary focus:outline-none focus:border focus:border-primary pl-2 py-3 md:py-4 md:pl-3"
               />
               <button
                 type="button"
-                className="rounded-2xl bg-[#5266FE] font-display font-bold text-white p-3 text-lg md:text-2xl mt-12 md:mt-16 lg:mt-28"
+                className="rounded-2xl bg-primary font-display font-bold text-white p-3 text-lg md:text-2xl mt-12 md:mt-16 lg:mt-28"
               >
                 Buy
               </button>
@@ -215,7 +215,7 @@ function IndividualCompany() {
               />
               <span className="ml-2">
                 <h2 className="text-2xl font-bold text-white">SELL AAPL</h2>
-                <p className="text-3xl font-bold text-[#008CFF]">179.91</p>
+                <p className="text-3xl font-bold text-symbol">179.91</p>
               </span>
             </div>
             <div className="flex flex-row justify-around text-white mt-10 font-display text-2xl">
@@ -227,17 +227,17 @@ function IndividualCompany() {
               <input
                 type="text"
                 placeholder="Amount"
-                className="bg-[#080808] rounded-md text-white caret-[#5266FE] focus:outline-none focus:border focus:border-[#5266FE] pl-2 py-3 md:py-4 md:pl-3"
+                className="bg-background rounded-md text-white caret-primary focus:outline-none focus:border focus:border-primary pl-2 py-3 md:py-4 md:pl-3"
               />
               <h2 className="font-bold text-white text-center mt-4">Unit</h2>
               <input
                 type="text"
                 placeholder="Unit"
-                className="bg-[#080808] rounded-md text-white caret-[#5266FE] focus:outline-none focus:border focus:border-[#5266FE] pl-2 py-3 md:py-4 md:pl-3"
+                className="bg-background rounded-md text-white caret-primary focus:outline-none focus:border focus:border-primary pl-2 py-3 md:py-4 md:pl-3"
               />
               <button
                 type="button"
-                className="rounded-2xl bg-[#5266FE] font-display font-bold text-white p-3 text-lg md:text-2xl mt-12 md:mt-16 lg:mt-28"
+                className="rounded-2xl bg-primary font-display font-bold text-white p-3 text-lg md:text-2xl mt-12 md:mt-16 lg:mt-28"
               >
                 Sell
               </button>

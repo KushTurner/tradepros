@@ -1,9 +1,9 @@
 function Footer() {
   return (
-    <footer className="bg-[#080808] my-6 text-sm">
-      <p className="font-display text-[#9395A5] text-center">
-        Made by <span className="text-[#5367FE]">Kush</span> and{' '}
-        <span className="text-[#5367FE]">Lyle</span>
+    <footer className="bg-background my-6 text-sm">
+      <p className="font-display text-neutral text-center">
+        Made by <span className="text-primary">Kush</span> and{' '}
+        <span className="text-primary">Lyle</span>
       </p>
     </footer>
   );
