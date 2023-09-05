@@ -21,14 +21,14 @@ function LeaderboardTable<TData, TValue>({
   });
 
   return (
-    <table className="text-white font-display w-full border-b-2 border-[#333438]">
-      <thead className="border-y-2 border-[#333438]">
+    <table className="text-white font-display w-full border-b-2 border-border">
+      <thead className="border-y-2 border-border">
         {table.getHeaderGroups().map((headerGroup) => (
           <tr key={headerGroup.id}>
             {headerGroup.headers.map((header) => (
               <th
                 key={header.id}
-                className="py-2 text-center text-xs text-[#6E707F] lg:text-base"
+                className="py-2 text-center text-xs text-neutraldark lg:text-base"
               >
                 {flexRender(
                   header.column.columnDef.header,

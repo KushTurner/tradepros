@@ -15,7 +15,7 @@ function NavBar() {
 
   return (
     <nav>
-      <header className="bg-[#121318] py-6 rounded-b-xl md:hidden">
+      <header className="bg-main py-6 rounded-b-xl md:hidden">
         <h1 className="font-display text-lg font-bold text-white ml-6 hover:cursor-pointer">
           <Link to="/">TradePros</Link>
         </h1>
@@ -28,7 +28,7 @@ function NavBar() {
         <AiOutlineMenu size={20} />
       </button>
       <ul
-        className="font-display mx-[16px] m-2 my-5 pt-5 pb-5 p-2 bg-[#121318] rounded-xl md:flex md:space-y-0 md:m-0 md:rounded-none md:py-6 md:text-base md:p-0 md:items-center md:justify-between md:whitespace-nowrap"
+        className="font-display mx-[16px] m-2 my-5 pt-5 pb-5 p-2 bg-main rounded-xl md:flex md:space-y-0 md:m-0 md:rounded-none md:py-6 md:text-base md:p-0 md:items-center md:justify-between md:whitespace-nowrap"
         hidden={navbarOpen}
       >
         <li
@@ -39,7 +39,7 @@ function NavBar() {
         </li>
         {authData.loggedIn && (
           <div className="flex flex-col md:flex-row">
-            <li className="navbar-item ml-6 mb-6 md:mb-0 md:hover:underline md:hover:underline-offset-[36px]">
+            <li className="navbar-item ml-6 mb-6 md:mb-0 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
                 <Link className="text-white navbar-item flex" to="/market">
                   <AiOutlineStock
@@ -98,15 +98,15 @@ function NavBar() {
         )}
         {!authData.loggedIn ? (
           <div className="flex justify-evenly mx-2 mr-6">
-            <li className="navbar-item mr-2 w-full md:ml-0 md:mr-3 p-1 md:mb-0 rounded-lg bg-[#E8E9ED] md:bg-[#121318] text-center text-lg font-bold md:px-4">
+            <li className="navbar-item mr-2 w-full md:ml-0 md:mr-3 p-1 md:mb-0 rounded-lg bg-signinmobile md:bg-main text-center text-lg font-bold md:px-4">
               <Link
-                className="text-[#5266FE] md:font-normal md:font-display"
+                className="text-primarydark md:font-normal md:font-display"
                 to="/signin"
               >
                 Sign In
               </Link>
             </li>
-            <li className="navbar-item ml-2 w-full md:ml-0 md:mr-3 p-1 rounded-lg bg-[#5266FE] text-center text-lg font-bold md:px-4">
+            <li className="navbar-item ml-2 w-full md:ml-0 md:mr-3 p-1 rounded-lg bg-primarydark text-center text-lg font-bold md:px-4">
               <Link
                 className="text-white md:font-normal md:font-display"
                 to="/register"
@@ -117,7 +117,7 @@ function NavBar() {
           </div>
         ) : (
           <div className="flex justify-evenly mr-6">
-            <li className="navbar-item w-full md:ml-0 md:mr-3 p-1 rounded-lg bg-[#5266FE] text-center text-base font-bold md:px-2">
+            <li className="navbar-item w-full md:ml-0 md:mr-3 p-1 rounded-lg bg-primarydark text-center text-base font-bold md:px-2">
               <button
                 type="button"
                 className="text-white md:font-normal md:font-display"

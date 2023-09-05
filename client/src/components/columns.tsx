@@ -88,7 +88,7 @@ export const historyColumns: ColumnDef<HistoryData>[] = [
     cell: (s) => {
       const value = s.getValue() as string;
       return (
-        <span className={value === 'Buy' ? 'text-[#05A56E]' : 'text-[#DC2625]'}>
+        <span className={value === 'Buy' ? 'text-success' : 'text-warning'}>
           {value}
         </span>
       );

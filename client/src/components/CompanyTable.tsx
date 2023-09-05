@@ -42,15 +42,15 @@ function CompanyTable<TData, TValue>({
 
   return (
     <>
-      <table className="text-white font-display w-full border-b-2 border-[#333438]">
-        <thead className="border-y-2 border-[#333438]">
+      <table className="text-white font-display w-full border-b-2 border-border">
+        <thead className="border-y-2 border-border">
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
                 <th
                   key={header.id}
                   onClick={header.column.getToggleSortingHandler()}
-                  className="py-2 text-left text-xs text-[#6E707F] pr-5 lg:pl-16 md:pl-10 lg:text-base hover:cursor-pointer"
+                  className="py-2 text-left text-xs text-neutraldark pr-5 lg:pl-16 md:pl-10 lg:text-base hover:cursor-pointer"
                 >
                   {flexRender(
                     header.column.columnDef.header,
@@ -58,12 +58,12 @@ function CompanyTable<TData, TValue>({
                   )}
                   {{
                     asc: (
-                      <span className="inline-block ml-1 relative top-[3px] z-50 text-[#5266FE]">
+                      <span className="inline-block ml-1 relative top-[3px] z-50 text-primarydark">
                         <AiFillCaretUp size={12} />
                       </span>
                     ),
                     desc: (
-                      <span className="inline-block ml-1 relative top-[3px] text-[#5266FE]">
+                      <span className="inline-block ml-1 relative top-[3px] text-primarydark">
                         <AiFillCaretDown size={12} />
                       </span>
                     ),
@@ -91,19 +91,19 @@ function CompanyTable<TData, TValue>({
       </table>
       <div className="flex justify-end mt-2 text-sm">
         <button
-          className="text-[#9395A5] disabled:text-[#282D41] mx-4"
+          className="text-neutrak disabled:text-textdisabled mx-4"
           disabled={!table.getCanPreviousPage()}
           type="button"
           onClick={() => table.previousPage()}
         >
           {'< Previous'}
         </button>
-        <p className="text-[#5367FE]">
+        <p className="text-primarydark">
           {(table.options.state.pagination?.pageIndex ?? 0) + 1}
         </p>
         <button
           disabled={!table.getCanNextPage()}
-          className="text-[#9395A5] disabled:text-[#282D41] mx-4"
+          className="text-primary disabled:text-textdisabled mx-4"
           type="button"
           onClick={() => table.nextPage()}
         >

@@ -31,14 +31,14 @@ function CompanyTable<TData, TValue>({
   const navigate = useNavigate();
 
   return (
-    <table className="text-white font-display w-full border-b-2 border-[#333438]">
-      <thead className="border-y-2 border-[#333438]">
+    <table className="text-white font-display w-full border-b-2 border-border">
+      <thead className="border-y-2 border-border">
         {table.getHeaderGroups().map((headerGroup) => (
           <tr key={headerGroup.id}>
             {headerGroup.headers.map((header) => (
               <th
                 key={header.id}
-                className="py-2 text-left text-xs text-[#6E707F] pr-5 lg:pl-16 md:pl-10 lg:text-base"
+                className="py-2 text-left text-xs text-neutraldark pr-5 lg:pl-16 md:pl-10 lg:text-base"
               >
                 {flexRender(
                   header.column.columnDef.header,

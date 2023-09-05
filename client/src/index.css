@@ -7,15 +7,15 @@
 }
 
 html {
-    background-color: #080808;
+    background-color: theme('colors.background');
 }
 
 .navbar-item {
-    color: #9395A5;
+    color: theme('colors.neutral');
 }
 
 .navbar-item:hover {
-    color: #5267FE;
+    color: theme('colors.primarydark')
 }
 
 
