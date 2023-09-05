@@ -1,7 +1,10 @@
 from time import time as get_time
+import json
 
-def get_model_prediction(ticker, date_to_predict):
-
+def get_model_prediction(event, context):
+    ticker = event["queryStringParameters"]["ticker"]
+    date_to_predict = event["queryStringParameters"]["date_to_predict"]
+    
     # Importing dependencies + model set-up
     setup_time_1 = get_time()
     import torch
@@ -21,7 +24,7 @@ def get_model_prediction(ticker, date_to_predict):
     model_load_time_1 = get_time()
     DH = DataHandler(device = DEVICE, generator = G)
     model_manager = ModelManager(device = DEVICE, DH_reference = DH, TDH_reference = None)
-    model_number_load = 32
+    model_number_load = 43
     model, _, hyperparameters, _, _ = model_manager.initiate_model(
                                                                     model_number_load = model_number_load, 
                                                                     manual_hyperparams = None, 
@@ -64,13 +67,14 @@ def get_model_prediction(ticker, date_to_predict):
     data_load_time_1 = get_time()
 
     # Find starting date
-    num_days_prev = (hyperparameters["num_context_days"] + hyperparameters["rolling_periods"][-1]) * 2
-    end_date_as_dt = datetime.strptime(date_to_predict, "%d/%m/%Y")
+    num_days_prev = 365 * 10 #(hyperparameters["num_context_days"] + hyperparameters["rolling_periods"][-1]) * 4
+    end_date_as_dt = datetime.strptime(date_to_predict, "%Y-%m-%d")
     start_date_as_dt = end_date_as_dt - timedelta(days = num_days_prev)
 
     # Convert to MM/DD/YYYY
-    start_date = start_date_as_dt.strftime("%m/%d/%Y")
-    end_date = end_date_as_dt.strftime("%m/%d/%Y") 
+    start_date = start_date_as_dt.strftime("%Y-%m-%d")
+    end_date = end_date_as_dt.strftime("%Y-%m-%d")
+    print(start_date, end_date)
     
     # print(hyperparameters["rolling_periods"][-1])
     # print(hyperparameters["num_context_days"])
@@ -157,7 +161,7 @@ def get_model_prediction(ticker, date_to_predict):
     # - batch.shape = [num_context_days, batch_size, num_features]
     batch_create_time_1 = get_time()
 
-    if model.__class__.__name__ == "RNN":
+    if model.__class__.__name__ == "RNN" or model.__class__.__name__ == "LSTM":
         # Sequence shape should be [num_context_days, 1, num_features]
         right_padding = torch.zeros(hyperparameters["num_context_days"], hyperparameters["batch_size"] - 1, hyperparameters["n_features"])
         batch = torch.concat([DATA_SEQUENCE.view(hyperparameters["num_context_days"], 1, hyperparameters["n_features"]), right_padding], dim = 1)
@@ -171,7 +175,7 @@ def get_model_prediction(ticker, date_to_predict):
 
     prediction_time_1 = get_time()
     # Generate prediction
-    prediction = torch.nn.functional.softmax(model(inputs = batch.to(device = DEVICE), single_sentiment_values = padded_sentiment), dim = 1)[0]
+    prediction = torch.nn.functional.softmax(model(inputs = batch.to(device = DEVICE), single_sentiment_values = padded_sentiment if hyperparameters["uses_single_sentiments"] else None), dim = 1)[0]
     prediction_time_2 = get_time()
 
     print(prediction.shape)
@@ -194,8 +198,26 @@ def get_model_prediction(ticker, date_to_predict):
                     ]
                     )               
     print("Total time: ", total_time)
-    
-    return {"date_to_predict": date_to_predict, "ticker": ticker, "prediction": prediction, "model_answer": torch.argmax(prediction, dim = 0).item()}
 
-return_dict = get_model_prediction(ticker = "meta" , date_to_predict = "28/08/2023")
+    answer = torch.argmax(prediction, dim = 0).item()
+    print(answer)
+    # Return response
+    response = {
+                "confidence": prediction[answer].item(),
+                "model_answer": "down" if answer == 0 else "up",
+                }
+    return {
+            "statusCode": 200,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps(response)
+            }
+
+event = {
+        "queryStringParameters": {
+                                "ticker": "meta",
+                                "date_to_predict":"2023-08-28"
+                                }
+        }
+
+return_dict = get_model_prediction(event = event, context = None)
 print(return_dict)
