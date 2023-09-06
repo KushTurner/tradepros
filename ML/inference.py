@@ -12,6 +12,7 @@ def get_model_prediction(event, context):
     from model_manager import ModelManager
     from datetime import datetime, timedelta
     from yahoo_fin.stock_info import get_data, get_dividends
+    import json
 
     DEVICE = "cpu" # Faster inference times on CPU
     M_SEED = 2004

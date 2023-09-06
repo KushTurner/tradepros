@@ -7,6 +7,7 @@ from torch.optim import Adam as torch_optim_Adam
 from torch.optim import SGD as torch_optim_SGD
 from models import MLP, RNN, LSTM
 from torch import Tensor as torch_Tensor
+from torch import device as torch_device
 
 class ModelManager:
 
@@ -28,7 +29,7 @@ class ModelManager:
 
             # print("Loading existing model")
             existing_checkpoint_path = f"{checkpoint_directory}/fold_{len(os_listdir(f'{checkpoint_directory}')) - 1}.pth"
-            checkpoint = torch_load(existing_checkpoint_path) # Load the last checkpoint (Which would be the complete model)
+            checkpoint = torch_load(existing_checkpoint_path, map_location = torch_device("cpu"))# Load the last checkpoint (Which would be the complete model)
             # print(existing_checkpoint_path)
             # print(checkpoint.keys())
 
