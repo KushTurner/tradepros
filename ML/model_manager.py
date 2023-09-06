@@ -229,17 +229,18 @@ class ModelManager:
     
     def clean_empty_directories(self):
         # Removes any empty model directories in the subdirectories of the model_checkpoints directory
-
         model_checkpoint_path = 'model_checkpoints/deployment_models'
-        models_directory = os_listdir(model_checkpoint_path)
-        for directory_name in models_directory:
-            model_directory_path = f"{model_checkpoint_path}/{directory_name}"
-            if len(os_listdir(model_directory_path)) == 0:
-                os_rmdir(model_directory_path)
+        if os_path_exists(model_checkpoint_path):
+            models_directory = os_listdir(model_checkpoint_path)
+            for directory_name in models_directory:
+                model_directory_path = f"{model_checkpoint_path}/{directory_name}"
+                if len(os_listdir(model_directory_path)) == 0:
+                    os_rmdir(model_directory_path)
 
         model_checkpoint_path = 'model_checkpoints/feature_test_models'
-        models_directory = os_listdir(model_checkpoint_path)
-        for directory_name in models_directory:
-            model_directory_path = f"{model_checkpoint_path}/{directory_name}"
-            if len(os_listdir(model_directory_path)) == 0:
-                os_rmdir(model_directory_path)
+        if os_path_exists(model_checkpoint_path):
+            models_directory = os_listdir(model_checkpoint_path)
+            for directory_name in models_directory:
+                model_directory_path = f"{model_checkpoint_path}/{directory_name}"
+                if len(os_listdir(model_directory_path)) == 0:
+                    os_rmdir(model_directory_path)
