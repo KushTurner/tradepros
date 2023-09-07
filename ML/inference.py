@@ -219,23 +219,22 @@ def get_model_prediction(event, context):
 
 from requests import get as requests_get
 from os import getenv as os_getenv
-api_key = os_getenv("tradepros_api_key")
-url =  os_getenv("tradepros_model_inference_url")
-event = {
-        "ticker": "meta",
-        "date_to_predict":"2023-08-28"
-        }
-headers = {
+
+def get_model_response(ticker, date_to_predict):
+    api_key = os_getenv("tradepros_api_key")
+    url =  os_getenv("tradepros_model_inference_url")
+    event = {
+            "ticker": ticker,
+            "date_to_predict": date_to_predict
+            }
+    headers = {
             "Content-Type": "application/json",
             "x-api-key": api_key
             }
 
-r = requests_get(url, params = event, headers = headers)
-print(r.json())
+    return requests_get(url, params = event, headers = headers).json()
 
-event = {
-        "ticker": "goog",
-        "date_to_predict":"2022-01-01"
-        }
-r = requests_get(url, params = event, headers = headers)
-print(r.json())
+print(get_model_response(ticker = "meta", date_to_predict = "2023-08-28"))
+print(get_model_response(ticker = "goog", date_to_predict = "2023-08-28"))
+print(get_model_response(ticker = "amzn", date_to_predict = "2023-08-28"))
+print(get_model_response(ticker = "nflx", date_to_predict = "2023-08-28"))
