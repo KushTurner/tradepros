@@ -1,0 +1,3 @@
+vaderSentiment
+yahoo_fin
+pandas
