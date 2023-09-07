@@ -225,6 +225,17 @@ event = {
         "ticker": "meta",
         "date_to_predict":"2023-08-28"
         }
+headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key
+            }
 
-r = requests_get(url, params = event)
+r = requests_get(url, params = event, headers = headers)
+print(r.json())
+
+event = {
+        "ticker": "goog",
+        "date_to_predict":"2022-01-01"
+        }
+r = requests_get(url, params = event, headers = headers)
 print(r.json())
