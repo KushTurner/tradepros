@@ -24,7 +24,8 @@ class ModelManager:
         # Load existing model
         if model_number_load != None and model_checkpoints_folder_exists:
             # Either deployment model or feature test model (dependent on feature_test_model_name parameter)
-            checkpoint_directory = f"model_checkpoints/{'feature_test_models/' if feature_test_model_name else 'deployment_models/'}{model_number_load}"
+            architecture = manual_hyperparams["architecture"]
+            checkpoint_directory = f"model_checkpoints/{f'feature_test_models/{architecture}/' if feature_test_model_name else 'deployment_models/'}{model_number_load}"
             self.clean_empty_directories()
 
             # print("Loading existing model")
@@ -85,16 +86,19 @@ class ModelManager:
             if feature_test_model_name:
                 if os_path_exists("model_checkpoints/feature_test_models") == False:
                     os_mkdir("model_checkpoints/feature_test_models")
+                if os_path_exists(f"model_checkpoints/feature_test_models/{manual_hyperparams['architecture']}") == False:
+                    os_mkdir(f"model_checkpoints/feature_test_models/{manual_hyperparams['architecture']}")
+                    
                 self.clean_empty_directories()
-                checkpoint_directory = f"model_checkpoints/feature_test_models/{feature_test_model_name}"
+                checkpoint_directory = f"model_checkpoints/feature_test_models/{manual_hyperparams['architecture']}/{feature_test_model_name}"
             # Model for deployment
             else:
                 if os_path_exists("model_checkpoints/deployment_models") == False:
                     os_mkdir("model_checkpoints/deployment_models")
                 self.clean_empty_directories()
                 checkpoint_directory = f"model_checkpoints/deployment_models/{len(os_listdir('model_checkpoints/deployment_models'))}"
-
-            os_mkdir(checkpoint_directory) 
+            
+            os_mkdir(checkpoint_directory)
 
             # Note: Use normalised data ("N") for RNN and standardised data ("S") for MLP 
             # Manual hyperparameters were not passed in when creating the new model (Use the recommended hyperparams)
@@ -240,8 +244,11 @@ class ModelManager:
 
         model_checkpoint_path = 'model_checkpoints/feature_test_models'
         if os_path_exists(model_checkpoint_path):
-            models_directory = os_listdir(model_checkpoint_path)
-            for directory_name in models_directory:
-                model_directory_path = f"{model_checkpoint_path}/{directory_name}"
-                if len(os_listdir(model_directory_path)) == 0:
-                    os_rmdir(model_directory_path)
+            models = os_listdir(model_checkpoint_path)
+
+            for model in models:
+                model_directory = os_listdir(f"model_checkpoints/feature_test_models/{model}")
+                for directory_name in model_directory:
+                    model_directory_path = f"{model_checkpoint_path}/{model}/{directory_name}"
+                    if len(os_listdir(model_directory_path)) == 0:
+                        os_rmdir(model_directory_path)
