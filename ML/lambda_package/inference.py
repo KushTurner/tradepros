@@ -166,7 +166,7 @@ def get_model_prediction(event, context):
                 }
     return {
             "statusCode": 200,
-            "headers": {"Content-Type": "application/json"},
+            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
             "body": json.dumps(response)
             }
 
