@@ -213,12 +213,18 @@ def get_model_prediction(event, context):
             "body": json.dumps(response)
             }
 
+
+# return_dict = get_model_prediction(event = event, context = None)
+# print(return_dict)
+
+from requests import get as requests_get
+from os import getenv as os_getenv
+api_key = os_getenv("tradepros_api_key")
+url =  os_getenv("tradepros_model_inference_url")
 event = {
-        "queryStringParameters": {
-                                "ticker": "meta",
-                                "date_to_predict":"2023-08-28"
-                                }
+        "ticker": "meta",
+        "date_to_predict":"2023-08-28"
         }
 
-return_dict = get_model_prediction(event = event, context = None)
-print(return_dict)
+r = requests_get(url, params = event)
+print(r.json())
