@@ -276,10 +276,12 @@ if training == False:
     from math import gcd
 
     class Tester:
+        def __init__(self):
+            self.metrics = models_info["LSTM"]["ichimoku_cloud_rolling_2"]["stats"].keys()
+
         def create_results_dict(self, models_info):
 
             self.graph_tensors = {}
-            self.metrics = models_info["LSTM"]["ichimoku_cloud_rolling_2"]["stats"].keys()
             """
             tester.graph_tensors.keys() = model architectures
             tester.graph_tensors[model_architecture].keys() = metric names
@@ -296,38 +298,45 @@ if training == False:
 
             print(self.graph_tensors.keys())
 
-        def plot_graphs(self, features_to_test):
+        def plot_graphs(self, features_to_test, architectures, show_default):
+            
+            for model_architecture in architectures:
+                for test_feature in features_to_test:
+                    for metric_name in self.metrics:
+                        stats_for_this_metric = {}
 
-            for test_feature in features_to_test:
-                for metric_name in self.metrics:
-                    stats_for_this_metric = {}
+                        # Find the same test feature but for different periods, e.g. train_f1 for average_close_2, average_close_5, average_close_10, etc...
+                        for feature_name in self.graph_tensors[model_architecture][metric_name].keys():
+                            """Notes:
+                            - Is a rolling period
+                            - Feature name is "default" and user wants to see the metric results for the default model on the same graph
+                            - Test feature is "default", then only display the default metric results on the graph
+                            """
+                            if feature_name.startswith(f"{test_feature}_rolling") or (feature_name == "default" and show_default) or (test_feature == "default" and feature_name == "default"):
+                                stats_for_this_metric[feature_name] = self.graph_tensors[model_architecture][metric_name][feature_name]
+                                print(len(stats_for_this_metric[feature_name]))
+                                print(feature_name)
+                        
+                        # After finding all lengths, find the LCF
+                        lengths = [len(stat_list) for stat_list in stats_for_this_metric]
+                        lcf = self.find_lcf(lengths)
 
-                    # Find the same test feature but for different periods, e.g. train_f1 for average_close_2, average_close_5, average_close_10, etc...
-                    for feature_name in self.graph_tensors[metric_name].keys():
-                        if feature_name.startswith(f"{test_feature}_rolling"):
-                            stats_for_this_metric[feature_name] = self.graph_tensors[metric_name][feature_name]
-                            print(feature_name)
-                    
-                    # After finding all lengths, find the LCF
-                    lengths = [len(stat_list) for stat_list in stats_for_this_metric]
-                    lcf = self.find_lcf(lengths)
+                        print(f"Lengths | {lengths} | LCF {lcf}")
 
-                    print(f"Lengths | {lengths} | LCF {lcf}")
+                        fig, ax = plt.subplots()
+                        fig.suptitle(metric_name)
 
-                    fig, ax = plt.subplots()
-                    fig.suptitle(metric_name)
-
-                    for feature_name, stat_list in stats_for_this_metric.items():
-                        # Fold metrics don't need to be altered
-                        if metric_name.startswith("fold"):
-                            ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list), label = feature_name)
-                        # Other metrics are too noisy, so apply log10 and 
-                        else:
-                            ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list).log10(), label = feature_name)
-                            # ax.plot([i for i in range(len(int(stat_list / LCF)))], torch.tensor(stat_list).view(-1, LCF).log10(), label = feature_name)
-                    
-                    ax.legend()
-                    plt.show()
+                        for feature_name, stat_list in stats_for_this_metric.items():
+                            # Fold metrics don't need to be altered
+                            if metric_name.startswith("fold"):
+                                ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list), label = feature_name)
+                            # Other metrics are too noisy, so apply log10 and 
+                            else:
+                                ax.plot([i for i in range(len(stat_list))], torch.tensor(stat_list).log10(), label = feature_name)
+                                # ax.plot([i for i in range(len(int(stat_list / LCF)))], torch.tensor(stat_list).view(-1, LCF).log10(), label = feature_name)
+                        
+                        ax.legend()
+                        plt.show()
 
         def find_lcf(self, numbers):
             result = numbers[0]
@@ -412,9 +421,14 @@ if training == False:
                             ax.legend(bars, data.keys())
                             plt.show()
 
+        def find_rankings(self):
+            rankings = {metric for metric in self.metrics}
 
+        
     print("Displaying statistics")
     tester = Tester()
     tester.create_results_dict(models_info = models_info)
-    # tester.plot_graphs(features_to_test = features_to_test)
-    tester.plot_fold_metrics(architectures = model_architectures, show_default = False)
+    tester.plot_graphs(architectures = model_architectures, features_to_test = features_to_test, show_default = True)
+    # tester.plot_fold_metrics(architectures = model_architectures, show_default = False)
+
+    #tester.find_rankings()
