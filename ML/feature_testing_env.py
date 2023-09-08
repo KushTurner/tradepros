@@ -65,9 +65,10 @@ rolling_periods = [2, 5, 10, 15, 20]
 model_manager = ModelManager(device = DEVICE, DH_reference = DH, TDH_reference = TDH)
 
 models_info = {}
-training = True
+training = False
+model_architectures = ["LSTM", "RNN"]
 
-for selected_model_architecture in ["RNN", "LSTM"]:
+for selected_model_architecture in model_architectures:
     for test_feature in features_to_test: # For each testing feature
         for r_period in rolling_periods: # For each rolling period
             
@@ -110,11 +111,13 @@ for selected_model_architecture in ["RNN", "LSTM"]:
 
                 # Testing model
                 else:
-                    models_info[feature_test_model_name] = {
-                                                            "model": model,
-                                                            "hyperparameters": hyperparameters,
-                                                            "stats": stats
-                                                            }
+                    if selected_model_architecture not in models_info.keys(): 
+                        models_info[selected_model_architecture] = {}
+                    models_info[selected_model_architecture][feature_test_model_name] = {
+                                                                                        "model": model,
+                                                                                        "hyperparameters": hyperparameters,
+                                                                                        "stats": stats
+                                                                                        }
 
                 # Go to next model
                 continue
@@ -272,18 +275,22 @@ if training == False:
         def create_results_dict(self, models_info):
 
             self.graph_tensors = {}
-            self.metrics = []
+            self.metrics = models_info["LSTM"]["ichimoku_cloud_rolling_2"]["stats"].keys()
             """
-            tester.graph_tensors.keys() = metric names
+            tester.graph_tensors.keys() = model architectures
+            tester.graph_tensors[model_architecture].keys() = metric names
             tester.graph_tensors[metric_name].keys() = feature names
             tester.graph_tensors[metric_name][feature_name] = Results for that feature for that metric
             """
-            for feature_name, model_dict in models_info.items():
-                for metric_name, metric_list in model_dict["stats"].items():
-                    if metric_name not in self.graph_tensors:
-                        self.graph_tensors[metric_name] = {}
-                        self.metrics.append(metric_name)
-                    self.graph_tensors[metric_name][feature_name] = metric_list
+            for model_architecture in models_info.keys():
+                self.graph_tensors[model_architecture] = {}
+                for feature_name, model_dict in models_info[model_architecture].items():
+                    for metric_name, metric_list in model_dict["stats"].items():
+                        if metric_name not in self.graph_tensors[model_architecture]:
+                            self.graph_tensors[model_architecture][metric_name] = {}
+                        self.graph_tensors[model_architecture][metric_name][feature_name] = metric_list
+
+            print(self.graph_tensors.keys())
 
         def plot_graphs(self, features_to_test):
 
@@ -324,78 +331,80 @@ if training == False:
                 result = gcd(result, num)
             return result
         
-        def plot_fold_metrics(self):
+        def plot_fold_metrics(self, architectures):
 
             # Create a bar chart with each 
-            for metric_name in self.metrics:
-                
-                # Only plot fold metrics
-                if metric_name.startswith("fold"):
+
+            for model_architecture in architectures:
+                for metric_name in self.metrics:
                     
-                    # For each test feature
-                    for test_feature in features_to_test:
+                    # Only plot fold metrics
+                    if metric_name.startswith("fold"):
                         
-                        # Create figure and set of subplots
-                        fig, ax = plt.subplots()
-                        fig.suptitle(test_feature + " " + metric_name) # Add title
-
-                        # Create a dictionary for each fold, with the keys being the list of values from each of the periods
-                        # E.g. Value = [fold_t_losses[0] for avg_close, then fold_t_losses[1] for avg_close, etc...]
-                        features_in_plot = [f"{test_feature}_rolling_{p}" for p in rolling_periods]
-                        print(features_in_plot, test_feature)
-                        data = {}
-                        for i in range(hyperparameters["num_folds"] - 1): # There should be "num_sets" folds that have stats
-                            fold_values = []
-                            for feature in features_in_plot:
-                                fold_values.append(self.graph_tensors[metric_name][feature][i])
-                            data[f"fold_{i}"] = fold_values
-
-                        # for name, data_list in data.items():
-                        #     print(name, len(data_list))
-
-                        # Width of bars
-                        total_width = 0.8
-
-                        # Number of bars per group
-                        n_bars = len(rolling_periods)
-
-                        # The width of a single bar
-                        bar_width = total_width / n_bars
-
-                        # Cycling colours (Must have)
-                        colours = plt.rcParams['axes.prop_cycle'].by_key()['color'] # List of hex strings
-
-                        # List containing handles for the drawn bars (used for the legend)
-                        bars = []
-
-                        # Rename each group of bars (to be the periods used in rolling periods)
-                        plt.xticks([i for i in range(n_bars)], [f"P_{p}" for p in rolling_periods]) 
-
-                        # Iterate over all data
-                        for i, (fold_name, values) in enumerate(data.items()):
-                            print(fold_name, values)
-                            # The offset in x direction of that bar
-                            x_offset = (i - n_bars / 2) * bar_width + bar_width / 2
-
-                            # For each of the values
-                            for x, value in enumerate(values):
-                                # Draw bar
-                                bar = ax.bar(
-                                            x = x + x_offset, 
-                                            height = value, 
-                                            width = bar_width, 
-                                            color = colours[i % len(colours)]
-                                            )
-
-                                # Draw text
-                                ax.text(x = x + x_offset, y = value, s = str(round(value, 3)), ha = "center") # Round values to 2 decimal places
+                        # For each test feature
+                        for test_feature in features_to_test:
                             
-                            # Add a handle to the last drawn bar, which we'll need for the legend
-                            bars.append(bar[0])
+                            # Create figure and set of subplots
+                            fig, ax = plt.subplots()
+                            fig.suptitle(f"{model_architecture} | {test_feature} | {metric_name}") # Add title
 
-                        # Draw legend
-                        ax.legend(bars, data.keys())
-                        plt.show()
+                            # Create a dictionary for each fold, with the keys being the list of values from each of the periods
+                            # E.g. Value = [fold_t_losses[0] for avg_close, then fold_t_losses[1] for avg_close, etc...]
+                            features_in_plot = [f"{test_feature}_rolling_{p}" for p in rolling_periods]
+                            print(features_in_plot, test_feature)
+                            data = {}
+                            for i in range(hyperparameters["num_folds"] - 1): # There should be "num_sets" folds that have stats
+                                fold_values = []
+                                for feature in features_in_plot:
+                                    fold_values.append(self.graph_tensors[model_architecture][metric_name][feature][i])
+                                data[f"fold_{i}"] = fold_values
+
+                            # for name, data_list in data.items():
+                            #     print(name, len(data_list))
+
+                            # Width of bars
+                            total_width = 0.8
+
+                            # Number of bars per group
+                            n_bars = len(rolling_periods)
+
+                            # The width of a single bar
+                            bar_width = total_width / n_bars
+
+                            # Cycling colours (Must have)
+                            colours = plt.rcParams['axes.prop_cycle'].by_key()['color'] # List of hex strings
+
+                            # List containing handles for the drawn bars (used for the legend)
+                            bars = []
+
+                            # Rename each group of bars (to be the periods used in rolling periods)
+                            plt.xticks([i for i in range(n_bars)], [f"P_{p}" for p in rolling_periods]) 
+
+                            # Iterate over all data
+                            for i, (fold_name, values) in enumerate(data.items()):
+                                print(fold_name, values)
+                                # The offset in x direction of that bar
+                                x_offset = (i - n_bars / 2) * bar_width + bar_width / 2
+
+                                # For each of the values
+                                for x, value in enumerate(values):
+                                    # Draw bar
+                                    bar = ax.bar(
+                                                x = x + x_offset, 
+                                                height = value, 
+                                                width = bar_width, 
+                                                color = colours[i % len(colours)]
+                                                )
+
+                                    # Draw text
+                                    ax.text(x = x + x_offset, y = value, s = str(round(value, 3)), ha = "center") # Round values to 2 decimal places
+                                
+                                # Add a handle to the last drawn bar, which we'll need for the legend
+                                bars.append(bar[0])
+
+                            # Draw legend
+                            ax.legend(bars, data.keys())
+                            plt.show()
 
 
 
@@ -403,4 +412,4 @@ if training == False:
     tester = Tester()
     tester.create_results_dict(models_info = models_info)
     # tester.plot_graphs(features_to_test = features_to_test)
-    tester.plot_fold_metrics()
+    tester.plot_fold_metrics(architectures = model_architectures)
