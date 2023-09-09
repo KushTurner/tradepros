@@ -1,6 +1,7 @@
 def get_model_prediction(event, context):
     ticker = event["queryStringParameters"]["ticker"]
     date_to_predict = event["queryStringParameters"]["date_to_predict"]
+    response_headers = {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"}
     
     # Importing dependencies + model set-up
     import torch
@@ -80,7 +81,12 @@ def get_model_prediction(event, context):
                         )
     except:
         # Unable to retrieve ticker data with API
-        return {"error": f"could not retrieve ticker data"}
+        info = {"error": "could not retrieve ticker data"}
+        return {
+                "statusCode": 404, # Not found
+                "headers": response_headers,
+                "body": json.dumps(info)
+                }
 
     # Adding dividends
     if "dividends" not in hyperparameters["features_to_remove"]:
@@ -119,8 +125,12 @@ def get_model_prediction(event, context):
     
     # Check if there is not enough days to create a data sequence of "num_context_days" length
     if DATA.shape[0] < hyperparameters["num_context_days"]:
-        # Unable to find ticker data with API
-        return {"error": "insufficient amount of data"}
+        info = {"error": "insufficient amount of data to construct data sequence"}
+        return {
+                "statusCode": 422, # Unprocessable Content
+                "headers": response_headers,
+                "body": json.dumps(info)
+                }
 
     # Transform in the context of itself (the company)
     if hyperparameters["transform_after"] == False:
@@ -169,17 +179,17 @@ def get_model_prediction(event, context):
     answer = torch.argmax(prediction, dim = 0).item()
 
     # Return response
-    response = {
-                "confidence": prediction[answer].item(),
-                "model_answer": "down" if answer == 0 else "up",
-                }
+    info = {
+            "confidence": prediction[answer].item(),
+            "model_answer": "down" if answer == 0 else "up",
+            }
     return {
-            "statusCode": 200,
-            "headers": {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
-            "body": json.dumps(response)
+            "statusCode": 200, # Successful
+            "headers": response_headers,
+            "body": json.dumps(info)
             }
 
-print(get_model_prediction(event = {"queryStringParameters": {"ticker": "meta", "date_to_predict":"2022-03-02"}}, context = None))
-print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"1950-03-02"}}, context = None))
-print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"2015-03-02"}}, context = None))
-print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"2015-05-02"}}, context = None))
+# print(get_model_prediction(event = {"queryStringParameters": {"ticker": "meta", "date_to_predict":"2022-03-02"}}, context = None))
+# print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"1950-03-02"}}, context = None))
+# print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"2015-03-02"}}, context = None))
+# print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"2015-05-02"}}, context = None))
