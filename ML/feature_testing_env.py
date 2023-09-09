@@ -421,14 +421,47 @@ if training == False:
                             ax.legend(bars, data.keys())
                             plt.show()
 
-        def find_rankings(self):
-            rankings = {metric for metric in self.metrics}
+        def find_rankings(self, architectures, find_average):
+            validation_dict = {architecture: {} for architecture in architectures}
+            train_dict = {architecture: {} for architecture in architectures}
+            
+            for architecture in architectures:
+                for metric in self.metrics:
 
+                    # print("architectures", self.graph_tensors.keys())
+                    # print("metrics", self.graph_tensors[architecture].keys())
+                    # print("features", self.graph_tensors[architecture][metric].keys())
+
+                    dict_to_add_to = train_dict if metric.startswith("train") or metric.startswith("fold_t") else validation_dict
+                    dict_to_add_to[architecture][metric] = {}
+
+                    for feature in self.graph_tensors[architecture][metric].keys():
+                        # Find average performance
+                        if find_average:
+                            dict_to_add_to[architecture][metric][feature] = sum(self.graph_tensors[architecture][metric][feature]) / len(self.graph_tensors[architecture][metric][feature])
+                        # Take last item in the list (final performance)
+                        else:
+                            dict_to_add_to[architecture][metric][feature] = self.graph_tensors[architecture][metric][feature][-1]
+
+                        print(architecture, metric, feature, len(self.graph_tensors[architecture][metric][feature]), "train_dict" if dict_to_add_to == train_dict else "val_dict")
+                        print(dict_to_add_to[architecture][metric][feature])
+
+                
+                    # Sort the features from best to last (For loss, lower is better, for all other metrics, higher is better)
+                    sort_by_descending = not(metric.endswith("loss_i") or metric.endswith("loss")) # Ascending for loss, Descending for other metrics
+                    print(sort_by_descending)
+                    print(dict_to_add_to)
+                    dict_to_add_to[architecture][metric] = dict(sorted(dict_to_add_to[architecture][metric].items(), key = lambda items:items[1], reverse = sort_by_descending)) # Sort the entire dictionary for this metric, of feature_names and results, by the results
+                    print("AFTER")
+                    print(dict_to_add_to)
+
+            print(validation_dict["LSTM"]["val_accuracy_i"])
+                    
         
     print("Displaying statistics")
     tester = Tester()
     tester.create_results_dict(models_info = models_info)
-    tester.plot_graphs(architectures = model_architectures, features_to_test = features_to_test, show_default = True)
+    # tester.plot_graphs(architectures = model_architectures, features_to_test = features_to_test, show_default = True)
     # tester.plot_fold_metrics(architectures = model_architectures, show_default = False)
 
-    #tester.find_rankings()
+    tester.find_rankings(architectures = model_architectures, find_average = True)
