@@ -418,7 +418,7 @@ class DataHandler:
 
         # Remove "TomorrowClose" as the model shouldn't "know" what tomorrow's closing price is
         D.drop("TomorrowClose", axis = 1, inplace = True)
-        print(D.columns)
+        
         # Set all columns in the D to the float datatype (All values must be homogenous when passed as a tensor into a model) and return the dataframe
         return D.astype(float)
 

@@ -70,13 +70,17 @@ def get_model_prediction(event, context):
     # print(start_date, end_date)
 
     # Retrieve historical data
-    DATA = get_data(
-                    ticker = ticker, 
-                    start_date = start_date, 
-                    end_date = end_date, 
-                    index_as_date = True, 
-                    interval = "1d"
-                    )
+    try:
+        DATA = get_data(
+                        ticker = ticker, 
+                        start_date = start_date, 
+                        end_date = end_date, 
+                        index_as_date = True, 
+                        interval = "1d"
+                        )
+    except:
+        # Unable to retrieve ticker data with API
+        return {"error": f"could not retrieve ticker data"}
 
     # Adding dividends
     if "dividends" not in hyperparameters["features_to_remove"]:
@@ -112,12 +116,17 @@ def get_model_prediction(event, context):
                         )
     # Remove labels
     DATA.drop("Target", axis = 1, inplace = True)
+    
+    # Check if there is not enough days to create a data sequence of "num_context_days" length
+    if DATA.shape[0] < hyperparameters["num_context_days"]:
+        # Unable to find ticker data with API
+        return {"error": "insufficient amount of data"}
 
     # Transform in the context of itself (the company)
     if hyperparameters["transform_after"] == False:
         # Standardise
         if hyperparameters["N_OR_S"] == "S":
-            DATA = (DATA[hyperparameters["cols_to_alter"]] - DATA[hyperparameters["cols_to_alter"]].mean()) / DATA[hyperparameters["cols_to_alter"]].std()
+            DATA[hyperparameters["cols_to_alter"]] = (DATA[hyperparameters["cols_to_alter"]] - DATA[hyperparameters["cols_to_alter"]].mean()) / DATA[hyperparameters["cols_to_alter"]].std()
         # Normalise
         else:
             DATA[hyperparameters["cols_to_alter"]] = (DATA[hyperparameters["cols_to_alter"]] - DATA[hyperparameters["cols_to_alter"]].min()) / (DATA[hyperparameters["cols_to_alter"]].max() - DATA[hyperparameters["cols_to_alter"]].min())
@@ -171,3 +180,6 @@ def get_model_prediction(event, context):
             }
 
 print(get_model_prediction(event = {"queryStringParameters": {"ticker": "meta", "date_to_predict":"2022-03-02"}}, context = None))
+print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"1950-03-02"}}, context = None))
+print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"2015-03-02"}}, context = None))
+print(get_model_prediction(event = {"queryStringParameters": {"ticker": "baba", "date_to_predict":"2015-05-02"}}, context = None))
