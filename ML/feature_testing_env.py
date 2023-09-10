@@ -421,10 +421,11 @@ if training == False:
                             ax.legend(bars, data.keys())
                             plt.show()
 
-        def find_rankings(self, architectures, find_average):
-            validation_dict = {architecture: {} for architecture in architectures}
-            train_dict = {architecture: {} for architecture in architectures}
-            
+        def create_rankings(self, architectures, find_average):
+            self.validation_dict = {architecture: {} for architecture in architectures}
+            self.train_dict = {architecture: {} for architecture in architectures}
+            self.rankings = {architecture: {} for architecture in architectures}
+
             for architecture in architectures:
                 for metric in self.metrics:
 
@@ -432,7 +433,8 @@ if training == False:
                     # print("metrics", self.graph_tensors[architecture].keys())
                     # print("features", self.graph_tensors[architecture][metric].keys())
 
-                    dict_to_add_to = train_dict if metric.startswith("train") or metric.startswith("fold_t") else validation_dict
+                    # Adds to the self.train_dict if the metric type is "train" (e.g. train_loss_i), else self.validation_dict (e.g. val_loss_i)
+                    dict_to_add_to = self.train_dict if metric.startswith("train") or metric.startswith("fold_t") else self.validation_dict
                     dict_to_add_to[architecture][metric] = {}
 
                     for feature in self.graph_tensors[architecture][metric].keys():
@@ -443,7 +445,7 @@ if training == False:
                         else:
                             dict_to_add_to[architecture][metric][feature] = self.graph_tensors[architecture][metric][feature][-1]
 
-                        print(architecture, metric, feature, len(self.graph_tensors[architecture][metric][feature]), "train_dict" if dict_to_add_to == train_dict else "val_dict")
+                        print(architecture, metric, feature, len(self.graph_tensors[architecture][metric][feature]), "self.train_dict" if dict_to_add_to == self.train_dict else "val_dict")
                         print(dict_to_add_to[architecture][metric][feature])
 
                 
@@ -454,9 +456,57 @@ if training == False:
                     dict_to_add_to[architecture][metric] = dict(sorted(dict_to_add_to[architecture][metric].items(), key = lambda items:items[1], reverse = sort_by_descending)) # Sort the entire dictionary for this metric, of feature_names and results, by the results
                     print("AFTER")
                     print(dict_to_add_to)
+            
+                    # For each feature, add their ranking position for this metric
+                    metric_type = "train" if dict_to_add_to == self.train_dict else "validation"
+                    for i, feature in enumerate(dict_to_add_to[architecture][metric].keys()):
 
-            print(validation_dict["LSTM"]["val_accuracy_i"])
+                        # Create self.rankings for each validation metric type (Keep rankings for train metrics and validation metrics separate)
+                        if metric_type not in self.rankings[architecture]:
+                            self.rankings[architecture][metric_type] = {}
+                        
+                        # Add a dictionary containing the overall ranking and the ranking over each metric
+                        if feature not in self.rankings[architecture][metric_type]:
+                            self.rankings[architecture][metric_type][feature] = {"overall": 0, "per_metric": [i + 1], "per_metric_results": [dict_to_add_to[architecture][metric][feature]]}
+                        else:
+                            # Append the metric result position for this feature to the end of the per_metric list
+                            self.rankings[architecture][metric_type][feature]["per_metric"].append(i + 1)
+                            self.rankings[architecture][metric_type][feature]["per_metric_results"].append(dict_to_add_to[architecture][metric][feature])
                     
+                    print(dict_to_add_to[architecture][metric].keys())
+                    print(self.rankings)
+                    print(len(dict_to_add_to[architecture][metric].keys()))
+
+                print(self.rankings[architecture]["train"][feature]["per_metric"])
+                
+                # For each architecture, add the overall ranking to each feature 
+                for metric_type in ["train", "validation"]:
+                    selected_dict = self.train_dict if metric_type == "train" else self.validation_dict
+                    all_metrics = list(selected_dict[architecture].keys())
+                    all_features = selected_dict[architecture][all_metrics[0]].keys()
+                    print(all_metrics)
+                    print(all_features)
+                    print(self.rankings[architecture].keys())
+                    sum_ranks = {feature_name: sum(self.rankings[architecture][metric_type][feature_name]["per_metric"]) for feature_name in all_features} # Summing up their ranks across all metrics
+                    ordered_overall_ranks = dict(sorted(sum_ranks.items(), key = lambda items:items[1])) # Ordering based on the summed ranks
+
+                    print(sum_ranks)
+                    print()
+                    print(ordered_overall_ranks)
+                    for i, feature_name in enumerate(ordered_overall_ranks.keys()): # Setting the overall ranking
+                        self.rankings[architecture][metric_type][feature_name]["overall"] = i + 1
+
+                    print(self.rankings[architecture])
+
+                    # Sort the self.rankings dict based on the overall rank
+                    self.rankings[architecture][metric_type] = dict(sorted(self.rankings[architecture][metric_type].items(), key = lambda items:items[1]["overall"]))
+                    print(self.rankings[architecture])
+            
+            print(len(self.rankings["LSTM"]["train"]))
+            print(len(self.rankings["LSTM"]["validation"]))
+            print(len(self.rankings["RNN"]["train"]))
+            print(len(self.rankings["RNN"]["validation"]))
+            
         
     print("Displaying statistics")
     tester = Tester()
@@ -464,4 +514,4 @@ if training == False:
     # tester.plot_graphs(architectures = model_architectures, features_to_test = features_to_test, show_default = True)
     # tester.plot_fold_metrics(architectures = model_architectures, show_default = False)
 
-    tester.find_rankings(architectures = model_architectures, find_average = True)
+    tester.create_rankings(architectures = model_architectures, find_average = True)
