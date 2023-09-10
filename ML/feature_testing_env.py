@@ -506,8 +506,59 @@ if training == False:
             print(len(self.rankings["LSTM"]["validation"]))
             print(len(self.rankings["RNN"]["train"]))
             print(len(self.rankings["RNN"]["validation"]))
+
+        def display_rankings(self, architectures, top_n_rankings, display_val_and_train_together):
+            top_n_rankings = min(top_n_rankings, len(self.rankings["LSTM"]["train"])) # Maximum number should be set to the total number of features there are
+
+            # Print the "top_n_rankings" for each architecture and for the train / validation metrics
+            """
+            - Displays the train feature and val feature with the ith rank
+            """
+            for architecture in architectures:
+                print(f"Architecture: {architecture}")
+                train_features = [feature for feature in self.rankings[architecture]['train'].keys()]
+                val_features = [feature for feature in self.rankings[architecture]['validation'].keys()]
+                for i in range(top_n_rankings):
+                    # print(f"Rank {i + 1} | Train feature: {train_features[i]} | Val feature: {val_features[i]}")
+                    print(f"Rank {i + 1} | Train feature: {train_features[i]}")
+                    print(f"Rank {i + 1} | Val feature: {val_features[i]}")
+                    print()
+                print("\n")
             
-        
+            if display_val_and_train_together == False:
+                # Displays information for train metrics first, then the validation metrics in order of the ranks
+                for architecture in architectures:
+                    print(f"Architecture: {architecture}\n")
+                    for metric_type in ["train", "validation"]:
+                        selected_dict = self.train_dict if metric_type == "train" else self.validation_dict
+                        for x, (feature_name, feature_dict) in enumerate(self.rankings[architecture][metric_type].items()):
+                            print(f"[{'Train' if selected_dict == self.train_dict else 'Validation'}] | Overall ranking: {feature_dict['overall']} | Feature name: {feature_name}")
+                            for i, (metric_name, result) in enumerate(zip(selected_dict[architecture].keys(), feature_dict["per_metric_results"])):
+                                print(f"Metric: {metric_name} | ResultOnMetric: {result} | Metric ranking: {feature_dict['per_metric'][i]} ")
+                            print()
+                            # Only display the first "top_n_rankings"
+                            if x > 0 and (x + 1) % top_n_rankings  == 0:
+                                break
+                    print("\n")
+            else:
+                # Displays information on each metric for the train/validation dicts for rank n simultaneously
+                for architecture in architectures:
+                    for x, (t_feature_name, v_feature_name) in enumerate(zip(self.rankings[architecture]["train"].keys(), self.rankings[architecture]["validation"].keys())):
+                        v_ranking_dict = self.rankings[architecture]["train"][t_feature_name]
+                        t_ranking_dict = self.rankings[architecture]["validation"][v_feature_name]
+                        print(f"Rank displaying: {t_ranking_dict['overall']}") # Shows the nth rank for the train/validation metric at the same time (So the same rank for both)
+
+                        for i, (t_metric_name, v_metric_name) in enumerate(zip(self.train_dict[architecture].keys(), self.validation_dict[architecture].keys())):
+                            print(f"Train feature name: {t_feature_name} | Rank on '{t_metric_name}': {t_ranking_dict['per_metric'][i]} | ResultOnMetric: {t_ranking_dict['per_metric_results'][i]}")
+                            print(f"Val feature name: {v_feature_name} | Rank on '{v_metric_name}': {v_ranking_dict['per_metric'][i]} | ResultOnMetric: {v_ranking_dict['per_metric_results'][i]}")
+                            print()
+                        print("\n")
+
+                        # Only display the first "top_n_rankings"
+                        if x > 0 and (x + 1) % top_n_rankings  == 0:
+                            break
+
+    
     print("Displaying statistics")
     tester = Tester()
     tester.create_results_dict(models_info = models_info)
@@ -515,3 +566,4 @@ if training == False:
     # tester.plot_fold_metrics(architectures = model_architectures, show_default = False)
 
     tester.create_rankings(architectures = model_architectures, find_average = True)
+    tester.display_rankings(architectures = model_architectures, top_n_rankings = 10, display_val_and_train_together = True)
