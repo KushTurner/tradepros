@@ -167,6 +167,16 @@ class ModelManager:
             """
             manual_hyperparams["cols_to_alter"] = [col for col in manual_hyperparams["cols_to_alter"] if col not in set(manual_hyperparams["features_to_remove"])]
 
+            """ For architectures that aren't the LSTM: """
+            if manual_hyperparams["architecture"] != "LSTM":
+                # Set the number of LSTM layers and cells to 0
+                manual_hyperparams["n_lstm_layers"] == 0
+                manual_hyperparams["n_lstm_cells"] = 0
+
+                # Set the maximum number of days
+                if manual_hyperparams["architecture"] == "MLP": # MLPs are trained on a single timestep
+                    manual_hyperparams["num_context_days"] = 1 
+
             # Retrieve DH data
             self.DH_REF.retrieve_data(
                                     tickers = ["aapl", "tsla", "amzn", "goog", "msft", "googl"],

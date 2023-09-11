@@ -53,7 +53,7 @@ class MLP(nn.Module):
         # Determines whether the model will use normalised or standardised data for training and inference
         self.N_OR_S = N_OR_S
     
-    def __call__(self, inputs, single_sentiment_values):
+    def forward(self, inputs, single_sentiment_values):
 
         if single_sentiment_values != None:
             # - Concatenate outputs after hidden layers with the single sentiment values
@@ -80,20 +80,6 @@ class RNN(nn.Module):
         super(RNN, self).__init__()
 
         self.layers = nn.Sequential(
-                                    # 1
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in , initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-
-                                    # nn.Linear(initial_in  // 2, initial_in // 4),
-                                    # nn.BatchNorm1d(num_features = initial_in // 4),
-                                    # nn.ReLU(),
-
-                                    # 2
                                     nn.Linear(initial_in, initial_in),
                                     nn.BatchNorm1d(num_features = initial_in),
                                     nn.ReLU(),
@@ -113,83 +99,6 @@ class RNN(nn.Module):
                                     nn.Linear(initial_in  // 2, initial_in // 4),
                                     nn.BatchNorm1d(num_features = initial_in // 4),
                                     nn.ReLU(),
-
-                                    # # 3 (Test config)
-
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-                                    
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in, initial_in * 2),
-                                    # nn.BatchNorm1d(num_features = initial_in * 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in * 2, initial_in * 2),
-                                    # nn.BatchNorm1d(num_features = initial_in * 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in * 2, initial_in * 2),
-                                    # nn.BatchNorm1d(num_features = initial_in * 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in * 2, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in, initial_in),
-                                    # nn.BatchNorm1d(num_features = initial_in),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in , initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in // 2, initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in // 2, initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in // 2, initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in // 2, initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-                                    
-                                    # nn.Linear(initial_in // 2, initial_in // 2),
-                                    # nn.BatchNorm1d(num_features = initial_in // 2),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in  // 2, initial_in // 4),
-                                    # nn.BatchNorm1d(num_features = initial_in // 4),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
-
-                                    # nn.Linear(initial_in  // 4, initial_in // 4),
-                                    # nn.BatchNorm1d(num_features = initial_in // 4),
-                                    # nn.ReLU(),
-                                    # nn.Dropout(p = 0.2),
                                     )
         # Hidden state layer
         self.hidden_layer = nn.Linear(initial_in // 4, out_features = initial_in // 4, bias = True)
@@ -203,7 +112,7 @@ class RNN(nn.Module):
         # Determines whether the model will use normalised or standardised data for training and inference
         self.N_OR_S = N_OR_S
 
-    def __call__(self, inputs, single_sentiment_values):
+    def forward(self, inputs, single_sentiment_values):
         
         """
         Forward pass notes:
