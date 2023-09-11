@@ -59,7 +59,8 @@ class ModelManager:
                     optimiser = torch_optim_Adam(params = model.parameters(), lr = hyperparameters["learning_rate"])
                 
             stats = checkpoint["stats"]
-            model.load_state_dict(checkpoint["model"]["model_state_dict"])
+            model.load_state_dict(checkpoint["model"]["model_state_dict"], strict = False) # Load state dict with "strict = False" (Due to having custom classes)
+
             if inference == False:
                 optimiser.load_state_dict(checkpoint["model"]["optimiser_state_dict"]) 
                 # Only retrieve data if continuing training or testing on the test set
