@@ -284,13 +284,10 @@ class LSTM(nn.Module):
         self.batch_size = hyperparameters["batch_size"]
         self.n_features = hyperparameters["n_features"]
         initial_in = hyperparameters["n_features"] # Should be the same as the number of hidden units in the hidden state
-
-        # Cell state
-        self.long_term_memory = torch_zeros(self.batch_size, hyperparameters["n_features"]) 
         
         # LSTM layers
         # Note: Don't use : "LSTMLayer()] * n_lstm_layers" as it will create a list of layers sharing the same instance of LSTMLayer, sharing the same weights + biases for each of its components as well
-        self.lstm_layers = [LSTMLayer(n_lstm_cells = hyperparameters["n_lstm_cells"], n_features = hyperparameters["n_features"], LSTM_reference = self) for _ in range(hyperparameters["n_lstm_layers"])]
+        self.lstm_layers = nn.ModuleList([LSTMLayer(hyperparameters = hyperparameters)])
                                     
         # Linear layers
         self.layers = nn.Sequential(
@@ -311,10 +308,17 @@ class LSTM(nn.Module):
         # Initialise weights for all model weights
         self.initialise_weights()
     
-    def __call__(self, inputs, single_sentiment_values):
+    def forward(self, inputs, single_sentiment_values):
+
+        # Initialise hidden state / short term memory at the start of each forward pass as zeroes
+        """
+        - Specify the device as this is initialised at the start of every forward pass (would cause an error between tensors being on different devices if using CUDA)
+        - Set requires_grad to False after (as passing requires_grad = False does not work)
+        """
+        self.short_term_memory = nn.Parameter(torch_zeros(self.batch_size, self.n_features, requires_grad = False, device = self.output_layer.weight.device)) 
+        self.short_term_memory.requires_grad = False
 
         num_context_days = inputs.shape[0]
-        self.short_term_memory = torch_zeros(self.batch_size, self.n_features, device = self.output_layer.weight.device) # Initialise hidden state / short term memory at the start of each forward pass as zeroes
 
         # For each time step / context day
         for i in range(num_context_days):
@@ -322,8 +326,21 @@ class LSTM(nn.Module):
             current_day_batch = inputs[i][:][:]
 
             # Pass through the LSTM layers, which will pass the inputs through the LSTM cells, updating the short term memory and long-term memory
+            """
+            Pass inputs and previous hidden state (0) into LSTM layer 1
+            Update hidden state (1)
+
+            Pass inputs and previous hidden state (1) into LSTM layer 2
+            Update hidden state (2)
+
+            etc...
+            """
             for lstm_layer in self.lstm_layers:
-                lstm_layer(inputs = current_day_batch + self.short_term_memory) # Inputs should be: The inputs at this time step added with the previous hidden state
+                """
+                - Update the hidden state (short term memory) after passing through each LSTM layer
+                - Only update the data of the short term memory, without modifying the requires_grad attribute of the parameter
+                """ 
+                self.short_term_memory.data = lstm_layer(inputs = current_day_batch, hidden_state = self.short_term_memory).data
             
         # Pass through linear layers (excluding output layer) to reduce dimensionality
         output = self.layers(self.short_term_memory)
@@ -334,14 +351,6 @@ class LSTM(nn.Module):
             
         # Pass through output layer
         return self.output_layer(output)
-    
-    def to(self, *args, **kwargs):
-        # Overrides the existing .to() method to move all model parameters to the specified device
-        self = super(LSTM, self).to(*args, **kwargs)
-        for lstm_layer in self.lstm_layers:
-            lstm_layer.to(*args, **kwargs)
-        # Returns the modified model
-        return self
 
     def initialise_weights(self):
         # Initialises all weights for the LSTM cells and gates of each LSTM layer
@@ -356,21 +365,16 @@ class LSTM(nn.Module):
             init_function(self.output_layer.weight, mode = "fan_in", nonlinearity =  "relu")
 
 class LSTMLayer(nn.Module):
-    def __init__(self, n_features, n_lstm_cells, LSTM_reference):
+    def __init__(self, hyperparameters):
         super(LSTMLayer, self).__init__()
         # LSTM Cells
-        self.cells = [LSTMCell(n_features = n_features, LSTM_reference = LSTM_reference) for _ in range(n_lstm_cells)]
+        self.cells = nn.ModuleList([LSTMCell(hyperparameters = hyperparameters) for _ in range(hyperparameters["n_lstm_cells"])])
     
-    def __call__(self, inputs):
+    def forward(self, inputs, hidden_state):
         # Pass through LSTM cells, updating the short term memory and long-term memory
         for cell in self.cells:
-            cell(inputs = inputs)
-    
-    def to(self, device):
-        # Move lstm cells to specified hardware device
-        for cell in self.cells:
-            cell.to(device)
-        return super(LSTMLayer, self).to(device)
+            hidden_state = cell(inputs = inputs, hidden_state = hidden_state)
+        return hidden_state
 
     def initialise_weights(self):
         # Initialises all weights in the LSTM cells and gates using Xavier uniform (Because of tanh + sigmoid activations)
@@ -378,107 +382,117 @@ class LSTMLayer(nn.Module):
             cell.initialise_weights(init_function = nn.init.xavier_uniform_)
 
 class LSTMCell(nn.Module):
-
-    def __init__(self, n_features, LSTM_reference):
+    def __init__(self, hyperparameters):
         super(LSTMCell, self).__init__()
-        self.FG = ForgetGate(n_features = n_features)
-        self.IG = InputGate(n_features = n_features)
-        self.OG = OutputGate(n_features = n_features)
-        self.LSTM_reference = LSTM_reference # Reference to the LSTM model (to access short term and long term memory)
+        self.parameters_dict = nn.ParameterDict({
+                                                "FG": ForgetGate(n_features = hyperparameters["n_features"]),
+                                                "IG": InputGate(n_features = hyperparameters["n_features"]),
+                                                "OG": OutputGate(n_features = hyperparameters["n_features"]),
+                                                })
+        self.cell_state = nn.Parameter(torch_zeros(hyperparameters["batch_size"], hyperparameters["n_features"]))
+        # - Set requires_grad to False after (as passing requires_grad = False does not work)
+        self.cell_state.requires_grad = False
     
-    def __call__(self, inputs):
-        # Forget gate
-        self.LSTM_reference.long_term_memory = self.FG(inputs = inputs, short_term_memory = self.LSTM_reference.short_term_memory)
+    def forward(self, inputs, hidden_state):
+        """
+        Notes:
+        (forget_gate_output * hidden_state) = How much information from the previous cell state should be retained
+        (input_gate_output * output_gate_output) = How much new information should be added to the cell state
+        - These operations are completed inside of the gates
+        """
+        forget_gate_output = self.parameters_dict["FG"](inputs = inputs, short_term_memory = hidden_state)
+        input_gate_output = self.parameters_dict["IG"](inputs = inputs, short_term_memory = hidden_state)
+        output_gate_output = self.parameters_dict["OG"](inputs = inputs, long_term_memory = self.cell_state, short_term_memory = hidden_state)
 
-        # Input gate
-        self.LSTM_reference.long_term_memory = self.IG(inputs = inputs, long_term_memory = self.LSTM_reference.long_term_memory, short_term_memory = self.LSTM_reference.short_term_memory)
+        # Update hidden state and cell state
+        hidden_state = output_gate_output # (i.e. the new hidden state, which would be the output gate output)
+        """
+        Cell state:
+        'cell_state = (self.cell_state * forget_gate_output) + input_gate_output' has been used to avoid in-place operations, but is the same as: 
+        1. self.cell_state *= forget_gate_output
+        2. self.cell_state += input_gate_output
+        cell_state = (Previous cell state * Long term to remember percentage) (Potential memory to remember * Potential long term memory)
 
-        # Output gate
-        self.LSTM_reference.short_term_memory = self.OG(inputs = inputs, long_term_memory = self.LSTM_reference.long_term_memory, short_term_memory = self.LSTM_reference.short_term_memory)
+        Hidden state:
+        'self.cell_state.data = cell_state.data' has been used to update the cell state data without modifying the requires_grad attribute of the cell state (Would cause an error)
+        hidden_state = Potential short term memory * Potential memory to remember
+        """
+        cell_state = (self.cell_state * forget_gate_output) + input_gate_output 
+        self.cell_state.data = cell_state.data
 
-    def to(self, device):
-        # Overrides the existing .to() method to move the parameters in each gate to the specified device
-        self.FG.to(device)
-        self.IG.to(device)
-        self.OG.to(device)
-        return super(LSTMCell, self).to(device)
+        # Return the new hidden state
+        return hidden_state
 
     def initialise_weights(self, init_function):
         # Calls the initialise weights method for all gates
-        self.FG.initialise_weights(init_function)
-        self.IG.initialise_weights(init_function)
-        self.OG.initialise_weights(init_function)
+        self.parameters_dict["FG"].initialise_weights(init_function)
+        self.parameters_dict["IG"].initialise_weights(init_function)
+        self.parameters_dict["OG"].initialise_weights(init_function)
 
 class ForgetGate(nn.Module):
     def __init__(self, n_features):
         super(ForgetGate, self).__init__()
-        self.sigmoid = nn.Sigmoid()
-        self.sigmoid_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
-
-    def __call__(self, inputs, short_term_memory):
+        self.parameters_dict = nn.ParameterDict({
+                                                "sigmoid": nn.Sigmoid(),
+                                                "sigmoid_layer": nn.Linear(in_features = n_features, out_features = n_features, bias = True),
+                                                })
+    def forward(self, inputs, short_term_memory):
         """
         Long term to remember percentage = Sigmoid activation((Layer output + short_term_memory) + Nodebias0)
         Long term memory *= Long term to remember percentage
         """
-        return self.sigmoid(self.sigmoid_layer(inputs + short_term_memory))
-    
-    def to(self, device):
-        # Overrides the existing .to() method to move the parameters in each gate to the specified device
-        self.sigmoid_layer.to(device)
-        return super(ForgetGate, self).to(device)
+        return self.parameters_dict["sigmoid"](self.parameters_dict["sigmoid_layer"](inputs + short_term_memory))
     
     def initialise_weights(self, init_function):
-        init_function(self.sigmoid_layer.weight)
+        init_function(self.parameters_dict["sigmoid_layer"].weight)
 
 class InputGate(nn.Module):
     def __init__(self, n_features):
         super(InputGate, self).__init__()
-        self.sigmoid = nn.Sigmoid()
-        self.sigmoid_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
-        self.tanh = nn.Tanh()
-        self.tanh_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
-
-    def __call__(self, inputs, long_term_memory, short_term_memory):
+        self.parameters_dict = nn.ParameterDict({
+                                                "sigmoid": nn.Sigmoid(),
+                                                "sigmoid_layer": nn.Linear(in_features = n_features, out_features = n_features, bias = True),
+                                                "tanh": nn.Tanh(),
+                                                "tanh_layer": nn.Linear(in_features = n_features, out_features = n_features, bias = True)
+                                                })
+    def forward(self, inputs, short_term_memory):
         """
         Potential memory to remember = Sigmoid activation((Layer output + short_term_memory) + Nodebias1)
+        = (self.parameters_dict["sigmoid"](self.parameters_dict["sigmoid_layer"](inputs + short_term_memory))
+
         Potential long term memory = Tanh activation((Layer output + short_term_memory) + Nodebias2)
-        Long term memory += (Potential memory to remember * Potential long term memory)
-        New_long_term_memory = Long term memory
+        = self.parameters_dict["tanh"](self.parameters_dict["tanh_layer"](inputs + short_term_memory))
+
+        Long term memory += (Potential memory to remember * Potential long term memory)(Potential memory to remember * Potential long term memory)
         """
-        return long_term_memory + (self.sigmoid(self.sigmoid_layer(inputs + short_term_memory)) * self.tanh(self.tanh_layer(inputs + short_term_memory)))
-    
-    def to(self, device):
-        # Overrides the existing .to() method to move the parameters in each gate to the specified device
-        self.sigmoid_layer.to(device)
-        self.tanh_layer.to(device)
-        return super(InputGate, self).to(device)
+        return (self.parameters_dict["sigmoid"](self.parameters_dict["sigmoid_layer"](inputs + short_term_memory)) * self.parameters_dict["tanh"](self.parameters_dict["tanh_layer"](inputs + short_term_memory)))
     
     def initialise_weights(self, init_function):
-        init_function(self.sigmoid_layer.weight)
-        init_function(self.tanh_layer.weight)
+        init_function(self.parameters_dict["sigmoid_layer"].weight)
+        init_function(self.parameters_dict["tanh_layer"].weight)
 
 class OutputGate(nn.Module):
     def __init__(self, n_features):
         super(OutputGate, self).__init__()
-        self.sigmoid = nn.Sigmoid()
-        self.sigmoid_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
-        self.tanh = nn.Tanh()
-        self.tanh_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
+        self.parameters_dict = nn.ParameterDict({
+                                                "sigmoid": nn.Sigmoid(),
+                                                "sigmoid_layer": nn.Linear(in_features = n_features, out_features = n_features, bias = True),
+                                                "tanh": nn.Tanh(),
+                                                "tanh_layer": nn.Linear(in_features = n_features, out_features = n_features, bias = True)
+                                                })
 
-    def __call__(self, inputs, long_term_memory, short_term_memory):
+    def forward(self, inputs, long_term_memory, short_term_memory):
         """
-        Potential short term memory = Tanh activation(Long term memory)
-        Potential memory to remember = Sigmoid activation((Layer output + short_term_memory) + Nodebias3)
+        Potential short term memory = Tanh activation(Long term memory):
+        = self.parameters_dict["tanh"](long_term_memory) 
+
+        Potential memory to remember = Sigmoid activation((Layer output + short_term_memory) + Nodebias3):
+        = self.parameters_dict["sigmoid"](self.parameters_dict["sigmoid_layer"](inputs + short_term_memory))
+
         New short term memory(The final output) = Potential short term memory * Potential memory to remember
         """
-        return self.tanh(long_term_memory) * self.sigmoid(self.sigmoid_layer(inputs + short_term_memory))
-    
-    def to(self, device):
-        # Overrides the existing .to() method to move the parameters in each gate to the specified device
-        self.sigmoid_layer.to(device)
-        self.tanh_layer.to(device)
-        return super(OutputGate, self).to(device)
+        return self.parameters_dict["tanh"](long_term_memory) * self.parameters_dict["sigmoid"](self.parameters_dict["sigmoid_layer"](inputs + short_term_memory))
 
     def initialise_weights(self, init_function):
-        init_function(self.sigmoid_layer.weight)
-        init_function(self.tanh_layer.weight)
+        init_function(self.parameters_dict["sigmoid_layer"].weight)
+        init_function(self.parameters_dict["tanh_layer"].weight)
