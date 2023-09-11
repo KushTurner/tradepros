@@ -109,6 +109,8 @@ class ModelManager:
                                     "batch_size": 32,
                                     "num_folds": 5,
                                     "multiplicative_trains": 2,
+                                    "n_lstm_layers": 5,
+                                    "n_lstm_cells": 3,
                                     "uses_dated_sentiments": True,
                                     "uses_single_sentiments": True, # Input = [Info1, Info2, Info3, Info4] + Single sentiment value on the date to predict
                                     "features_to_remove": [],

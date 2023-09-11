@@ -287,9 +287,10 @@ class LSTM(nn.Module):
 
         # Cell state
         self.long_term_memory = torch_zeros(self.batch_size, hyperparameters["n_features"]) 
-
-        # LSTM Cells
-        self.cells = [LSTMCell(n_hidden_units = hyperparameters["n_features"], LSTM_reference = self)]
+        
+        # LSTM layers
+        # Note: Don't use : "LSTMLayer()] * n_lstm_layers" as it will create a list of layers sharing the same instance of LSTMLayer, sharing the same weights + biases for each of its components as well
+        self.lstm_layers = [LSTMLayer(n_lstm_cells = hyperparameters["n_lstm_cells"], n_features = hyperparameters["n_features"], LSTM_reference = self) for _ in range(hyperparameters["n_lstm_layers"])]
                                     
         # Linear layers
         self.layers = nn.Sequential(
@@ -320,10 +321,10 @@ class LSTM(nn.Module):
             # Current context day with batch_size examples
             current_day_batch = inputs[i][:][:]
 
-            # Pass through LSTM cells, updating the short term memory and long-term memory
-            for cell in self.cells:
-                cell(inputs = current_day_batch + self.short_term_memory)
-        
+            # Pass through the LSTM layers, which will pass the inputs through the LSTM cells, updating the short term memory and long-term memory
+            for lstm_layer in self.lstm_layers:
+                lstm_layer(inputs = current_day_batch + self.short_term_memory) # Inputs should be: The inputs at this time step added with the previous hidden state
+            
         # Pass through linear layers (excluding output layer) to reduce dimensionality
         output = self.layers(self.short_term_memory)
         
@@ -337,15 +338,15 @@ class LSTM(nn.Module):
     def to(self, *args, **kwargs):
         # Overrides the existing .to() method to move all model parameters to the specified device
         self = super(LSTM, self).to(*args, **kwargs)
-        for cell in self.cells:
-            cell.to(*args, **kwargs)
+        for lstm_layer in self.lstm_layers:
+            lstm_layer.to(*args, **kwargs)
         # Returns the modified model
         return self
 
     def initialise_weights(self):
-        # Initialises all weights in the LSTM cells and gates using Xavier uniform (Because of tanh + sigmoid activations)
-        for cell in self.cells:
-            cell.initialise_weights(init_function = nn.init.xavier_uniform_)
+        # Initialises all weights for the LSTM cells and gates of each LSTM layer
+        for lstm_layer in self.lstm_layers:
+            lstm_layer.initialise_weights()
 
         # Apply Kai-Ming initialisation to all linear layer weights (using Kai Ming uniform because of ReLU activation functions)
         for layer in self.layers:
@@ -353,14 +354,36 @@ class LSTM(nn.Module):
             if isinstance(layer, nn.Linear):
                 init_function(layer.weight, mode = "fan_in", nonlinearity = "relu")
             init_function(self.output_layer.weight, mode = "fan_in", nonlinearity =  "relu")
+
+class LSTMLayer(nn.Module):
+    def __init__(self, n_features, n_lstm_cells, LSTM_reference):
+        super(LSTMLayer, self).__init__()
+        # LSTM Cells
+        self.cells = [LSTMCell(n_features = n_features, LSTM_reference = LSTM_reference) for _ in range(n_lstm_cells)]
     
+    def __call__(self, inputs):
+        # Pass through LSTM cells, updating the short term memory and long-term memory
+        for cell in self.cells:
+            cell(inputs = inputs)
+    
+    def to(self, device):
+        # Move lstm cells to specified hardware device
+        for cell in self.cells:
+            cell.to(device)
+        return super(LSTMLayer, self).to(device)
+
+    def initialise_weights(self):
+        # Initialises all weights in the LSTM cells and gates using Xavier uniform (Because of tanh + sigmoid activations)
+        for cell in self.cells:
+            cell.initialise_weights(init_function = nn.init.xavier_uniform_)
+
 class LSTMCell(nn.Module):
 
-    def __init__(self, n_hidden_units, LSTM_reference):
+    def __init__(self, n_features, LSTM_reference):
         super(LSTMCell, self).__init__()
-        self.FG = ForgetGate(n_hidden_units = n_hidden_units)
-        self.IG = InputGate(n_hidden_units = n_hidden_units)
-        self.OG = OutputGate(n_hidden_units = n_hidden_units)
+        self.FG = ForgetGate(n_features = n_features)
+        self.IG = InputGate(n_features = n_features)
+        self.OG = OutputGate(n_features = n_features)
         self.LSTM_reference = LSTM_reference # Reference to the LSTM model (to access short term and long term memory)
     
     def __call__(self, inputs):
@@ -387,10 +410,10 @@ class LSTMCell(nn.Module):
         self.OG.initialise_weights(init_function)
 
 class ForgetGate(nn.Module):
-    def __init__(self, n_hidden_units):
+    def __init__(self, n_features):
         super(ForgetGate, self).__init__()
         self.sigmoid = nn.Sigmoid()
-        self.sigmoid_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+        self.sigmoid_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
 
     def __call__(self, inputs, short_term_memory):
         """
@@ -408,12 +431,12 @@ class ForgetGate(nn.Module):
         init_function(self.sigmoid_layer.weight)
 
 class InputGate(nn.Module):
-    def __init__(self, n_hidden_units):
+    def __init__(self, n_features):
         super(InputGate, self).__init__()
         self.sigmoid = nn.Sigmoid()
-        self.sigmoid_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+        self.sigmoid_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
         self.tanh = nn.Tanh()
-        self.tanh_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+        self.tanh_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
 
     def __call__(self, inputs, long_term_memory, short_term_memory):
         """
@@ -435,12 +458,12 @@ class InputGate(nn.Module):
         init_function(self.tanh_layer.weight)
 
 class OutputGate(nn.Module):
-    def __init__(self, n_hidden_units):
+    def __init__(self, n_features):
         super(OutputGate, self).__init__()
         self.sigmoid = nn.Sigmoid()
-        self.sigmoid_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+        self.sigmoid_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
         self.tanh = nn.Tanh()
-        self.tanh_layer = nn.Linear(in_features = n_hidden_units, out_features = n_hidden_units, bias = True)
+        self.tanh_layer = nn.Linear(in_features = n_features, out_features = n_features, bias = True)
 
     def __call__(self, inputs, long_term_memory, short_term_memory):
         """

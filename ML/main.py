@@ -45,7 +45,7 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 42
+model_number_load = None
 manual_hyperparams = {
                     "architecture": "LSTM", # Will be deleted after instantiation
                     "N_OR_S": "N",
@@ -54,32 +54,35 @@ manual_hyperparams = {
                     "learning_rate": 1e-3,
                     "num_folds": 5,
                     "multiplicative_trains": 3,
+                    "n_lstm_layers": 3,
+                    "n_lstm_cells": 10,
                     "uses_dated_sentiments": False, #True, #False,
                     "uses_single_sentiments": False, #True,
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "rolling_periods": [2, 5, 10, 15, 20],
-                    "rolling_features": set(
-                                            [
-                                            "avg_open", 
-                                            "open_ratio", 
-                                            "avg_close", 
-                                            "close_ratio", 
-                                            "avg_volume", 
-                                            "volume_ratio", 
-                                            "trend_sum", 
-                                            "trend_mean", 
-                                            "close_diff", 
-                                            "close_diff_percentage", 
-                                            "rsi", 
-                                            "macd",
-                                            "bollinger_bands",
-                                            "average_true_range",
-                                            "stochastic_oscillator",
-                                            "on_balance_volume",
-                                            "ichimoku_cloud",
-                                            ]
-                                            ),
+                    "rolling_features": set([]),
+                    # "rolling_features": set(
+                    #                         [
+                    #                         "avg_open", 
+                    #                         "open_ratio", 
+                    #                         "avg_close", 
+                    #                         "close_ratio", 
+                    #                         "avg_volume", 
+                    #                         "volume_ratio", 
+                    #                         "trend_sum", 
+                    #                         "trend_mean", 
+                    #                         "close_diff", 
+                    #                         "close_diff_percentage", 
+                    #                         "rsi", 
+                    #                         "macd",
+                    #                         "bollinger_bands",
+                    #                         "average_true_range",
+                    #                         "stochastic_oscillator",
+                    #                         "on_balance_volume",
+                    #                         "ichimoku_cloud",
+                    #                         ]
+                    #                         ),
                     "transform_after": True,
                     "train_split_decimal": 0.8,
                     "train_data_params": None
