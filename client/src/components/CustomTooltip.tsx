@@ -10,15 +10,11 @@ function CustomTooltip({
   label,
 }: TooltipProps<ValueType, NameType>) {
   if (active) {
-    const inputDate = new Date(label);
     return (
       <div>
         <ul className="flex flex-col bg-black bg-opacity-40 font-display p-2 md:p-4 rounded-lg">
           <li className="font-bold text-center text-lg text-primarydark">{`${payload?.[0].value}`}</li>
-          <li className="text-xs text-neutraldark">{`${inputDate.getDate()} ${inputDate.toLocaleString(
-            'default',
-            { month: 'short' }
-          )} ${inputDate.getFullYear()}`}</li>
+          <li className="text-xs text-neutraldark">{`${label}`}</li>
         </ul>
       </div>
     );
