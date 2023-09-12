@@ -29,9 +29,11 @@ class ModelManager:
             self.clean_empty_directories()
 
             # print("Loading existing model")
-            existing_checkpoint_path = f"{checkpoint_directory}/fold_{len(os_listdir(f'{checkpoint_directory}')) - 1}.pth"
-            checkpoint = torch_load(existing_checkpoint_path, map_location = torch_device("cpu"))# Load the last checkpoint (Which would be the complete model)
-            # print(existing_checkpoint_path)
+            directory_entities = os_listdir(f'{checkpoint_directory}')
+            directory_length = len(directory_entities)  - 1 if "external_testing_results.pth" in directory_entities else len(directory_entities) # Should not count "external_testing_results.pth"
+            existing_checkpoint_path = f"{checkpoint_directory}/fold_{directory_length - 1}.pth"
+            checkpoint = torch_load(existing_checkpoint_path, map_location = torch_device("cpu")) # Load the last checkpoint (Which would be the complete model)
+            print(existing_checkpoint_path)
             # print(checkpoint.keys())
 
             """ 
