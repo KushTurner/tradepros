@@ -90,9 +90,10 @@ class DataHandler:
                                 interval = interval
                                 )
 
-            # Historical data does not exist, so skip ticker entirely
+            # Historical data could not be found, so skip ticker entirely
             except:
                 invalid_tickers.append(ticker)
+                print(f"Data for {ticker} could not be retrieved, removing from tickers list")
                 continue
 
             # Adding dividends
@@ -162,7 +163,8 @@ class DataHandler:
                 invalid_tickers.append(ticker)
                 print(f"Removed {ticker} due to an insufficient amount of data")
 
-        print(f"Total examples: {sum([company_labels.shape[0] for company_labels in self.labels])}")
+        print(f"Features used: {DATA.columns}")
+        print(f"Total days that can be used for data sequences: {sum([company_labels.shape[0] for company_labels in self.labels])}")
 
         # Standardising / Normalising companies together
         if hyperparameters["transform_after"] == True:
@@ -418,7 +420,7 @@ class DataHandler:
 
         # Remove "TomorrowClose" as the model shouldn't "know" what tomorrow's closing price is
         D.drop("TomorrowClose", axis = 1, inplace = True)
-        print(D.columns)
+        # print(D.columns)
         # Set all columns in the D to the float datatype (All values must be homogenous when passed as a tensor into a model) and return the dataframe
         return D.astype(float)
 
@@ -598,8 +600,6 @@ class DataHandler:
                 # - Each c_data[i] should correspond to the correct date in c_dates[i], where c_dates[i] is the date before the date to predict
                 c_dates = c_dates[start_trim_idx:]
 
-                print(len(c_labels), len(c_dates), len(c_data))
-
                 # Let num_context_days = 10, batch_size = 32
                 # Single batch should be [10 x [32 * num_features] ]
                 # 32 x [ClosingP, OpeningP, Volume, etc..] 10 days ago
@@ -653,7 +653,7 @@ class DataHandler:
         # Remove dates (no longer required)
         # del self.dates
     
-        print(f"DataShape: {self.data.shape} | LabelsShape: {self.labels.shape} " + f"| SingleSentiments: {self.single_sentiments.shape}" if hasattr(self, "single_sentiments") else "")
+        print(f"DataShape: {self.data.shape} | LabelsShape: {self.labels.shape} | DatesShape: {len(self.dates)}" + (f"| SingleSentiments: {self.single_sentiments.shape}" if hasattr(self, "single_sentiments") else ""))
 
     def separate_data_sequences(self, train_split_decimal):
         # Separates data sequences into training and test sets 

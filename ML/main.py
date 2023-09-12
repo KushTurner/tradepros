@@ -45,23 +45,29 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = None
+model_number_load = 0
 manual_hyperparams = {
                     "architecture": "LSTM", # Will be deleted after instantiation
                     "N_OR_S": "N",
                     "num_context_days": 10,
                     "batch_size": 32,
-                    "learning_rate": 1e-3,
+                    "learning_rate": 0.0001,
                     "num_folds": 5,
-                    "multiplicative_trains": 20,
-                    "n_lstm_layers": 3,
-                    "n_lstm_cells": 50,
+                    "multiplicative_trains": 1,
+                    "n_lstm_layers": 2,
+                    "n_lstm_cells": 10,
                     "uses_dated_sentiments": False, #True, #False,
                     "uses_single_sentiments": False, #True,
                     "features_to_remove": ["adjclose"],
                     "cols_to_alter": ["open", "close", "high", "adjclose", "low", "volume"],
                     "rolling_periods": [2, 5, 10, 15, 20],
-                    "rolling_features": set([]),
+                    "rolling_features": set([
+                                            # Additional features for the base model
+                                            "macd", 
+                                            "bollinger_bands",
+                                            "on_balance_volume",
+                                            "ichimoku_cloud",
+                                            ]),
                     # "rolling_features": set(
                     #                         [
                     #                         "avg_open", 
@@ -289,140 +295,133 @@ for metric in metrics:
 total_epochs = len(stats["train_loss_i"])
 print(total_epochs)
 
-A = 14 # Replace with a factor of the total number of epochs
-A = 62 
-# A = 42
+A = 1 # Replace with a factor of the total number of epochs
+for metric in metrics:
+    print("-----------------------------------------------------------------")
+    print(f"{metric.capitalize()} during training")
 
-# for metric in metrics:
-#     print("-----------------------------------------------------------------")
-#     print(f"{metric.capitalize()} during training")
+    train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
+    val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
 
-#     train_metric_i = torch.tensor(stats[f"train_{metric}_i"]).view(-1, A).mean(1)
-#     val_metric_i = torch.tensor(stats[f"val_{metric}_i"]).view(-1, A).mean(1)
-
-#     fig, ax = plt.subplots()
-#     ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
-#     ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
-#     ax.legend()
-#     plt.show()
+    fig, ax = plt.subplots()
+    ax.plot([i for i in range(int(total_epochs / A))], train_metric_i, label = "Train")
+    ax.plot([i for i in range(int(total_epochs / A))], val_metric_i, label = "Validation")
+    ax.legend()
+    plt.show()
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Testing on existing data:
 
 if hyperparameters["uses_single_sentiments"] == False:
-    print(DH.data.shape)
-    selected_tickers = ["msft", "aapl", "nvda", "amd", "baba", "uber", "jpm", "meta", "amzn", "goog", "tsla", "wmt", "intc", "ko"]
-
-    DH.retrieve_data(
-                tickers = selected_tickers,
-                start_date = "2022-01-01", # Date in MM/DD/YYYY or YYYY-MM-DD format, including the starting date
-                end_date = "2023-08-28", # Not including the end_date, e.g. if the date to predict is 25/08/2023, set that as the end_date. 
-                interval = "1d",
-                dated_sentiments = None, # Not needed at inference time 
-                include_date_before_prediction_date = True, # include_date_before_prediction_date = True is used to include e.g. 24/08/2023 (the date before the date to predict)
-                hyperparameters = hyperparameters,
-                )
-
-    for company in DH.data:
-        print("num_days", len(company))
-
-    print(len(DH.dates))
-    for dates in DH.dates:
-        print("num_dates_for_each_sequence_for_each_company", len(dates))
-
-    # Create data sequences
-    DH.create_data_sequences(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False)
-    print(len(DH.data))
-    print(DH.labels.shape)
-    print(len(DH.dates))
-    input_data = DH.data
-    print(len(input_data))
-
-    # Create batches from all the data sequences
-    if model.__class__.__name__ == "RNN" or model.__class__.__name__ == "LSTM":
-        # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
-        batches = [input_data[i:i + hyperparameters["batch_size"]].transpose(dim0 = 0, dim1 = 1) for i in range(0, len(input_data), hyperparameters["batch_size"])]
-
-        # Padding final batch for batch prompting
-        if batches[-1].shape[1] != hyperparameters["batch_size"]:
-            right_padding = torch.zeros(hyperparameters["num_context_days"], hyperparameters["batch_size"] - batches[-1].shape[1], batches[-1].shape[2])
-            batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 1) # Concatenate on the batch dimension
-
-    elif model.__class__.__name__ == "MLP":
-        # Single day sequences
-        batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
-
-        # Padding final batch for batch prompting
-        if batches[-1].shape[0] != hyperparameters["batch_size"]:
-            right_padding = torch.zeros(hyperparameters["batch_size"] - batches[-1].shape[0], batches[-1].shape[1])
-            batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 0) # Concatenate on the batch dimension
-
-
-    # Get all the predictions for each batch
-    # Note: [:len(input_data)] to get rid of any padding examples
-    all_predictions = torch.concat([F.softmax(model(inputs = batch.to(device = DEVICE), single_sentiment_values = None), dim = 1) for batch in batches])[:len(input_data)]
-    print(all_predictions.shape)
-
-    # Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates
+    
+    # Add all of the tickers for testing into a single list
+    selected_tickers = []
+    from os import listdir as os_listdir
+    for tickers_file in os_listdir("testing_tickers"):
+        print(tickers_file)
+        with open(f"testing_tickers/{tickers_file}", "r") as file:
+            selected_tickers.extend(file.read().split())
+    
     print(selected_tickers)
-    print(DH.sequence_sizes)
-    companies_tickers = [selected_tickers[i] for i in range(len(selected_tickers)) for _ in range(DH.sequence_sizes[i])]
-    companies_tickers = [companies_tickers[ind] for ind in DH.sort_indices]
-    print(len(companies_tickers))
+    print(len(selected_tickers))
 
-    """ 
-    Labels = Sorted by dates
-    Data = Sorted by dates
-    Company tickers = Not sorted
-    """
+    testing_dates = [
+                    ("2010-01-01", "2015-01-01"), # Back testing
+                    ("2020-01-01", "2023-09-01") # Forward testing
+                    ]
+    
+    for t_start_date, t_end_date in testing_dates:
+        print(t_start_date, t_end_date)
 
-    correct_count = 0
-    for prediction, label in zip(all_predictions, DH.labels):
-        pred_i = torch.argmax(prediction, dim = 0)
-        # print(prediction)
-        # print(pred_i)
-        # print(label)
-        # print("----------------")
-        correct_count += 1 if label.item() == pred_i.item() else 0
+        # Retrieve data
+        DH.retrieve_data(
+                    tickers = selected_tickers,
+                    start_date = t_start_date, # start_date includes the start date in the dataframe, date should be in YYYY-MM-DD format
+                    end_date = t_end_date, # end_date, does not include the end date in the dataframe.
+                    interval = "1d",
+                    dated_sentiments = None, # Not needed at inference time 
+                    include_date_before_prediction_date = True, # include_date_before_prediction_date = True is used to include the date before the date to predict. (e.g. includes 2023-09-11 if the date to predict is 2023-09-12)
+                    hyperparameters = hyperparameters,
+                    )
 
-    print(f"Number of uptrends: {DH.labels.count_nonzero().item()} | Number of downtrends {DH.labels.shape[0] - DH.labels.count_nonzero().item()}")
-    accuracy, precision, recall, f1_score = find_P_A_R(all_predictions, DH.labels.to(DEVICE))
-    print(f"Accuracy: {accuracy} | Precision: {precision} | Recall: {recall} | F1 Score: {f1_score}")
-    print(f"Correct: {correct_count}/{all_predictions.shape[0]} | PercentageCorrect: {(correct_count / all_predictions.shape[0]) * 100}")
+        # Create data sequences
+        DH.create_data_sequences(num_context_days = hyperparameters["num_context_days"], shuffle_data_sequences = False)
+        input_data = DH.data
+        print(f"Data sequences shape: {input_data.shape}")
 
+        # Create batches from all the data sequences
+        if model.__class__.__name__ == "RNN" or model.__class__.__name__ == "LSTM":
+            # Convert inputs from [batch_size, num_context_days, num_features] to [batch_size, num_features, num_context_days]
+            batches = [input_data[i:i + hyperparameters["batch_size"]].transpose(dim0 = 0, dim1 = 1) for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
-    # Create a list of dictionaries containing information about a sequence
-    """ Notes:
-    - Each data sequence is mapped with:
-        - Corresponding ticker
-        - The model prediction in the form of a probability distribution
-        - Target (the actual trend) 
-        - The model prediction where 0 = predicted downward trend, 1 = predicted upward trend
-        - Whether the model's prediction was correct
-        - Corresponding date
+            # Padding final batch for batch prompting
+            if batches[-1].shape[1] != hyperparameters["batch_size"]:
+                right_padding = torch.zeros(hyperparameters["num_context_days"], hyperparameters["batch_size"] - batches[-1].shape[1], batches[-1].shape[2])
+                batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 1) # Concatenate on the batch dimension
 
-    - If it appears that there are repeated predictions for completely different sequences, its just how the tensor is displayed (rounded)
+        elif model.__class__.__name__ == "MLP":
+            # Single day sequences
+            batches = [input_data[i:i + hyperparameters["batch_size"]] for i in range(0, len(input_data), hyperparameters["batch_size"])]
 
-    # To double-check the number of occurrences of each prediction
-    from collections import Counter
-    import numpy as np
-    all_predictions = [sequence_dict["prediction"].to("cpu") for sequence_dict in prediction_info_dicts]
+            # Padding final batch for batch prompting
+            if batches[-1].shape[0] != hyperparameters["batch_size"]:
+                right_padding = torch.zeros(hyperparameters["batch_size"] - batches[-1].shape[0], batches[-1].shape[1])
+                batches[-1] = torch.concat(tensors = [batches[-1], right_padding], dim = 0) # Concatenate on the batch dimension
+        
+        # Get all the predictions for each batch
+        # Note: [:len(input_data)] to get rid of any padding examples
+        all_predictions = torch.concat([F.softmax(model(inputs = batch.to(device = DEVICE), single_sentiment_values = None), dim = 1) for batch in batches])[:len(input_data)]
+        print(f"Number of predictions: {all_predictions.shape}")
 
-    # Convert the tensors to strings and use Counter to count occurrences
-    tensor_tuple_list = [tuple(tensor) for tensor in all_predictions]
-    tensor_counts = Counter(tensor_tuple_list)
+        # Create a list containing which company ticker each sequence belongs to, sorting it by the same indices used to sort the data, labels and dates
+        companies_tickers = [selected_tickers[i] for i in range(len(selected_tickers)) for _ in range(DH.sequence_sizes[i])]
+        companies_tickers = [companies_tickers[ind] for ind in DH.sort_indices]
+        print(f"Tickers used: {selected_tickers}")
+        print(f"Number of sequences per company: {DH.sequence_sizes}")
+        print(f"Number of tickers used: {len(selected_tickers)}")
+        print(f"Total number of sequences: {len(companies_tickers)}")
 
-    # Print the counts of unique tensors
-    for tensor_tuple, count in tensor_counts.items():
-        tensor = np.array(tensor_tuple)
-        if count > 1:
-            print(f"{tensor}: {count}")
+        # Counting 
+        print(f"Number of uptrends: {DH.labels.count_nonzero().item()} | Number of downtrends {DH.labels.shape[0] - DH.labels.count_nonzero().item()}")
+        accuracy, precision, recall, f1_score = find_P_A_R(all_predictions, DH.labels.to(DEVICE))
+        print(f"Accuracy: {accuracy} | Precision: {precision} | Recall: {recall} | F1 Score: {f1_score}")
 
-    """
-    prediction_info_dicts = [{"ticker": ticker, "prediction": prediction, "Target": label.item(), "ModelAnswer": torch.argmax(prediction, dim = 0).item(), "Correct": torch.argmax(prediction, dim = 0).item() == label.item(), "timestamp": timestamp} for prediction, label, ticker, timestamp in zip(all_predictions, DH.labels, companies_tickers, DH.dates)]
-    for d in prediction_info_dicts[:5]:
-        print(d)
-    prediction_info_dicts.sort(key = lambda x: x["timestamp"]) # Sort by date
+        # Create a list of dictionaries containing information about a sequence
+        """ Notes:
+        - Each data sequence is mapped with:
+            - Corresponding ticker
+            - The model prediction in the form of a probability distribution
+            - Target (the actual trend) 
+            - The model prediction where 0 = predicted downward trend, 1 = predicted upward trend
+            - Whether the model's prediction was correct
+            - Corresponding date
 
-    for d in prediction_info_dicts[-10:]:
-        print("After", d)
+        - If it appears that there are repeated predictions for completely different sequences, its just how the tensor is displayed (rounded)
+
+        # To double-check the number of occurrences of each prediction
+        from collections import Counter
+        import numpy as np
+        all_predictions = [sequence_dict["prediction"].to("cpu") for sequence_dict in prediction_info_dicts]
+
+        # Convert the tensors to strings and use Counter to count occurrences
+        tensor_tuple_list = [tuple(tensor) for tensor in all_predictions]
+        tensor_counts = Counter(tensor_tuple_list)
+
+        # Print the counts of unique tensors
+        for tensor_tuple, count in tensor_counts.items():
+            tensor = np.array(tensor_tuple)
+            if count > 1:
+                print(f"{tensor}: {count}")
+        """
+        prediction_info_dicts = [
+                                {
+                                "ticker": ticker, 
+                                "prediction": prediction, 
+                                "Target": label.item(), 
+                                "ModelAnswer": torch.argmax(prediction, dim = 0).item(),
+                                "Correct": torch.argmax(prediction, dim = 0).item() == label.item(), 
+                                "timestamp": timestamp
+                                }
+                                for prediction, label, ticker, timestamp in zip(all_predictions, DH.labels, companies_tickers, DH.dates)
+                                ]
+        prediction_info_dicts.sort(key = lambda x: x["timestamp"]) # Sort by date
