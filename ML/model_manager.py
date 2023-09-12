@@ -24,7 +24,7 @@ class ModelManager:
         # Load existing model
         if model_number_load != None and model_checkpoints_folder_exists:
             # Either deployment model or feature test model (dependent on feature_test_model_name parameter)
-            architecture = manual_hyperparams["architecture"]
+            architecture = manual_hyperparams["architecture"] if manual_hyperparams != None else manual_hyperparams
             checkpoint_directory = f"model_checkpoints/{f'feature_test_models/{architecture}/' if feature_test_model_name else 'deployment_models/'}{model_number_load}"
             self.clean_empty_directories()
 
