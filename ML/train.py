@@ -231,20 +231,20 @@ if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
 
                     model.train()
             
-            # ----------------------------------------------
-            # Tracking stats
+                # ----------------------------------------------
+                # Tracking stats
 
-            stats["train_loss_i"].append(loss.item())
-            stats["train_accuracy_i"].append(train_accuracy)
-            stats["train_precision_i"].append(train_precision)
-            stats["train_recall_i"].append(train_recall)
-            stats["train_f1_i"].append(train_f1)
+                stats["train_loss_i"].append(loss.item())
+                stats["train_accuracy_i"].append(train_accuracy)
+                stats["train_precision_i"].append(train_precision)
+                stats["train_recall_i"].append(train_recall)
+                stats["train_f1_i"].append(train_f1)
 
-            stats["val_loss_i"].append(v_loss.item())
-            stats["val_accuracy_i"].append(val_accuracy)
-            stats["val_precision_i"].append(val_precision)
-            stats["val_recall_i"].append(val_recall)
-            stats["val_f1_i"].append(val_f1)
+                stats["val_loss_i"].append(v_loss.item())
+                stats["val_accuracy_i"].append(val_accuracy)
+                stats["val_precision_i"].append(val_precision)
+                stats["val_recall_i"].append(val_recall)
+                stats["val_f1_i"].append(val_f1)
 
             if i == 0 or (num_trains % i) == 1 or (i + 1) % validation_interval == 0: # First, last, validation interval
                 print(f"K: {k + 1}/{num_sets} | Epoch: T: {(i + 1) * multiplicative_trains}/{num_trains * multiplicative_trains} V: {val_fold_sidx}/{num_validations} | TLoss: {loss.item()} | VLoss: {v_loss.item()} | TAccuracy: {train_accuracy} | VAccuracy: {val_accuracy} | TPrecision: {train_precision} | VPrecision: {val_precision} | TRecall: {train_recall} | VRecall: {val_recall} | TF1 {train_f1} | VF1: {val_f1}")
