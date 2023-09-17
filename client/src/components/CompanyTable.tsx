@@ -78,7 +78,7 @@ function CompanyTable<TData, TValue>({
             <tr
               key={row.id}
               className="hover:bg-black hover:bg-opacity-30 hover:cursor-pointer overflow-hidden"
-              onClick={() => navigate('/stock/appl')}
+              onClick={() => navigate('/stock/aapl')}
             >
               {row.getVisibleCells().map((cell) => (
                 <td key={cell.id} className="py-3 lg:pl-16 md:pl-10">

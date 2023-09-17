@@ -11,25 +11,77 @@ import { AuthProvider } from './context/AuthContext';
 import IndividualCompany from './pages/IndividualCompany';
 import TradeHistory from './pages/TradeHistory';
 import Leaderboard from './pages/Leaderboard';
+import RequireAuth from './context/RequireAuth';
+import HasAuth from './context/HasAuth';
 
 function App() {
   const location = useLocation();
   const hideRoutes = ['/signin', '/register'];
 
   const shouldHideRoutes = hideRoutes.includes(location.pathname);
+
   return (
     <AuthProvider>
       {!shouldHideRoutes && <NavBar />}
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/market" element={<Market />} />
-        <Route path="/portfolio" element={<Portfolio />} />
-        <Route path="/watchlist" element={<Watchlist />} />
+        <Route
+          path="/"
+          element={
+            <HasAuth>
+              <Home />
+            </HasAuth>
+          }
+        />
+        <Route
+          path="/market"
+          element={
+            <RequireAuth>
+              <Market />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/portfolio"
+          element={
+            <RequireAuth>
+              <Portfolio />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/watchlist"
+          element={
+            <RequireAuth>
+              <Watchlist />
+            </RequireAuth>
+          }
+        />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/history" element={<TradeHistory />} />
-        <Route path="/leaderboard" element={<Leaderboard />} />
-        <Route path="/stock/:stockId" element={<IndividualCompany />} />
+        <Route
+          path="/history"
+          element={
+            <RequireAuth>
+              <TradeHistory />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/leaderboard"
+          element={
+            <RequireAuth>
+              <Leaderboard />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/stock/:stockId"
+          element={
+            <RequireAuth>
+              <IndividualCompany />
+            </RequireAuth>
+          }
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>

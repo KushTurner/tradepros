@@ -1,10 +1,14 @@
 import { TfiWallet } from 'react-icons/tfi';
+import { useContext } from 'react';
 import PortfolioTable from '../components/PortfolioTable';
 import { portfolioColumns } from '../components/columns';
 import data from '../MOCK_DATA_2.json';
 import Footer from './Footer';
+import { AuthContext } from '../context/AuthContext';
 
 function Portfolio() {
+  const { currentUser } = useContext(AuthContext);
+  // currentUser?.getIdToken().then((token) => console.log(token));
   return (
     <div>
       <div className="font-display text-white bg-main rounded-xl mt-5 mx-[16px] p-5 md:pb-10 md:mt-10">
@@ -23,7 +27,7 @@ function Portfolio() {
                 </p>
               </div>
               <p className="text-white font-bold font-display text-xl text-center md:mt-3 md:text-2xl">
-                $32,455.12
+                ${64564564}
               </p>
             </div>
           </div>

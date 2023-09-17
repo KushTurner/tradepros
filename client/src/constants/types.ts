@@ -11,16 +11,3 @@ export type HistoricalData = {
 export type DataObject = {
   [filter: string]: { value: number; date: string }[];
 };
-
-export interface StockData {
-  companyName: string;
-  ticker: string;
-  logo: string;
-  price: number;
-  previousClose: number;
-  marketCap: number;
-  confidence: number;
-  direction: string;
-  weekHigh: number;
-  weekLow: number;
-}
