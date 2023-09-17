@@ -11,44 +11,42 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { PulseLoader } from 'react-spinners';
 import { AiOutlineArrowDown, AiOutlineArrowUp } from 'react-icons/ai';
+import axios from 'axios';
 import CustomTooltip from '../components/CustomTooltip';
-import chartConfig from '../constants/config';
+import { chartConfig } from '../constants/config';
 import {
   convertDateToUnixTimestamp,
   convertUnixTimestampToDateTime,
   createDate,
 } from '../helpers/date-helper';
-import { HistoricalData, StockData, DataObject } from '../constants/types';
+import { HistoricalData, DataObject } from '../constants/types';
 import ChartFilter from '../components/ChartFilter';
 import BuySellForm from '../components/BuySellForm';
-import {
-  fetchHistoricalData,
-  fetchStockFinancials,
-  fetchStockPrediction,
-  fetchStockProfile,
-  fetchStockQuote,
-} from '../helpers/api-helper';
 import formatMarketCap from '../helpers/money-helper';
 import Footer from './Footer';
 
 function IndividualCompany() {
   const { stockId } = useParams();
   const [filter, setFilter] = useState('1D');
-  const [data, setData] = useState<DataObject>({});
   const [loadingHistoricalData, setLoadingHistoricalData] = useState(false);
   const [loadingCompanyData, setLoadingCompanyData] = useState(false);
+  const [loadingStockPrediction, setLoadingStockPrediction] = useState(true);
   const [activeTab, setActiveTab] = useState('buy');
-  const [stockData, setStockData] = useState<StockData>({
+  const [closedMarket, setClosedMarket] = useState(false);
+  const [historicalData, setHistoricalData] = useState<DataObject>({});
+  const [stockData, setStockData] = useState({
     companyName: '',
     ticker: '',
     logo: '',
     price: 0,
     previousClose: 0,
     marketCap: 0,
-    confidence: 0,
-    direction: '',
     weekHigh: 0,
     weekLow: 0,
+  });
+  const [stockPrediction, setStockPrediction] = useState({
+    confidence: 0,
+    direction: '',
   });
 
   const formatData = (histData: HistoricalData) => {
@@ -64,32 +62,35 @@ function IndividualCompany() {
     if (!stockId) return;
 
     setLoadingCompanyData(true);
-    Promise.all([
-      fetchStockProfile(stockId),
-      fetchStockQuote(stockId),
-      fetchStockPrediction(stockId),
-      fetchStockFinancials(stockId),
-    ]).then(([profileData, quoteData, stockPredictionData, financialsData]) => {
-      const newData: StockData = {
-        companyName: profileData.name || '',
-        ticker: profileData.ticker || '',
-        logo: profileData.logo || '',
-        marketCap: profileData.marketCapitalization || 0,
-        price: quoteData.c || 0,
-        previousClose: quoteData.pc || 0,
-        confidence: stockPredictionData.confidence || 0,
-        direction: stockPredictionData.model_answer || '',
-        weekHigh: financialsData.metric['52WeekHigh'] || 0,
-        weekLow: financialsData.metric['52WeekLow'] || 0,
-      };
-      setStockData(newData);
+
+    axios.get(`/stock?symbol=${stockId.toUpperCase()}`).then(({ data }) => {
+      setStockData({
+        companyName: data.name || '',
+        ticker: data.ticker || '',
+        logo: data.logo || '',
+        marketCap: data.marketCapitalization || 0,
+        price: data.c || 0,
+        previousClose: data.pc || 0,
+        weekHigh: data.metric['52WeekHigh'] || 0,
+        weekLow: data.metric['52WeekLow'] || 0,
+      });
       setLoadingCompanyData(false);
     });
+
+    axios
+      .get(`stock/prediction?symbol=${stockId.toUpperCase()}`)
+      .then(({ data }) => {
+        setStockPrediction({
+          confidence: data.confidence || 0,
+          direction: data.model_answer || '',
+        });
+        setLoadingStockPrediction(false);
+      });
   }, [stockId]);
 
   useEffect(() => {
     if (!stockId) return;
-    if (data[filter]) return;
+    if (historicalData[filter]) return;
 
     const getDateRange = () => {
       const { days, weeks, months, years } = chartConfig[filter];
@@ -107,18 +108,22 @@ function IndividualCompany() {
     const res = chartConfig[filter].resolution;
 
     setLoadingHistoricalData(true);
-    fetchHistoricalData(
-      stockId,
-      res,
-      startTimestampUnix,
-      endTimestampUnix
-    ).then((historicalData) => {
-      setData((prevData) => ({
-        ...prevData,
-        [filter]: formatData(historicalData),
-      }));
-      setLoadingHistoricalData(false);
-    });
+    axios
+      .get(
+        `/stock/candle?symbol=${stockId.toUpperCase()}&resolution=${res}&from=${startTimestampUnix}&to=${endTimestampUnix}`
+      )
+      .then(({ data }) => {
+        if (data.s === 'no_data') {
+          setClosedMarket(!closedMarket);
+          setFilter('1W'); // This will trigger a re-render with the new filter value
+        } else {
+          setHistoricalData((prevData) => ({
+            ...prevData,
+            [filter]: formatData(data),
+          }));
+        }
+        setLoadingHistoricalData(false);
+      });
   }, [filter]);
 
   return (
@@ -220,10 +225,10 @@ function IndividualCompany() {
                 </h2>
                 <div className="">
                   <p className="flex flex-row">
-                    {!loadingCompanyData ? (
+                    {!loadingStockPrediction ? (
                       <>
-                        {(stockData.confidence * 100).toFixed(2)}%{' '}
-                        {stockData.direction === 'up' ? (
+                        {(stockPrediction.confidence * 100).toFixed(2)}%{' '}
+                        {stockPrediction.direction === 'up' ? (
                           <span className="text-green-900 self-center ml-2">
                             <AiOutlineArrowUp size={20} />
                           </span>
@@ -249,6 +254,7 @@ function IndividualCompany() {
                     <ChartFilter
                       text={item}
                       active={filter === item}
+                      disabled={closedMarket}
                       onClick={() => {
                         setFilter(item);
                       }}
@@ -262,7 +268,7 @@ function IndividualCompany() {
             {!loadingHistoricalData ? (
               <ResponsiveContainer width="99%" height={350}>
                 <AreaChart
-                  data={data[filter]}
+                  data={historicalData[filter]}
                   margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
                 >
                   <defs>

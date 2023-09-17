@@ -1,64 +1,49 @@
-/* eslint-disable react/function-component-definition */
-/* eslint-disable react/prop-types */
+/* eslint-disable react/require-default-props */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { User } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
+import { createContext, useState, useEffect, ReactNode } from 'react';
+import { SignOutUser, userStateListener } from '../firebase/firebase';
 
-import { createContext, useContext, useMemo, useState } from 'react';
-
-interface AuthData {
-  token: string;
-  loggedIn: boolean;
+interface Props {
+  children?: ReactNode;
 }
 
-interface AuthContextType {
-  authData: AuthData;
-  login: (token: string) => void;
-  logout: () => void;
-}
+export const AuthContext = createContext({
+  currentUser: {} as User | null,
+  loading: true,
+  setCurrentUser: (_user: User) => {},
+  signOut: () => {},
+});
 
-interface AuthProviderProps {
-  children: React.ReactNode;
-}
+export function AuthProvider({ children }: Props) {
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [authData, setAuthData] = useState<AuthData>({
-    token: '',
-    loggedIn: false,
-  });
-
-  const login = (token: string) => {
-    setAuthData({
-      token,
-      loggedIn: true,
+  useEffect(() => {
+    const unsubscribe = userStateListener((user) => {
+      if (user) {
+        setCurrentUser(user);
+      }
+      setLoading(false);
     });
+    return unsubscribe;
+  }, [setCurrentUser]);
+
+  const signOut = () => {
+    SignOutUser();
+    setCurrentUser(null);
+    navigate('/');
   };
 
-  const logout = () => {
-    setAuthData({
-      token: '',
-      loggedIn: false,
-    });
+  // eslint-disable-next-line react/jsx-no-constructed-context-values
+  const value = {
+    currentUser,
+    loading,
+    setCurrentUser,
+    signOut,
   };
 
-  const memoizedValue = useMemo(() => {
-    return {
-      authData,
-      login,
-      logout,
-    };
-  }, [authData]);
-
-  return (
-    <AuthContext.Provider value={memoizedValue}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined || context.authData === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}

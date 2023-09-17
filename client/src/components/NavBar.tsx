@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AiOutlineStock,
@@ -7,11 +7,11 @@ import {
 } from 'react-icons/ai';
 import { BsBookmark, BsBriefcase } from 'react-icons/bs';
 import { MdLeaderboard } from 'react-icons/md';
-import { useAuth } from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 
 function NavBar() {
   const [navbarOpen, setNavbarOpen] = useState(true);
-  const { authData, logout } = useAuth();
+  const { currentUser, signOut } = useContext(AuthContext);
 
   return (
     <nav>
@@ -37,7 +37,7 @@ function NavBar() {
         >
           <Link to="/">TradePros</Link>
         </li>
-        {authData.loggedIn && (
+        {currentUser && (
           <div className="flex flex-col md:flex-row">
             <li className="navbar-item ml-6 mb-6 md:mb-0 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
@@ -96,7 +96,7 @@ function NavBar() {
             </li>
           </div>
         )}
-        {!authData.loggedIn ? (
+        {!currentUser ? (
           <div className="flex justify-evenly mx-2 mr-6">
             <li className="navbar-item mr-2 w-full md:ml-0 md:mr-3 p-1 md:mb-0 rounded-lg bg-signinmobile md:bg-main text-center text-lg font-bold md:px-4">
               <Link
@@ -123,7 +123,7 @@ function NavBar() {
                 className="text-white md:font-normal md:font-display"
                 onClick={(e) => {
                   e.preventDefault();
-                  logout();
+                  signOut();
                 }}
               >
                 Sign Out

@@ -1,31 +1,11 @@
+import { useNavigate } from 'react-router-dom';
 import Instructions from '../components/Instructions';
 import Footer from './Footer';
-
-const instructionsData = [
-  {
-    index: 1,
-    header: 'Create An Account',
-    description: 'Sign up with your email in under 2 minutes',
-  },
-  {
-    index: 2,
-    header: 'Analyse Companies',
-    description: 'Determine which companies you want to invest into',
-  },
-  {
-    index: 3,
-    header: 'Start Investing Instantly',
-    description:
-      'Buy and Sell a variety of stocks with a $100,000 of virtual money',
-  },
-  {
-    index: 4,
-    header: 'Compete Against Your Friends',
-    description: 'See who has profited the most using our leaderboard',
-  },
-];
+import { instructionsData } from '../constants/config';
 
 function Home() {
+  const navigate = useNavigate();
+
   return (
     <div>
       <div className="flex flex-col bg-main mt-5 mx-[16px] md:mx-6 lg:mx-8 rounded-xl md:pt-0 md:pb-5 md:mt-10 lg:pb-[220px] md:flex-row">
@@ -47,6 +27,9 @@ function Home() {
           <button
             type="button"
             className="bg-primarydark text-white rounded-md p-2 mx-[20px] mt-[42px] mb-4 md:ml-20"
+            onClick={() => {
+              navigate('/register');
+            }}
           >
             Start Investing
           </button>

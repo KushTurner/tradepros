@@ -1,10 +1,13 @@
 interface ChartFilterProps {
   text: string;
   active: boolean;
-  onClick: () => void; // Assuming onClick is a function with no arguments
+  disabled: boolean;
+  onClick: () => void;
 }
 
-function ChartFilter({ text, active, onClick }: ChartFilterProps) {
+function ChartFilter({ text, active, disabled, onClick }: ChartFilterProps) {
+  const noData = disabled && text === '1D'; // On some days (Saturday and Sunday), 1D chart wont be available so disable 1D filter
+
   return (
     <button
       type="button"
@@ -13,7 +16,8 @@ function ChartFilter({ text, active, onClick }: ChartFilterProps) {
         active
           ? 'bg-primary text-white border-primary'
           : 'text-gray-500 border-gray-500'
-      }`}
+      } ${noData && 'opacity-20'}`}
+      disabled={noData}
     >
       {text}
     </button>
