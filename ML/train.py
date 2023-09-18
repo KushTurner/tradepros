@@ -45,13 +45,13 @@ If using for training / testing on the testing set:
     - Will use DH.retrieve_data before instantiating the model if creating a new model
     - Will use DH.retrieve_data after instantiating the model if loading an existing model
 """
-model_number_load = 0
+model_number_load = None
 manual_hyperparams = {
                     "architecture": "LSTM", # Will be deleted after instantiation
                     "N_OR_S": "N",
                     "num_context_days": 10,
                     "batch_size": 32,
-                    "learning_rate": 0.0001,
+                    "learning_rate": 0.000325,
                     "num_folds": 5,
                     "multiplicative_trains": 1,
                     "n_lstm_layers": 2,
@@ -257,7 +257,8 @@ if hyperparameters["fold_number"] != hyperparameters["num_folds"] - 1:
             fold_t_key = f"fold_t_{metric}"
             fold_v_key = f"fold_v_{metric}"
             
-            stats[fold_t_key].append((sum(stats[f"train_{metric}_i"][-num_trains:]) / num_trains))
+            # Note: Validation and train metrics are added at the same time, so num_validations should be used to calculate the fold metrics (as they should have the same size as the number of validations)
+            stats[fold_t_key].append((sum(stats[f"train_{metric}_i"][-num_validations:]) / num_validations))
             stats[fold_v_key].append((sum(stats[f"val_{metric}_i"][-num_validations:]) / num_validations))
         
         # ----------------------------------------------
