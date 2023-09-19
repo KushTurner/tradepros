@@ -654,6 +654,7 @@ class DataHandler:
         # del self.dates
     
         print(f"DataShape: {self.data.shape} | LabelsShape: {self.labels.shape} | DatesShape: {len(self.dates)}" + (f"| SingleSentiments: {self.single_sentiments.shape}" if hasattr(self, "single_sentiments") else ""))
+        print(f"Number of uptrends: {self.labels.count_nonzero().item()} | Number of downtrends {self.labels.shape[0] - self.labels.count_nonzero().item()}")
 
     def separate_data_sequences(self, train_split_decimal):
         # Separates data sequences into training and test sets 
