@@ -58,6 +58,7 @@ func main() {
 	e.GET("/stock", handlers.CompanyDataHandler())                //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
 	e.GET("/stock/prediction", handlers.StockPredictionHandler()) //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
 	e.GET("/stock/candle", handlers.HistoricalDataHandler())      //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
+	e.GET("/search", handlers.SearchStockHandler())               //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
 	e.POST("/register", handlers.RegisterUserHandler(ctx, client, authClient))
 
 	// Serve Server

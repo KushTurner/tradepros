@@ -229,3 +229,28 @@ func HistoricalDataHandler() echo.HandlerFunc {
 		return c.JSON(http.StatusOK, historicalData)
 	}
 }
+
+func SearchStockHandler() echo.HandlerFunc {
+	// I add this during development/production as it's too many keys to add to .env
+	keys := []string{}
+
+	var keyIndex int
+
+	return func(c echo.Context) error {
+		key := keys[keyIndex]
+		keyIndex = (keyIndex + 1) % len(keys)
+		keywords := c.QueryParam("keywords")
+		endpoint := fmt.Sprintf("https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=%s&apikey=%s", keywords, key)
+
+		data, err := http.Get(endpoint)
+
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get response")
+		}
+
+		var responseData map[string]interface{}
+		json.NewDecoder(data.Body).Decode(&responseData)
+		fmt.Println(key)
+		return c.JSON(http.StatusOK, responseData)
+	}
+}
