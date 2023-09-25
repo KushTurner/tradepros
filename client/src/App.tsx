@@ -2,7 +2,7 @@ import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
-import Market from './pages/Market';
+import Discover from './pages/Discover';
 import Portfolio from './pages/Portfolio';
 import Watchlist from './pages/Watchlist';
 import SignIn from './pages/SignIn';
@@ -33,10 +33,10 @@ function App() {
           }
         />
         <Route
-          path="/market"
+          path="/discover"
           element={
             <RequireAuth>
-              <Market />
+              <Discover />
             </RequireAuth>
           }
         />
