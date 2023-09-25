@@ -1,14 +1,36 @@
+/* eslint-disable react/jsx-key */
 import { TfiWallet } from 'react-icons/tfi';
-import { useContext } from 'react';
-import PortfolioTable from '../components/PortfolioTable';
-import { portfolioColumns } from '../components/columns';
-import data from '../MOCK_DATA_2.json';
+import { useNavigate } from 'react-router-dom';
+import { useMediaQuery } from 'react-responsive';
 import Footer from './Footer';
-import { AuthContext } from '../context/AuthContext';
+
+const investments = [
+  {
+    name: 'META',
+    shares: 33,
+    investment: '$1363',
+    value: '$1971',
+    gainOrLoss: '$571.27',
+  },
+  {
+    name: 'AAPL',
+    shares: 39,
+    investment: '$1434',
+    value: '$908',
+    gainOrLoss: '$116',
+  },
+  {
+    name: 'AMZN',
+    shares: 43,
+    investment: '$1452',
+    value: '$1202',
+    gainOrLoss: '$713',
+  },
+];
 
 function Portfolio() {
-  const { currentUser } = useContext(AuthContext);
-  // currentUser?.getIdToken().then((token) => console.log(token));
+  const isLaptopAndDesktop = useMediaQuery({ query: '(min-width: 768px)' });
+  const navigate = useNavigate();
   return (
     <div>
       <div className="font-display text-white bg-main rounded-xl mt-5 mx-[16px] p-5 md:pb-10 md:mt-10">
@@ -57,9 +79,43 @@ function Portfolio() {
       </div>
       <div className="bg-main rounded-xl mt-5 mx-[16px] p-4 md:mt-10">
         <div className="font-display mb-6 md:ml-6 md:mt-3">
-          <h1 className="text-white mb-1 text-2xl font-bold">Investments</h1>
+          <h1 className="text-white mb-1 text-2xl font-bold">
+            Current Investments
+          </h1>
         </div>
-        <PortfolioTable data={data} columns={portfolioColumns} />
+        <div>
+          <table className="table-fixed w-full border-b-2 border-border text-sm md:text-base font-display">
+            <thead className="table-header-group border-b-2 border-t-2 border-border">
+              <tr className="table-row text-neutraldark text-left">
+                <th className="table-cell">Stock</th>
+                {isLaptopAndDesktop && <th className="table-cell">Shares</th>}
+                <th className="table-cell">Total Investment</th>
+                {isLaptopAndDesktop && (
+                  <th className="table-cell">Current Value</th>
+                )}
+                <th className="table-cell">Gain/Loss</th>
+              </tr>
+            </thead>
+            <tbody className="table-row-group text-white">
+              {investments.map((data) => (
+                <tr
+                  className="table-row  hover:bg-black hover:bg-opacity-30 hover:cursor-pointer"
+                  onClick={() => navigate(`/stock/${data.name}`)}
+                >
+                  <td className="table-cell">{data.name}</td>
+                  {isLaptopAndDesktop && (
+                    <td className="table-cell">{data.shares}</td>
+                  )}
+                  <td className="table-cell">{data.investment}</td>
+                  {isLaptopAndDesktop && (
+                    <td className="table-cell">{data.value}</td>
+                  )}
+                  <td className="table-cell">{data.gainOrLoss}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <Footer />

@@ -41,12 +41,12 @@ function NavBar() {
           <div className="flex flex-col md:flex-row">
             <li className="navbar-item ml-6 mb-6 md:mb-0 md:hover:underline md:hover:underline-offset-[33px]">
               <div className="flex flex-row items-center">
-                <Link className="text-white navbar-item flex" to="/market">
+                <Link className="text-white navbar-item flex" to="/discover">
                   <AiOutlineStock
                     size={20}
                     className="md:hidden mr-2 self-center"
                   />
-                  Market
+                  Discover
                 </Link>
               </div>
             </li>

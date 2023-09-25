@@ -41,7 +41,7 @@ function SignIn() {
               Sign In
             </h2>
             {err ? (
-              <div className="text-xl font-display text-warning justify-center items-center">
+              <div className="text-sm md:text-xl font-display text-warning justify-center items-center">
                 <p className="text-center self-center">{err}</p>
               </div>
             ) : null}

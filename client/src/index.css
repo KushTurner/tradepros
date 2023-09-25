@@ -34,5 +34,9 @@ select:-webkit-autofill:focus {
   transition: background-color 5000s ease-in-out 0s;
   color: white;
 }
-  
 
+.table-cell {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+    padding-left: 5%;
+}
