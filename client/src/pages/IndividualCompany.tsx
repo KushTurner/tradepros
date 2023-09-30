@@ -7,13 +7,23 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
-import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useContext, useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { PulseLoader } from 'react-spinners';
-import { AiOutlineArrowDown, AiOutlineArrowUp } from 'react-icons/ai';
+import {
+  AiFillStar,
+  AiOutlineArrowDown,
+  AiOutlineArrowUp,
+  AiOutlineInfoCircle,
+  AiOutlineStar,
+} from 'react-icons/ai';
 import axios from 'axios';
 import CustomTooltip from '../components/CustomTooltip';
-import { chartConfig } from '../constants/config';
+import {
+  StockObject,
+  StockPredictionObject,
+  chartConfig,
+} from '../constants/config';
 import {
   convertDateToUnixTimestamp,
   convertUnixTimestampToDateTime,
@@ -24,30 +34,22 @@ import ChartFilter from '../components/ChartFilter';
 import BuySellForm from '../components/BuySellForm';
 import formatMarketCap from '../helpers/money-helper';
 import Footer from './Footer';
+import { AuthContext } from '../context/AuthContext';
 
 function IndividualCompany() {
+  const navigate = useNavigate();
+  const { currentUser } = useContext(AuthContext);
   const { stockId } = useParams();
   const [filter, setFilter] = useState('1D');
-  const [loadingHistoricalData, setLoadingHistoricalData] = useState(false);
-  const [loadingCompanyData, setLoadingCompanyData] = useState(false);
-  const [loadingStockPrediction, setLoadingStockPrediction] = useState(true);
-  const [activeTab, setActiveTab] = useState('buy');
+  const [activeTab, setActiveTab] = useState<'buy' | 'sell'>('buy');
+  const [watchlist, setWatchlist] = useState(false);
   const [closedMarket, setClosedMarket] = useState(false);
+  const [popUpHidden, setPopUpHidden] = useState(true);
   const [historicalData, setHistoricalData] = useState<DataObject>({});
-  const [stockData, setStockData] = useState({
-    companyName: '',
-    ticker: '',
-    logo: '',
-    price: 0,
-    previousClose: 0,
-    marketCap: 0,
-    weekHigh: 0,
-    weekLow: 0,
-  });
-  const [stockPrediction, setStockPrediction] = useState({
-    confidence: 0,
-    direction: '',
-  });
+  const [loadingHistoricalData, setLoadingHistoricalData] = useState(false);
+  const [stockData, setStockData] = useState<StockObject>();
+  const [stockPrediction, setStockPrediction] =
+    useState<StockPredictionObject>();
 
   const formatData = (histData: HistoricalData) => {
     return histData.c.map((item: number, index: number) => {
@@ -58,34 +60,75 @@ function IndividualCompany() {
     });
   };
 
+  const toggleStar = () => {
+    currentUser?.getIdToken().then((token) => {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      if (watchlist) {
+        axios.delete(`/watchlist/${stockId}`, config);
+      } else {
+        const formData = new FormData();
+        if (!stockId) return;
+        const postConfig = {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        };
+        formData.append('stock', stockId);
+        axios.post('/watchlist', formData, postConfig);
+      }
+      setWatchlist(!watchlist);
+    });
+  };
+
   useEffect(() => {
     if (!stockId) return;
 
-    setLoadingCompanyData(true);
-
-    axios.get(`/stock?symbol=${stockId.toUpperCase()}`).then(({ data }) => {
-      setStockData({
-        companyName: data.name || '',
-        ticker: data.ticker || '',
-        logo: data.logo || '',
-        marketCap: data.marketCapitalization || 0,
-        price: data.c || 0,
-        previousClose: data.pc || 0,
-        weekHigh: data.metric['52WeekHigh'] || 0,
-        weekLow: data.metric['52WeekLow'] || 0,
+    axios
+      .get(`/stock?symbol=${stockId.toUpperCase()}`)
+      .then(({ data }) => {
+        setStockData({
+          companyName: data.name,
+          ticker: data.ticker,
+          logo: data.logo,
+          marketCap: data.marketCapitalization,
+          price: data.c,
+          previousClose: data.pc,
+          weekHigh: data.metric['52WeekHigh'],
+          weekLow: data.metric['52WeekLow'],
+        });
+      })
+      .catch(() => {
+        navigate('/discover');
       });
-      setLoadingCompanyData(false);
+    currentUser?.getIdToken().then((token) => {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      axios
+        .get(`/watchlist/${stockId.toUpperCase()}`, config)
+        .then(({ data }) => {
+          if (data === true) {
+            setWatchlist(!watchlist);
+          }
+        });
     });
-
+    setLoadingHistoricalData(true);
     axios
       .get(`stock/prediction?symbol=${stockId.toUpperCase()}`)
       .then(({ data }) => {
         setStockPrediction({
-          confidence: data.confidence || 0,
-          direction: data.model_answer || '',
+          confidence: data.confidence,
+          direction: data.model_answer,
         });
-        setLoadingStockPrediction(false);
       });
+    setLoadingHistoricalData(false);
   }, [stockId]);
 
   useEffect(() => {
@@ -106,7 +149,6 @@ function IndividualCompany() {
 
     const { startTimestampUnix, endTimestampUnix } = getDateRange();
     const res = chartConfig[filter].resolution;
-
     setLoadingHistoricalData(true);
     axios
       .get(
@@ -115,7 +157,7 @@ function IndividualCompany() {
       .then(({ data }) => {
         if (data.s === 'no_data') {
           setClosedMarket(!closedMarket);
-          setFilter('1W'); // This will trigger a re-render with the new filter value
+          setFilter('1W');
         } else {
           setHistoricalData((prevData) => ({
             ...prevData,
@@ -131,14 +173,21 @@ function IndividualCompany() {
       <div className="lg:grid lg:grid-cols-4">
         <div className="lg:col-span-3">
           <div className="font-display text-white bg-main rounded-xl mt-5 mx-[16px] p-5 md:pb-12 md:mt-10">
-            <div className="mb-10 md:ml-2 lg:ml-6">
+            <div className="mb-10 md:ml-2 lg:ml-6 flex flex-row justify-between">
               <h1 className="text-2xl font-bold mb-2 md:text-4xl">
                 Market stats
               </h1>
+              <button type="button" onClick={toggleStar}>
+                {watchlist ? (
+                  <AiFillStar size={36} color="gold" />
+                ) : (
+                  <AiOutlineStar size={36} color="gold" />
+                )}
+              </button>
             </div>
             <div className="md:flex md:flex-col md:justify-center">
               <div className="flex mb-7 md:self-center">
-                {!loadingCompanyData ? (
+                {stockData ? (
                   <img
                     className="h-10 w-10 md:h-20 md:w-20 self-center object-contain text-sm"
                     alt="company logo"
@@ -148,22 +197,20 @@ function IndividualCompany() {
                   <div className="h-10 w-10 md:h-20 md:w-20 self-center object-contain flex justify-center">
                     <div className="self-center">
                       <PulseLoader
-                        loading={loadingCompanyData}
+                        loading={loadingHistoricalData}
                         size={5}
                         aria-label="Loading Spinner"
-                        color="#5266FE"
+                        color="#6638B3"
                       />
                     </div>
                   </div>
                 )}
                 <span className="ml-2 self-center">
                   <h2 className="text-lg font-bold md:text-3xl">
-                    {!loadingCompanyData ? stockData.companyName : 'Loading...'}
+                    {stockData ? stockData.companyName : 'Loading...'}
                   </h2>
                   <p className="text-xs md:text-xl text-symbol">
-                    {!loadingCompanyData
-                      ? stockData.ticker.toUpperCase()
-                      : 'Loading...'}
+                    {stockData ? stockData.ticker.toUpperCase() : 'Loading...'}
                   </p>
                 </span>
               </div>
@@ -171,8 +218,8 @@ function IndividualCompany() {
                 <p className="text-neutraldark self-center px-8 md:px-2 md:mb-5 lg:ml-4 lg:text-lg md:hidden">
                   Price{' '}
                   <span className="text-white self-center float-right text-lg relative bottom-1 md:hidden">
-                    {!loadingCompanyData
-                      ? `$${stockData.price.toFixed(2)}`
+                    {stockData
+                      ? `$${stockData && stockData.price.toFixed(2)}`
                       : 'Loading...'}
                   </span>
                 </p>
@@ -180,9 +227,7 @@ function IndividualCompany() {
                   className="md:text-2xl lg:text-3xl md:text-white md:block"
                   hidden
                 >
-                  {!loadingCompanyData
-                    ? `$${stockData.price.toFixed(2)}`
-                    : 'Loading...'}
+                  {stockData ? `$${stockData.price.toFixed(2)}` : 'Loading...'}
                 </p>
               </div>
             </div>
@@ -192,8 +237,8 @@ function IndividualCompany() {
                   Market Cap
                 </h2>
                 <p>
-                  {!loadingCompanyData
-                    ? `$${formatMarketCap(stockData.marketCap)}`
+                  {stockData
+                    ? `$${formatMarketCap(stockData && stockData.marketCap)}`
                     : 'Loading...'}
                 </p>
               </li>
@@ -202,7 +247,7 @@ function IndividualCompany() {
                   Previous Close
                 </h2>
                 <p>
-                  {!loadingCompanyData
+                  {stockData
                     ? `$${stockData.previousClose.toFixed(2)}`
                     : 'Loading...'}
                 </p>
@@ -212,7 +257,7 @@ function IndividualCompany() {
                   52W Range
                 </h2>
                 <p>
-                  {!loadingCompanyData
+                  {stockData
                     ? `$${stockData.weekLow.toFixed(
                         2
                       )}-$${stockData.weekHigh.toFixed(2)}`
@@ -223,9 +268,9 @@ function IndividualCompany() {
                 <h2 className="text-neutraldark text-sm mb-8 lg:text-lg">
                   Stock Prediction
                 </h2>
-                <div className="">
+                <div className="flex flex-row justify-between">
                   <p className="flex flex-row">
-                    {!loadingStockPrediction ? (
+                    {stockPrediction ? (
                       <>
                         {(stockPrediction.confidence * 100).toFixed(2)}%{' '}
                         {stockPrediction.direction === 'up' ? (
@@ -234,7 +279,7 @@ function IndividualCompany() {
                           </span>
                         ) : (
                           <span className="text-red-900 self-center ml-2">
-                            <AiOutlineArrowDown size={20} />
+                            <AiOutlineArrowDown size={24} />
                           </span>
                         )}
                       </>
@@ -242,7 +287,27 @@ function IndividualCompany() {
                       'Loading...'
                     )}
                   </p>
+                  <span className="self-center hover:text-primarydark">
+                    <AiOutlineInfoCircle
+                      size={20}
+                      onClick={() => {
+                        setPopUpHidden(!popUpHidden);
+                      }}
+                    />
+                  </span>
                 </div>
+                {!popUpHidden && (
+                  <div className="flex flex-col absolute text-white text-xs mt-5 text-center mr-20 border-primarydark border-2 bg-background p-4 rounded-xl select-none opacity-70">
+                    <p className="text-xs">
+                      Generated from a model trained to predict the stock trend
+                      for today, by the close of the day. The prediction
+                      encompasses the stock trend assigned by the model and its
+                      degree of certainty in its prediction. Models leverage
+                      valuable insights from sentiment analysis, technical
+                      indicators and historical data to deliver predictions.
+                    </p>
+                  </div>
+                )}
               </li>
             </ul>
           </div>
@@ -273,8 +338,8 @@ function IndividualCompany() {
                 >
                   <defs>
                     <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#5266FE" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#5266FE" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#6638B3" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#6638B3" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="date" hide />
@@ -288,12 +353,12 @@ function IndividualCompany() {
                   <Tooltip
                     coordinate={{ y: 0 }}
                     content={<CustomTooltip />}
-                    cursor={{ stroke: '#5266FE', strokeWidth: 1 }}
+                    cursor={{ stroke: '#6638B3', strokeWidth: 1 }}
                   />
                   <Area
                     dataKey="value"
                     type="monotone"
-                    stroke="#5266FE"
+                    stroke="#6638B3"
                     fill="url(#gradient)"
                   />
                 </AreaChart>
@@ -301,10 +366,10 @@ function IndividualCompany() {
             ) : (
               <div className="h-[350px] w-full flex items-center justify-center">
                 <PulseLoader
-                  loading={loadingHistoricalData}
+                  loading={!loadingHistoricalData}
                   size={10}
                   aria-label="Loading Spinner"
-                  color="#5266FE"
+                  color="#6638B3"
                 />
               </div>
             )}
@@ -335,13 +400,15 @@ function IndividualCompany() {
               Sell
             </button>
           </div>
-          <BuySellForm
-            type={activeTab}
-            logo={stockData.logo}
-            price={stockData.price}
-            ticker={stockData.ticker}
-            loading={loadingCompanyData}
-          />
+          {stockData && (
+            <BuySellForm
+              type={activeTab}
+              logo={stockData.logo}
+              price={stockData.price}
+              ticker={stockData.ticker}
+              loading={loadingHistoricalData}
+            />
+          )}
         </div>
       </div>
       <Footer />

@@ -1,8 +1,4 @@
-type InstructionsProps = {
-  index: number;
-  header: string;
-  description: string;
-};
+import { InstructionsProps } from '../constants/config';
 
 function Instructions({ index, header, description }: InstructionsProps) {
   return (

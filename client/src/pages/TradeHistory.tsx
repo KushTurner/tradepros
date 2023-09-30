@@ -1,31 +1,29 @@
 /* eslint-disable react/jsx-key */
+import { useContext, useEffect, useState } from 'react';
+import axios from 'axios';
 import Footer from './Footer';
-
-const historyData = [
-  {
-    name: 'META',
-    action: 'Buy',
-    amount: '$1000',
-    quantity: '2',
-    date: '29/08/23',
-  },
-  {
-    name: 'AAPL',
-    action: 'Sell',
-    amount: '$1000',
-    quantity: '3',
-    date: '28/08/23',
-  },
-  {
-    name: 'AMZN',
-    action: 'Buy',
-    amount: '$1000',
-    quantity: '4',
-    date: '27/08/23',
-  },
-];
+import { AuthContext } from '../context/AuthContext';
+import { TradeHistoryObject } from '../constants/config';
 
 function TradeHistory() {
+  const { currentUser } = useContext(AuthContext);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [history, setHistory] = useState<TradeHistoryObject[]>();
+
+  useEffect(() => {
+    currentUser?.getIdToken().then((token) => {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      axios.get('/history', config).then(({ data }) => {
+        setHistory(data);
+      });
+    });
+    setLoadingHistory(false);
+  }, [currentUser]);
+
   return (
     <div className="font-display">
       <div className="bg-main rounded-xl mt-5 mx-[16px] p-4 md:mt-10">
@@ -33,7 +31,7 @@ function TradeHistory() {
           <h1 className="text-white mb-1 text-2xl font-bold md:mb-3">
             Trade History
           </h1>
-          <p className="text-neutral">Lorem Ipsum is dummy text of printing.</p>
+          <p className="text-neutral">The stocks you have previously sold</p>
         </div>
         <div>
           <table className="table-fixed w-full border-b-2 border-border text-sm md:text-base">
@@ -42,28 +40,30 @@ function TradeHistory() {
                 <th className="table-cell">Stock</th>
                 <th className="table-cell">Action</th>
                 <th className="table-cell">Amount</th>
-                <th className="table-cell">Quantity</th>
+                <th className="table-cell">Units</th>
                 <th className="table-cell">Date</th>
               </tr>
             </thead>
             <tbody className="table-row-group text-white">
-              {historyData.map((data) => (
-                <tr className="table-row">
-                  <td className="table-cell">{data.name}</td>
-                  <td
-                    className={`table-cell ${
-                      data.action === 'Buy' ? 'text-success' : 'text-warning'
-                    }`}
-                  >
-                    {data.action}
-                  </td>
-                  <td className="table-cell">{data.amount}</td>
-                  <td className="table-cell">
-                    <p className="pl-5">{data.quantity}</p>
-                  </td>
-                  <td className="table-cell">{data.date}</td>
-                </tr>
-              ))}
+              {!loadingHistory &&
+                history &&
+                history.map((data) => (
+                  <tr className="table-row">
+                    <td className="table-cell">{data.name}</td>
+                    <td
+                      className={`table-cell ${
+                        data.action === 'Buy' ? 'text-success' : 'text-warning'
+                      }`}
+                    >
+                      {data.action}
+                    </td>
+                    <td className="table-cell">{data.amount}</td>
+                    <td className="table-cell">
+                      <p className="pl-5">{data.quantity.toFixed(2)}</p>
+                    </td>
+                    <td className="table-cell">{data.date}</td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

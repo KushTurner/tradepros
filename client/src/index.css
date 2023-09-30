@@ -40,3 +40,15 @@ select:-webkit-autofill:focus {
     padding-bottom: 0.75rem;
     padding-left: 5%;
 }
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    /* display: none; <- Crashes Chrome on hover */
+    -webkit-appearance: none;
+    margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+}
+
+input[type=number] {
+    appearance: none;
+    -moz-appearance:textfield; /* Firefox */
+}

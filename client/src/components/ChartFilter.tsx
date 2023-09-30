@@ -1,9 +1,4 @@
-interface ChartFilterProps {
-  text: string;
-  active: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}
+import { ChartFilterProps } from '../constants/config';
 
 function ChartFilter({ text, active, disabled, onClick }: ChartFilterProps) {
   const noData = disabled && text === '1D'; // On some days (Saturday and Sunday), 1D chart wont be available so disable 1D filter

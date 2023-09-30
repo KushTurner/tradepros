@@ -4,7 +4,7 @@ import axios from 'axios';
 import App from './App';
 import './index.css';
 
-axios.defaults.baseURL = 'http://localhost:8080';
+axios.defaults.baseURL = 'http://localhost:1323';
 axios.defaults.headers.post['Content-Type'] = 'application/json';
 
 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
