@@ -11,7 +11,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tanstack/react-table": "^8.9.3",
     "@types/recharts": "^1.8.24",
     "axios": "^1.4.0",
     "firebase": "^10.3.1",
