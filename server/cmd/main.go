@@ -15,6 +15,10 @@ import (
 )
 
 func main() {
+	keys := []string{}
+
+	// finnhubkeys
+
 	// Set up Echo
 	e := echo.New()
 
@@ -22,7 +26,7 @@ func main() {
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"}, // "https://www.tradepros.live", "https://tradepros.live"
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
 	}))
 
@@ -52,16 +56,31 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// Define Middleware
+
+	jwtTokenMiddleware := custommiddleware.VerifyAuthMiddleware(ctx, authClient)
+	finnhubKeyMiddleware := custommiddleware.RotateAPIKeysMiddleware(keys)
+
 	// Routes
 
-	e.GET("/me", handlers.CurrentUserHandler(ctx, client), custommiddleware.VerifyAuthMiddleware(ctx, authClient))
-	e.GET("/stock", handlers.CompanyDataHandler())                //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
-	e.GET("/stock/prediction", handlers.StockPredictionHandler()) //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
-	e.GET("/stock/candle", handlers.HistoricalDataHandler())      //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
-	e.GET("/search", handlers.SearchStockHandler())               //, custommiddleware.VerifyAuthMiddleware(ctx, authClient)
+	e.GET("/me", handlers.CurrentUserHandler(ctx, client), jwtTokenMiddleware)
+	e.GET("/stock", handlers.CompanyDataHandler(), finnhubKeyMiddleware)
+	e.GET("/stock/prediction", handlers.StockPredictionHandler())
+	e.GET("/stock/candle", handlers.HistoricalDataHandler(), finnhubKeyMiddleware)
+	e.GET("/search", handlers.SearchStockHandler())
+	e.GET("/leaderboard", handlers.LeaderboardHandler(ctx, client))
+	e.GET("/history", handlers.TradeHistoryHandler(ctx, client), jwtTokenMiddleware)
+	e.GET("/transactions", handlers.TransactionHandler(ctx, client), jwtTokenMiddleware)
+	e.GET("/transaction", handlers.SingleTransactionHandler(ctx, client), jwtTokenMiddleware)
+	e.GET("/watchlist", handlers.WatchlistHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
 	e.POST("/register", handlers.RegisterUserHandler(ctx, client, authClient))
+	e.DELETE("/watchlist/:stock_id", handlers.RemoveWatchlistHandler(ctx, client), jwtTokenMiddleware)
+	e.GET("/watchlist/:stock_id", handlers.CheckWatchlistHandler(ctx, client), jwtTokenMiddleware)
+	e.POST("/watchlist", handlers.AddWatchlistHandler(ctx, client), jwtTokenMiddleware)
+	e.POST("/stock/buy", handlers.BuyStockHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
+	e.POST("/stock/sell", handlers.SellStockHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
 
 	// Serve Server
 
-	e.Logger.Fatal(e.Start(":8080"))
+	e.Logger.Fatal(e.Start(":1323"))
 }

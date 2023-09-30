@@ -30,3 +30,39 @@ type HistoricalData struct {
 	T []int64   `json:"t"`
 	S string    `json:"s"`
 }
+
+type LeaderboardData struct {
+	Rank    int64       `json:"rank"`
+	User    string      `json:"username"`
+	Balance interface{} `json:"balance"`
+}
+
+type TradeHistoryData struct {
+	Name     string      `json:"name"`
+	Action   string      `json:"action"`
+	Amount   interface{} `json:"amount"`
+	Quantity interface{} `json:"quantity"`
+	Date     string      `json:"date"`
+}
+
+type TransactionData struct {
+	Name     string      `json:"name"`
+	Quantity interface{} `json:"shares"`
+	Invested interface{} `json:"investment"`
+}
+
+type WatchlistData struct {
+	Ticker   string `json:"ticker"`
+	Name     string `json:"name"`
+	Image    string `json:"logo"`
+	Industry string `json:"finnhubIndustry"`
+}
+
+type PurchaseData struct {
+	Price float64 `json:"price"`
+	Stock string  `json:"stock"`
+}
+
+type Response struct {
+	C float64 `json:"c"`
+}
