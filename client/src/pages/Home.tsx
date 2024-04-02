@@ -77,7 +77,7 @@ function Home() {
           <h4 className=" text-2xl lg:text-3xl mb-5 md:text-left">
             Easy Way to Get Started
           </h4>
-          <p className="text-neutral p-5 pt-0 text-center text-sm lg:text-base md:text-left md:p-0">
+          <p className="text-neutral p-5 pt-0 text-center text-sm lg:text-base md:text-left md:p-0 lg:w-3/4">
             Whether you&apos;re a seasoned investor or just getting started, our
             platform offers a risk-free way to hone your skills and grow your
             financial portfolio.

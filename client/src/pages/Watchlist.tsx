@@ -89,7 +89,7 @@ function Watchlist() {
                       <td className="table-cell w-[15%]">
                         {data.finnhubIndustry}
                       </td>
-                      <td className="w-[4%]">
+                      <td aria-label="Toggle favourite" className="w-[4%]">
                         <IoIosRemoveCircleOutline
                           size={isLaptopAndDesktop ? 24 : 20}
                           className="text-warning hover:opacity-30"

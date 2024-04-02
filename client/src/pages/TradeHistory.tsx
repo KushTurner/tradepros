@@ -58,9 +58,7 @@ function TradeHistory() {
                       {data.action}
                     </td>
                     <td className="table-cell">{data.amount}</td>
-                    <td className="table-cell">
-                      <p className="pl-5">{data.quantity.toFixed(2)}</p>
-                    </td>
+                    <td className="table-cell">{data.quantity.toFixed(2)}</td>
                     <td className="table-cell">{data.date}</td>
                   </tr>
                 ))}

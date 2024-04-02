@@ -28,7 +28,7 @@ function Discover() {
     <div className="font-display">
       <div className="bg-main mt-5 mx-[16px] md:mx-6 lg:mx-8 rounded-xl">
         <div className="flex flex-col">
-          <div className="font-display mb-6 md:ml-10 lg:ml-16 mt-5 md:mt-10">
+          <div className="font-display ml-8 mb-6 md:ml-10 lg:ml-16 mt-5 md:mt-10">
             <h1 className="text-white mb-1 text-2xl font-bold md:mb-3">
               Discover
             </h1>
@@ -69,7 +69,7 @@ function Discover() {
                         <h2 className="font-bold text-primarydark pl-4 mt-2 text-xl">
                           {data['1. symbol']}
                         </h2>
-                        <p className="text-primary text-sm pl-4 mb-2">
+                        <p className="text-white text-sm pl-4 mb-2">
                           {data['2. name']}
                         </p>
                       </button>
