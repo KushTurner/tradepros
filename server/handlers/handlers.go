@@ -66,7 +66,7 @@ func RegisterUserHandler(ctx context.Context, client *firestore.Client, authClie
 
 		// Email validation
 
-		if !isCommonEmailDomain(user.Username) {
+		if !isCommonEmailDomain(user.Email) {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid email!")
 		}
 
@@ -154,7 +154,7 @@ func RegisterUserHandler(ctx context.Context, client *firestore.Client, authClie
 
 func CompanyDataHandler() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		url := os.Getenv("FINNHUB_URL") // finnhuburl
+		url := os.Getenv("FINNHUB_URL")
 		symbol := c.QueryParam("symbol")
 		token := c.Get("finnhubKey").(string)
 		var stockData models.StockData
@@ -201,8 +201,8 @@ func CompanyDataHandler() echo.HandlerFunc {
 
 func StockPredictionHandler() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		awsURL := os.Getenv("AWS_URL")   // awsURL
-		awsKey := os.Getenv("AWS_TOKEN") // awsKey
+		awsURL := os.Getenv("AWS_URL")
+		awsKey := os.Getenv("AWS_KEY")
 		todaysDate := time.Now().Format("2006-01-02")
 		symbol := c.QueryParam("symbol")
 		var stockPrediction models.StockPrediction
@@ -228,7 +228,7 @@ func StockPredictionHandler() echo.HandlerFunc {
 
 func HistoricalDataHandler() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		url := os.Getenv("FINNHUB_URL") // finnhuburl
+		url := os.Getenv("FINNHUB_URL")
 		symbol := c.QueryParam("symbol")
 		resolution := c.QueryParam("resolution")
 		from := c.QueryParam("from")
@@ -250,10 +250,7 @@ func HistoricalDataHandler() echo.HandlerFunc {
 }
 
 func SearchStockHandler() echo.HandlerFunc {
-	// I add this during development/production as it's too many keys to add to .env
-	keys := []string{}
-
-	// alphavantagekeys
+	keys := []string{os.Getenv("ALPHAVANTAGE_KEY")}
 
 	var keyIndex int
 
@@ -261,7 +258,7 @@ func SearchStockHandler() echo.HandlerFunc {
 		key := keys[keyIndex]
 		keyIndex = (keyIndex + 1) % len(keys)
 		keywords := c.QueryParam("keywords")
-		url := os.Getenv("ALPHAVANTAGE_URL") // alphavantage
+		url := os.Getenv("ALPHAVANTAGE_URL")
 		endpoint := fmt.Sprintf("%s/query?function=SYMBOL_SEARCH&keywords=%s&apikey=%s", url, keywords, key)
 
 		data, err := http.Get(endpoint)
@@ -328,7 +325,7 @@ func TradeHistoryHandler(ctx context.Context, client *firestore.Client) echo.Han
 			transactionPrice, _ := historyDoc.DataAt("transaction_price")
 			units, _ := historyDoc.DataAt("units")
 			transactionDate, _ := historyDoc.DataAt("transaction_date")
-			date := transactionDate.(time.Time).Format("02/01/2006")
+			date := transactionDate.(time.Time).Format("02/01/06")
 
 			history := models.TradeHistoryData{
 				Name:     symbol.(string),
@@ -408,7 +405,7 @@ func SingleTransactionHandler(ctx context.Context, client *firestore.Client) ech
 
 func WatchlistHandler(ctx context.Context, client *firestore.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		url := os.Getenv("FINNHUB_URL") // finnhub
+		url := os.Getenv("FINNHUB_URL")
 		token := c.Get("finnhubKey").(string)
 		var watchlistData []models.WatchlistData
 
@@ -550,7 +547,7 @@ func CheckWatchlistHandler(ctx context.Context, client *firestore.Client) echo.H
 func BuyStockHandler(ctx context.Context, client *firestore.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		user, ok := c.Get("token").(*auth.Token)
-		url := os.Getenv("FINNHUB_URL") // finnhub
+		url := os.Getenv("FINNHUB_URL")
 
 		if !ok || user == nil {
 			return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
@@ -657,7 +654,7 @@ func BuyStockHandler(ctx context.Context, client *firestore.Client) echo.Handler
 func SellStockHandler(ctx context.Context, client *firestore.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		user, ok := c.Get("token").(*auth.Token)
-		url := os.Getenv("FINNHUB_URL") // finnhub
+		url := os.Getenv("FINNHUB_URL")
 		token := c.Get("finnhubKey").(string)
 
 		if !ok || user == nil {

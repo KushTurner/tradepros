@@ -1,21 +1,11 @@
-const {
-  VITE_APIKEY,
-  VITE_AUTHDOMAIN,
-  VITE_PROJECTID,
-  VITE_STORAGEBUCKET,
-  VITE_MESSAGINGSENDERID,
-  VITE_APPID,
-  VITE_MEASUREMENTID,
-} = import.meta.env;
-
 const firebaseConfig = {
-  apiKey: VITE_APIKEY,
-  authDomain: VITE_AUTHDOMAIN,
-  projectId: VITE_PROJECTID,
-  storageBucket: VITE_STORAGEBUCKET,
-  messagingSenderId: VITE_MESSAGINGSENDERID,
-  appId: VITE_APPID,
-  measurementId: VITE_MEASUREMENTID,
+  apiKey: import.meta.env.VITE_FIREBASE_APIKEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTHDOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECTID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGEBUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGINGSENDERID,
+  appId: import.meta.env.VITE_FIREBASE_APPID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENTID,
 };
 
 export default function getFirebaseConfig() {

@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"log"
 	"net/http"
+	"os"
 
 	firebase "firebase.google.com/go"
-	"github.com/joho/godotenv"
 	"github.com/kushturner/tradepros/handlers"
 	custommiddleware "github.com/kushturner/tradepros/middleware"
 	"github.com/labstack/echo/v4"
@@ -15,29 +16,26 @@ import (
 )
 
 func main() {
-	keys := []string{}
+	keys := []string{os.Getenv("FINNHUB_KEY")}
 
-	// finnhubkeys
-
-	// Set up Echo
 	e := echo.New()
+	v1 := e.Group("/api/v1")
 
-	// Set up CORS middleware
+	baseUrl := os.Getenv("BASE_URL")
 
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"}, // "https://www.tradepros.live", "https://tradepros.live"
+	v1.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"https://www." + baseUrl, "https://" + baseUrl},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowMethods: []string{http.MethodGet, http.MethodHead, http.MethodPut, http.MethodPatch, http.MethodPost, http.MethodDelete},
 	}))
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	// Set up Firestore
 	ctx := context.Background()
-	sa := option.WithCredentialsFile("../serviceAccount.json")
+	fbKeyEncoded := os.Getenv("FIREBASE_KEY")
+	sDec, err := base64.StdEncoding.DecodeString(fbKeyEncoded)
+	if err != nil {
+		log.Fatal(err)
+	}
+	sa := option.WithCredentialsJSON(sDec)
 	app, err := firebase.NewApp(ctx, nil, sa)
 	if err != nil {
 		log.Fatalln(err)
@@ -50,37 +48,30 @@ func main() {
 
 	defer client.Close()
 
-	// Set up Firebase
 	authClient, err := app.Auth(ctx)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	// Define Middleware
-
 	jwtTokenMiddleware := custommiddleware.VerifyAuthMiddleware(ctx, authClient)
 	finnhubKeyMiddleware := custommiddleware.RotateAPIKeysMiddleware(keys)
 
-	// Routes
-
-	e.GET("/me", handlers.CurrentUserHandler(ctx, client), jwtTokenMiddleware)
-	e.GET("/stock", handlers.CompanyDataHandler(), finnhubKeyMiddleware)
-	e.GET("/stock/prediction", handlers.StockPredictionHandler())
-	e.GET("/stock/candle", handlers.HistoricalDataHandler(), finnhubKeyMiddleware)
-	e.GET("/search", handlers.SearchStockHandler())
-	e.GET("/leaderboard", handlers.LeaderboardHandler(ctx, client))
-	e.GET("/history", handlers.TradeHistoryHandler(ctx, client), jwtTokenMiddleware)
-	e.GET("/transactions", handlers.TransactionHandler(ctx, client), jwtTokenMiddleware)
-	e.GET("/transaction", handlers.SingleTransactionHandler(ctx, client), jwtTokenMiddleware)
-	e.GET("/watchlist", handlers.WatchlistHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
-	e.POST("/register", handlers.RegisterUserHandler(ctx, client, authClient))
-	e.DELETE("/watchlist/:stock_id", handlers.RemoveWatchlistHandler(ctx, client), jwtTokenMiddleware)
-	e.GET("/watchlist/:stock_id", handlers.CheckWatchlistHandler(ctx, client), jwtTokenMiddleware)
-	e.POST("/watchlist", handlers.AddWatchlistHandler(ctx, client), jwtTokenMiddleware)
-	e.POST("/stock/buy", handlers.BuyStockHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
-	e.POST("/stock/sell", handlers.SellStockHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
-
-	// Serve Server
+	v1.GET("/me", handlers.CurrentUserHandler(ctx, client), jwtTokenMiddleware)
+	v1.GET("/stock/prediction", handlers.StockPredictionHandler())
+	v1.GET("/stock", handlers.CompanyDataHandler(), finnhubKeyMiddleware)
+	v1.GET("/stock/candle", handlers.HistoricalDataHandler(), finnhubKeyMiddleware)
+	v1.GET("/search", handlers.SearchStockHandler())
+	v1.GET("/leaderboard", handlers.LeaderboardHandler(ctx, client))
+	v1.GET("/history", handlers.TradeHistoryHandler(ctx, client), jwtTokenMiddleware)
+	v1.GET("/transactions", handlers.TransactionHandler(ctx, client), jwtTokenMiddleware)
+	v1.GET("/transaction", handlers.SingleTransactionHandler(ctx, client), jwtTokenMiddleware)
+	v1.GET("/watchlist", handlers.WatchlistHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
+	v1.POST("/register", handlers.RegisterUserHandler(ctx, client, authClient))
+	v1.DELETE("/watchlist/:stock_id", handlers.RemoveWatchlistHandler(ctx, client), jwtTokenMiddleware)
+	v1.GET("/watchlist/:stock_id", handlers.CheckWatchlistHandler(ctx, client), jwtTokenMiddleware)
+	v1.POST("/watchlist", handlers.AddWatchlistHandler(ctx, client), jwtTokenMiddleware)
+	v1.POST("/stock/buy", handlers.BuyStockHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
+	v1.POST("/stock/sell", handlers.SellStockHandler(ctx, client), jwtTokenMiddleware, finnhubKeyMiddleware)
 
 	e.Logger.Fatal(e.Start(":1323"))
 }
