@@ -6,7 +6,7 @@ tradepros.live {
 	encode gzip
 
 	handle /api/* {
-		reverse_proxy localhost:1323
+		reverse_proxy tradepros-api:1323
 	}
 	handle {
 		root * /var/www/html
