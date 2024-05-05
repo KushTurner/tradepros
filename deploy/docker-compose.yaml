@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   tradepros-api:
-    build: ../server
+    build: registry/tradepros-api:vx.y.z
     environment: 
       - FINNHUB_URL=${FINNHUB_URL}
       - ALPHAVANTAGE_URL=${ALPHAVANTAGE_URL}
@@ -17,7 +17,7 @@ services:
         - "1323:1323"
 
   caddy:
-    build: ../client
+    build: registry/tradepros-ui:vx.y.z
     restart: unless-stopped
     environment:
       - VITE_FIREBASE_APIKEY=${VITE_FIREBASE_APIKEY}
