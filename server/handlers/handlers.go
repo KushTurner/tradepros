@@ -228,23 +228,27 @@ func StockPredictionHandler() echo.HandlerFunc {
 
 func HistoricalDataHandler() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		url := os.Getenv("FINNHUB_URL")
+		url := os.Getenv("MARKETDATA_URL")
 		symbol := c.QueryParam("symbol")
 		resolution := c.QueryParam("resolution")
 		from := c.QueryParam("from")
 		to := c.QueryParam("to")
-		token := c.Get("finnhubKey").(string)
+		token := os.Getenv("MARKETDATA_TOKEN")
 		var historicalData models.HistoricalData
 
-		endpoint := fmt.Sprintf("%s/stock/candle?symbol=%s&resolution=%s&from=%s&to=%s&token=%s", url, symbol, resolution, from, to, token)
+		endpoint := fmt.Sprintf("%s/stocks/candles/%s/%s?from=%s&to=%s", url, resolution, symbol, from, to)
+		req, _ := http.NewRequest("GET", endpoint, nil)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+		fmt.Println(req)
 
-		hist, err := http.Get(endpoint) // []c, []t, s
+		resp, err := http.DefaultClient.Do(req) // []c, []t, s
 
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get response")
 		}
-		defer hist.Body.Close()
-		json.NewDecoder(hist.Body).Decode(&historicalData)
+		defer resp.Body.Close()
+		json.NewDecoder(resp.Body).Decode(&historicalData)
 		return c.JSON(http.StatusOK, historicalData)
 	}
 }
